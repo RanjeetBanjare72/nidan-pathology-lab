@@ -228,9 +228,9 @@ export default function ReportsPage() {
                           }}
                         >
                           <button
-                            onClick={() =>
-                              setSelectedReport(report)
-                            }
+                            onClick={() => {
+  window.location.href = `/reports/${report.id}`;
+}}
                             style={smallButtonStyle}
                           >
                             👁 View
