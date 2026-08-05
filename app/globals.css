@@ -1128,3 +1128,395 @@ button {
     grid-template-columns: 1fr;
   }
 }
+/* =========================================
+   RESULT ENTRY PAGE
+========================================= */
+
+.resultPatientCard {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  background: #fff;
+  border: 1px solid #e3e9ee;
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-bottom: 18px;
+}
+
+.resultPatientCard small {
+  display: block;
+  color: #87929d;
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.resultPatientCard strong {
+  font-size: 13px;
+  color: #182333;
+}
+
+.resultProgressCard {
+  background: #fff;
+  border: 1px solid #e3e9ee;
+  border-radius: 14px;
+  padding: 17px 20px;
+  margin-bottom: 20px;
+}
+
+.resultProgressCard > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.resultProgressCard small {
+  display: block;
+  color: #84909c;
+  margin-top: 4px;
+}
+
+.progressNumber {
+  color: #078f8d;
+  font-size: 20px;
+}
+
+.progressTrack {
+  height: 8px;
+  background: #e9eef2;
+  border-radius: 20px;
+  margin-top: 13px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: #079b98;
+  border-radius: 20px;
+  transition: width 0.3s ease;
+}
+
+.resultWorkspace {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.testResultNav {
+  background: #fff;
+  border: 1px solid #e2e8ed;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.resultNavHeading {
+  padding: 16px 18px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64717e;
+  background: #f7f9fa;
+  border-bottom: 1px solid #e5eaee;
+}
+
+.resultTestButton {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid #edf0f2;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  padding: 14px;
+  cursor: pointer;
+}
+
+.resultTestButton:hover {
+  background: #f5fbfb;
+}
+
+.activeResultTest {
+  background: #e9f8f7;
+  border-left: 4px solid #079b98;
+}
+
+.testNumber {
+  width: 29px;
+  height: 29px;
+  border-radius: 8px;
+  background: #edf3f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.activeResultTest .testNumber {
+  background: #079b98;
+  color: #fff;
+}
+
+.resultTestButton strong {
+  display: block;
+  color: #172231;
+  font-size: 13px;
+}
+
+.resultTestButton small {
+  display: block;
+  color: #8a959f;
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+.resultEntryCard {
+  background: #fff;
+  border: 1px solid #e2e8ed;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.resultCardHeader {
+  padding: 20px 22px;
+  border-bottom: 1px solid #e7ebee;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.resultCardHeader h2 {
+  margin: 4px 0;
+  color: #172231;
+}
+
+.resultCardHeader p {
+  color: #84909c;
+  font-size: 12px;
+}
+
+.parameterBadge {
+  background: #e8f8f7;
+  color: #078c89;
+  border-radius: 20px;
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.resultTableWrapper {
+  overflow-x: auto;
+}
+
+.resultTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+.resultTable th {
+  background: #f5f7f9;
+  padding: 12px 15px;
+  text-align: left;
+  color: #677482;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.resultTable td {
+  padding: 13px 15px;
+  border-bottom: 1px solid #edf0f2;
+  font-size: 12px;
+  color: #374250;
+}
+
+.resultTable td strong {
+  color: #182332;
+}
+
+.resultInput {
+  width: 130px;
+  padding: 10px 11px;
+  border: 1px solid #d4dde4;
+  border-radius: 8px;
+  outline: none;
+  font-size: 13px;
+}
+
+.resultInput:focus {
+  border-color: #079b98;
+  box-shadow: 0 0 0 3px rgba(7, 155, 152, 0.08);
+}
+
+.resultFlag {
+  display: inline-block;
+  min-width: 57px;
+  text-align: center;
+  padding: 5px 8px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.flagHigh {
+  background: #fff0f1;
+  color: #d54b57;
+}
+
+.flagLow {
+  background: #fff7e5;
+  color: #c27b00;
+}
+
+.flagNormal {
+  background: #eaf8f0;
+  color: #258557;
+}
+
+.resultFooter {
+  padding: 17px 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  background: #fafbfc;
+}
+
+.resultFooterRight {
+  display: flex;
+  gap: 10px;
+}
+
+.secondaryResultBtn,
+.saveResultBtn,
+.nextResultBtn {
+  border-radius: 8px;
+  padding: 10px 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondaryResultBtn {
+  border: 1px solid #d5dde4;
+  background: #fff;
+}
+
+.saveResultBtn {
+  border: 1px solid #079b98;
+  background: #fff;
+  color: #078c89;
+}
+
+.nextResultBtn {
+  border: none;
+  background: #172333;
+  color: #fff;
+}
+
+.resultBottomActions {
+  margin-top: 20px;
+  padding: 20px 22px;
+  border-radius: 14px;
+  background: #172333;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.resultBottomActions p {
+  color: #b9c3cc;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.generateReportBtn {
+  background: #079b98;
+  border: none;
+  color: white;
+  padding: 13px 20px;
+  border-radius: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.emptyResultPage {
+  text-align: center;
+  padding: 70px 20px;
+}
+
+.emptyResultPage > div {
+  font-size: 45px;
+}
+
+.emptyResultPage h2 {
+  margin: 12px 0 6px;
+}
+
+.emptyResultPage p {
+  color: #82909c;
+  margin-bottom: 20px;
+}
+
+.noSelectedTests {
+  padding: 25px 15px;
+  text-align: center;
+  color: #89949e;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .resultWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .testResultNav {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .resultNavHeading {
+    display: none;
+  }
+
+  .resultTestButton {
+    min-width: 180px;
+    border-bottom: none;
+    border-right: 1px solid #edf0f2;
+  }
+
+  .resultPatientCard {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .resultPatientCard {
+    grid-template-columns: 1fr 1fr;
+    padding: 15px;
+  }
+
+  .resultFooter {
+    flex-direction: column;
+  }
+
+  .resultFooterRight {
+    width: 100%;
+  }
+
+  .saveResultBtn,
+  .nextResultBtn {
+    flex: 1;
+  }
+
+  .resultBottomActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+
+  .generateReportBtn {
+    width: 100%;
+  }
+}
