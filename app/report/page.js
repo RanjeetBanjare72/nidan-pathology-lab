@@ -221,7 +221,7 @@ export default function ReportPage() {
               <span>Age / Sex</span>
               <strong>
                 {patient.age || "-"} Years /{" "}
-                {patient.sex || "-"}
+                {patient.gender || patient.sex || "-"}
               </strong>
             </div>
 
