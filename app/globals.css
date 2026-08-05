@@ -1,4 +1,1085 @@
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f4f7fb;color:#142033;font-family:Arial,Helvetica,sans-serif}button,input,select{font:inherit}button{cursor:pointer}.appShell{min-height:100vh;display:grid;grid-template-columns:245px 1fr}.sidebar{position:sticky;top:0;height:100vh;padding:26px 18px;background:#0b1c2f;color:#fff;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:11px;padding:0 7px 28px}.brandMark,.reportLogo{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,#08a3a6,#33c7b7);display:grid;place-items:center;color:#fff;font-weight:900}.brand b,.brand small{display:block}.brand small{color:#9eb0c2;margin-top:3px}.sidebar nav{display:grid;gap:7px}.sidebar nav button{border:0;text-align:left;padding:13px 14px;border-radius:11px;background:transparent;color:#aebdcb;font-weight:700}.sidebar nav button:hover,.sidebar nav button.active{background:#15334b;color:#fff}.sideNote{margin-top:auto;padding:14px;background:#102a40;border-radius:12px;color:#d6e0e8;font-size:12px}.sideNote small{color:#8fa4b5}.workspace{min-width:0;padding:30px;max-width:1500px;width:100%;margin:auto}.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:25px}.top h1{margin:0;font-size:29px}.top p{margin:5px 0 0;color:#8190a2;font-size:13px}.mobileBrand{display:none}.primary,.ghost{border:0;border-radius:11px;padding:12px 17px;font-weight:800}.primary{background:linear-gradient(135deg,#078f94,#13aaa6);color:#fff;box-shadow:0 8px 20px #0a96952b}.ghost{background:#fff;border:1px solid #dfe6ec;color:#334155}.big{padding:15px 22px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:18px}.stat{background:#fff;border:1px solid #e3e9ef;border-radius:17px;padding:19px;display:flex;gap:14px;align-items:center}.stat>span{width:45px;height:45px;display:grid;place-items:center;border-radius:13px;background:#eafafa;font-size:22px}.stat small,.stat strong{display:block}.stat small{color:#7d8998}.stat strong{font-size:24px;margin-top:4px}.panel{background:#fff;border:1px solid #e2e8ee;border-radius:20px;padding:24px;margin-bottom:18px;box-shadow:0 6px 20px #24384d0a}.heroPanel{min-height:265px;display:grid;grid-template-columns:1.3fr .7fr;align-items:center;overflow:hidden;background:linear-gradient(120deg,#fff,#edfbfa)}.heroPanel h2{font-size:34px;max-width:680px;margin:8px 0 12px}.heroPanel p{max-width:680px;color:#6f7d8d;line-height:1.7}.kicker{color:#079398;font-size:11px;font-weight:900;letter-spacing:1.5px}.heroArt{justify-self:center;width:180px;height:180px;border-radius:50%;background:#dff8f6;display:grid;place-items:center;font-size:72px;position:relative}.heroArt span{position:absolute;right:-5px;bottom:8px;width:60px;height:60px;background:#fff;border-radius:18px;display:grid;place-items:center;font-size:28px;box-shadow:0 12px 30px #173d5220}.panelHead{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:18px}.panelHead h3,.settings h3{margin:0}.panelHead p,.settings>p{margin:5px 0 0;color:#7c8999;font-size:13px}.stepTitle{display:flex;gap:13px;align-items:center;margin-bottom:22px}.stepTitle>span{width:38px;height:38px;border-radius:12px;background:#e7f9f8;color:#078f94;display:grid;place-items:center;font-weight:900}.stepTitle h3{margin:0}.stepTitle p{margin:4px 0 0;color:#8190a1;font-size:12px}.formGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.field{display:grid;gap:7px}.field.wide{grid-column:span 2}.field>span{font-size:12px;font-weight:800;color:#526173}.field input,.field select,.searchBox,.resultRow input{width:100%;border:1px solid #dce4eb;border-radius:10px;padding:12px;outline:none;background:#fff}.field input:focus,.field select:focus,.resultRow input:focus{border-color:#0b9da0;box-shadow:0 0 0 3px #0b9da015}.testPicker{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.testPick{position:relative;padding:16px;border:1px solid #e1e7ed;border-radius:14px;display:flex;justify-content:space-between;gap:10px;cursor:pointer}.testPick input{position:absolute;opacity:0}.testPick small{color:#738193}.testPick.selected{border-color:#0b9a9d;background:#effbfa;color:#087e82}.resultEntry{overflow:auto}.resultRow{min-width:720px;display:grid;grid-template-columns:2fr 1fr .8fr 1.1fr .5fr;gap:12px;align-items:center;padding:10px;border-bottom:1px solid #edf0f3}.resultRow>div small,.resultRow>div b{display:block}.resultRow>div small{font-size:9px;color:#0a9296;font-weight:900}.resultHeader{background:#f7f9fb;border-radius:10px;font-size:11px;color:#667487}.flag{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;font-weight:900}.flag.H,.flag.L{background:#fff0f0;color:#c63d3d}.flag.N{background:#eaf9f0;color:#218a4d}.builderFooter{position:sticky;bottom:12px;padding:15px 18px;background:#10243a;color:#fff;border-radius:16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 15px 40px #10243a30}.builderFooter small,.builderFooter strong{display:block}.builderFooter strong{font-size:24px;margin-top:2px}.tableWrap{overflow:auto}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:10px;color:#788697;text-transform:uppercase;letter-spacing:.6px;background:#f7f9fb}th,td{padding:13px;border-bottom:1px solid #edf0f3}td{font-size:13px}td small{display:block;color:#8491a0;margin-top:4px}.linkBtn{border:0;background:transparent;color:#078f94;font-weight:800}.empty{text-align:center;color:#8a96a4;padding:35px}.searchBox{max-width:280px}.master{border:1px solid #e6ebef;border-radius:14px;margin-top:14px;overflow:hidden}.master h4{margin:0;padding:14px;background:#f5f9fa}.master h4 span{float:right;color:#078f94}.masterRow{display:grid;grid-template-columns:2fr 1fr 1fr;padding:11px 14px;border-top:1px solid #edf0f3;font-size:13px}.settings .primary{margin-top:20px}.reportActions{display:flex;justify-content:space-between;margin-bottom:16px}.reportSheet{max-width:900px;margin:auto;background:#fff;padding:42px;box-shadow:0 12px 40px #253d5115}.reportBrand{display:flex;align-items:center;gap:15px;border-bottom:3px solid #0b9297;padding-bottom:18px}.reportBrand h2{margin:0;font-size:25px}.reportBrand p{margin:4px 0;color:#078f94;font-weight:700}.reportBrand small{color:#6e7c8b}.reportMeta{display:flex;justify-content:flex-end;gap:30px;padding:14px 0}.reportMeta small,.reportMeta b,.patientStrip small,.patientStrip b{display:block}.reportMeta small,.patientStrip small{font-size:9px;color:#7e8b99;font-weight:900}.patientStrip{display:grid;grid-template-columns:2fr 1fr 1.5fr 1fr;gap:10px;padding:15px;background:#f3f8f8;border-radius:10px}.patientStrip b{margin-top:4px;font-size:12px}.reportPanel{margin-top:24px}.reportPanel h3{margin:0;padding:8px 10px;background:#0d293d;color:#fff;font-size:13px}.reportPanel th{background:#eef4f5}.reportPanel td,.reportPanel th{padding:9px 10px}.abnormal{color:#c03434}.reportFoot{margin-top:35px;display:flex;justify-content:space-between;gap:30px;align-items:end}.reportFoot p{max-width:600px;color:#6f7b88;font-size:10px;line-height:1.5}.signature{text-align:center;min-width:180px}.signature span,.signature b{display:block}.signature b{font-size:11px;margin-top:7px}
-@media(max-width:900px){.appShell{display:block}.sidebar{position:static;height:auto;padding:13px}.sidebar .brand,.sideNote{display:none}.sidebar nav{display:flex;overflow:auto}.sidebar nav button{white-space:nowrap}.workspace{padding:16px}.stats{grid-template-columns:1fr 1fr}.heroPanel{grid-template-columns:1fr}.heroArt{display:none}.formGrid{grid-template-columns:1fr 1fr}.testPicker{grid-template-columns:1fr 1fr}.patientStrip{grid-template-columns:1fr 1fr}.reportSheet{padding:24px}}
-@media(max-width:560px){.top h1{font-size:22px}.top .primary{font-size:11px;padding:10px}.stats{gap:9px}.stat{padding:13px}.stat strong{font-size:19px}.heroPanel h2{font-size:27px}.formGrid{grid-template-columns:1fr}.field.wide{grid-column:auto}.testPicker{grid-template-columns:1fr}.builderFooter{bottom:5px}.builderFooter .big{font-size:11px}.panel{padding:17px}.panelHead{align-items:flex-start;flex-direction:column}.searchBox{max-width:none}.reportSheet{padding:14px}.reportBrand h2{font-size:19px}.reportMeta{justify-content:space-between}.patientStrip{grid-template-columns:1fr 1fr}.reportFoot{display:block}.signature{margin:35px 0 0 auto}.masterRow{grid-template-columns:1.5fr .8fr 1fr;font-size:11px}}
-@media print{body{background:#fff}.sidebar,.top,.reportActions{display:none!important}.appShell{display:block}.workspace{padding:0}.reportSheet{box-shadow:none;max-width:none;padding:15mm}.reportPanel{break-inside:avoid}}
+/* =========================================================
+   NIDAN PATHOLOGY LAB
+   Professional Laboratory Reporting System
+   app/globals.css
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #f4f7fb;
+  color: #172033;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* =========================================================
+   APP LAYOUT
+   ========================================================= */
+
+.appShell {
+  min-height: 100vh;
+  display: flex;
+  background:
+    radial-gradient(circle at top right, #dff8f6 0, transparent 28%),
+    #f4f7fb;
+}
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+.sidebar {
+  width: 260px;
+  min-height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 30;
+  padding: 22px 16px;
+  color: #ffffff;
+  background:
+    linear-gradient(180deg, #0a8f93 0%, #08777d 48%, #075c66 100%);
+  box-shadow: 12px 0 35px rgba(13, 64, 78, 0.13);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 6px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.brandLogo,
+.logo {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 18px;
+  color: #08777d;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.brand strong {
+  display: block;
+  font-size: 17px;
+  letter-spacing: 0.5px;
+}
+
+.brand span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.sidebar nav,
+.sideNav {
+  display: grid;
+  gap: 7px;
+  margin-top: 22px;
+}
+
+.sidebar nav a,
+.sideNav button,
+.navItem {
+  width: 100%;
+  border: 0;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.88);
+  background: transparent;
+  transition: 0.2s ease;
+}
+
+.sidebar nav a:hover,
+.sideNav button:hover,
+.navItem:hover,
+.navItem.active,
+.sideNav .active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateX(2px);
+}
+
+.sidebarFooter {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 20px;
+  padding: 15px;
+  border-radius: 15px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* =========================================================
+   MAIN WORKSPACE
+   ========================================================= */
+
+.workspace {
+  width: calc(100% - 260px);
+  margin-left: 260px;
+  min-height: 100vh;
+}
+
+.top,
+.topbar,
+.topBar {
+  min-height: 72px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 28px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid #e5ebf2;
+}
+
+.top h1,
+.topbar h1,
+.topBar h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.top p,
+.topbar p,
+.topBar p {
+  margin: 4px 0 0;
+  color: #778195;
+  font-size: 12px;
+}
+
+.topActions,
+.reportActions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.content,
+.mainContent {
+  width: 100%;
+  max-width: 1500px;
+  margin: auto;
+  padding: 25px 28px 45px;
+}
+
+/* =========================================================
+   DASHBOARD CARDS
+   ========================================================= */
+
+.statsGrid,
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.statCard {
+  position: relative;
+  overflow: hidden;
+  min-height: 125px;
+  padding: 20px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #e5ebf2;
+  box-shadow: 0 8px 28px rgba(21, 45, 73, 0.06);
+}
+
+.statCard::after {
+  content: "";
+  width: 75px;
+  height: 75px;
+  position: absolute;
+  right: -20px;
+  top: -20px;
+  border-radius: 50%;
+  background: #e4f8f7;
+}
+
+.statCard span {
+  display: block;
+  color: #7b8494;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.statCard strong {
+  display: block;
+  margin-top: 11px;
+  font-size: 28px;
+  color: #122238;
+}
+
+.statCard small {
+  display: block;
+  margin-top: 7px;
+  color: #0b9294;
+}
+
+/* =========================================================
+   PANELS / CARDS
+   ========================================================= */
+
+.panel,
+.card,
+.formCard,
+.patientCard,
+.testCard,
+.reportCard {
+  background: #ffffff;
+  border: 1px solid #e4eaf1;
+  border-radius: 20px;
+  box-shadow: 0 8px 30px rgba(21, 45, 73, 0.06);
+}
+
+.panel {
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.panelHeader,
+.cardHeader,
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.panelHeader h2,
+.cardHeader h2,
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #152238;
+}
+
+.panelHeader p,
+.cardHeader p,
+.sectionHeader p {
+  margin: 5px 0 0;
+  color: #7b8494;
+  font-size: 12px;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: #078b8f;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+/* =========================================================
+   FORMS
+   ========================================================= */
+
+.formGrid,
+.patientGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.formGroup,
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.formGroup.full,
+.field.full {
+  grid-column: 1 / -1;
+}
+
+.formGroup label,
+.field label {
+  color: #3d485a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  outline: none;
+  color: #172033;
+  background: #ffffff;
+  border: 1px solid #dce3eb;
+  border-radius: 11px;
+  padding: 11px 12px;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+input {
+  min-height: 43px;
+}
+
+select {
+  min-height: 43px;
+}
+
+textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #159b9e;
+  box-shadow: 0 0 0 3px rgba(21, 155, 158, 0.11);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #a2aaba;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.btn,
+.primaryBtn,
+.secondaryBtn,
+.dangerBtn,
+.printBtn,
+.addBtn {
+  min-height: 42px;
+  border: 0;
+  border-radius: 11px;
+  padding: 10px 16px;
+  font-weight: 750;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s,
+    opacity 0.15s;
+}
+
+.btn:hover,
+.primaryBtn:hover,
+.secondaryBtn:hover,
+.dangerBtn:hover,
+.printBtn:hover,
+.addBtn:hover {
+  transform: translateY(-1px);
+}
+
+.primaryBtn,
+.addBtn,
+.printBtn {
+  color: #ffffff;
+  background: linear-gradient(135deg, #09999b, #08767d);
+  box-shadow: 0 7px 17px rgba(8, 133, 137, 0.2);
+}
+
+.secondaryBtn {
+  color: #087b80;
+  background: #e7f8f7;
+  border: 1px solid #c9eeec;
+}
+
+.dangerBtn {
+  color: #c23939;
+  background: #fff0f0;
+  border: 1px solid #ffd7d7;
+}
+
+.smallBtn {
+  border: 1px solid #dce5ec;
+  border-radius: 9px;
+  padding: 7px 10px;
+  color: #526071;
+  background: #ffffff;
+}
+
+/* =========================================================
+   TEST CATEGORY SELECTOR
+   ========================================================= */
+
+.testTabs,
+.categoryTabs {
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  padding: 3px 2px 12px;
+  scrollbar-width: thin;
+}
+
+.testTabs button,
+.categoryTabs button {
+  white-space: nowrap;
+  border: 1px solid #dfe7ee;
+  border-radius: 999px;
+  padding: 9px 14px;
+  color: #5c6778;
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.testTabs button.active,
+.categoryTabs button.active {
+  color: #ffffff;
+  border-color: #0c9397;
+  background: #0c9397;
+}
+
+/* =========================================================
+   RESULT ENTRY TABLE
+   ========================================================= */
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e5eaf0;
+  border-radius: 15px;
+}
+
+.resultTable,
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.resultTable th,
+table th {
+  padding: 12px 13px;
+  text-align: left;
+  color: #647084;
+  background: #f5f8fb;
+  border-bottom: 1px solid #e2e8ef;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+}
+
+.resultTable td,
+table td {
+  padding: 11px 13px;
+  border-bottom: 1px solid #edf1f5;
+  vertical-align: middle;
+  font-size: 13px;
+}
+
+.resultTable tbody tr:hover,
+table tbody tr:hover {
+  background: #fbfdfd;
+}
+
+.resultTable tr:last-child td,
+table tr:last-child td {
+  border-bottom: 0;
+}
+
+.resultTable input {
+  min-width: 100px;
+  min-height: 38px;
+  padding: 8px 9px;
+}
+
+/* =========================================================
+   FLAGS
+   ========================================================= */
+
+.flag,
+.status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.flag.normal,
+.status.normal {
+  color: #177044;
+  background: #e6f8ed;
+}
+
+.flag.high,
+.status.high {
+  color: #b42318;
+  background: #feeceb;
+}
+
+.flag.low,
+.status.low {
+  color: #a15c00;
+  background: #fff4d9;
+}
+
+.highValue {
+  color: #c73535;
+  font-weight: 800;
+}
+
+.lowValue {
+  color: #b66b00;
+  font-weight: 800;
+}
+
+.normalValue {
+  color: #168454;
+  font-weight: 700;
+}
+
+/* =========================================================
+   REPORT PREVIEW
+   ========================================================= */
+
+.reportPreview {
+  max-width: 900px;
+  margin: 20px auto;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #dce3e8;
+  box-shadow: 0 15px 50px rgba(21, 45, 73, 0.1);
+  overflow: hidden;
+}
+
+.reportPaper {
+  min-height: 1120px;
+  padding: 38px 42px;
+  background: #ffffff;
+}
+
+.reportHeader {
+  display: grid;
+  grid-template-columns: 75px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 3px solid #078c91;
+}
+
+.reportLogo {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #08a0a2, #066f78);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.labName h1 {
+  margin: 0;
+  color: #087b80;
+  font-size: 25px;
+  letter-spacing: 0.5px;
+}
+
+.labName p {
+  margin: 4px 0 0;
+  color: #667184;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.reportMeta {
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #5e6979;
+}
+
+.reportTitle {
+  margin: 20px 0 14px;
+  text-align: center;
+}
+
+.reportTitle h2 {
+  display: inline-block;
+  margin: 0;
+  padding: 7px 25px;
+  color: #ffffff;
+  background: #087f84;
+  border-radius: 999px;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.patientInfo {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  margin-bottom: 18px;
+  border: 1px solid #dfe6ec;
+}
+
+.patientInfo div {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  padding: 8px 10px;
+  border-bottom: 1px solid #edf0f3;
+  font-size: 11px;
+}
+
+.patientInfo div:nth-child(odd) {
+  border-right: 1px solid #edf0f3;
+}
+
+.patientInfo span {
+  color: #6d7685;
+  font-weight: 600;
+}
+
+.patientInfo strong {
+  color: #202a3a;
+}
+
+.reportSectionTitle {
+  margin: 20px 0 0;
+  padding: 8px 10px;
+  color: #087b80;
+  background: #eaf8f8;
+  border-left: 4px solid #079398;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.reportTable {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+}
+
+.reportTable th {
+  padding: 8px 7px;
+  color: #4c5868;
+  background: #f4f7f9;
+  border-bottom: 1px solid #cfd8df;
+  font-size: 10px;
+}
+
+.reportTable td {
+  padding: 8px 7px;
+  border-bottom: 1px solid #e5eaee;
+  font-size: 11px;
+}
+
+.reportTable .result {
+  font-weight: 800;
+}
+
+.reportNotes {
+  margin-top: 22px;
+  padding: 12px;
+  border: 1px solid #e3e8ed;
+  border-radius: 8px;
+  font-size: 10px;
+  color: #596576;
+  line-height: 1.6;
+}
+
+.signatureArea {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  min-height: 110px;
+  margin-top: 35px;
+}
+
+.signatureBox {
+  width: 210px;
+  text-align: center;
+  color: #4c5868;
+  font-size: 10px;
+}
+
+.signatureLine {
+  margin-bottom: 7px;
+  border-top: 1px solid #6b7480;
+}
+
+.reportFooter {
+  margin-top: 28px;
+  padding-top: 10px;
+  border-top: 1px solid #d9e0e6;
+  text-align: center;
+  color: #7a8492;
+  font-size: 9px;
+}
+
+/* =========================================================
+   EMPTY STATE / NOTICE
+   ========================================================= */
+
+.emptyState {
+  padding: 45px 20px;
+  text-align: center;
+  color: #788395;
+}
+
+.emptyState strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #344054;
+}
+
+.notice,
+.infoBox {
+  margin-top: 15px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: #27636a;
+  background: #ebfafa;
+  border: 1px solid #cbeeed;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .statsGrid,
+  .dashboardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .formGrid,
+  .patientGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .appShell {
+    display: block;
+  }
+
+  .sidebar {
+    position: static;
+    width: 100%;
+    min-height: auto;
+    padding: 13px 15px;
+    border-radius: 0;
+  }
+
+  .brand {
+    padding: 0;
+    border: 0;
+  }
+
+  .brandLogo,
+  .logo {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+    border-radius: 11px;
+  }
+
+  .sidebar nav,
+  .sideNav {
+    display: flex;
+    overflow-x: auto;
+    gap: 7px;
+    margin: 13px 0 0;
+    padding-bottom: 3px;
+  }
+
+  .sidebar nav a,
+  .sideNav button,
+  .navItem {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 9px 12px;
+  }
+
+  .sidebarFooter {
+    display: none;
+  }
+
+  .workspace {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .top,
+  .topbar,
+  .topBar {
+    position: static;
+    padding: 13px 16px;
+  }
+
+  .content,
+  .mainContent {
+    padding: 17px 14px 35px;
+  }
+
+  .reportPaper {
+    padding: 25px 22px;
+  }
+}
+
+@media (max-width: 620px) {
+  body {
+    background: #f5f7fa;
+  }
+
+  .statsGrid,
+  .dashboardGrid,
+  .formGrid,
+  .patientGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .statsGrid,
+  .dashboardGrid {
+    gap: 10px;
+  }
+
+  .statCard {
+    min-height: auto;
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .panel,
+  .card,
+  .formCard,
+  .patientCard,
+  .testCard {
+    border-radius: 16px;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .panelHeader,
+  .cardHeader,
+  .sectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .top,
+  .topbar,
+  .topBar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topActions,
+  .reportActions {
+    width: 100%;
+  }
+
+  .topActions button,
+  .reportActions button {
+    flex: 1;
+  }
+
+  .reportPreview {
+    margin: 10px 0;
+    border-radius: 0;
+  }
+
+  .reportPaper {
+    min-height: auto;
+    padding: 18px 14px;
+  }
+
+  .reportHeader {
+    grid-template-columns: 52px 1fr;
+  }
+
+  .reportLogo {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    font-size: 17px;
+  }
+
+  .labName h1 {
+    font-size: 18px;
+  }
+
+  .reportMeta {
+    grid-column: 1 / -1;
+    text-align: left;
+    padding-top: 8px;
+    border-top: 1px dashed #dce3e8;
+  }
+
+  .patientInfo {
+    grid-template-columns: 1fr;
+  }
+
+  .patientInfo div:nth-child(odd) {
+    border-right: 0;
+  }
+
+  .signatureArea {
+    gap: 30px;
+  }
+
+  .signatureBox {
+    width: 45%;
+  }
+}
+
+/* =========================================================
+   PRINT / PDF REPORT
+   ========================================================= */
+
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@media print {
+  body {
+    margin: 0;
+    background: #ffffff !important;
+    color: #000000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sidebar,
+  .top,
+  .topbar,
+  .topBar,
+  .reportActions,
+  .noPrint,
+  button {
+    display: none !important;
+  }
+
+  .appShell {
+    display: block;
+    background: #ffffff;
+  }
+
+  .workspace {
+    width: 100%;
+    margin: 0;
+  }
+
+  .content,
+  .mainContent {
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .panel:not(.reportPreview),
+  .statsGrid,
+  .dashboardGrid {
+    display: none !important;
+  }
+
+  .reportPreview {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .reportPaper {
+    width: 100%;
+    min-height: auto;
+    padding: 0;
+  }
+
+  .reportHeader {
+    break-inside: avoid;
+  }
+
+  .reportSectionTitle {
+    break-after: avoid;
+  }
+
+  .reportTable {
+    page-break-inside: auto;
+  }
+
+  .reportTable tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .reportTable thead {
+    display: table-header-group;
+  }
+
+  .signatureArea {
+    break-inside: avoid;
+  }
+}
