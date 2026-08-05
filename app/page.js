@@ -46,20 +46,44 @@ export default function Home() {
     });
   };
 
-  const continueToTests = (e) => {
-    e.preventDefault();
+const continueToTests = async (e) => {
+  e.preventDefault();
 
-    if (!patient.name.trim()) {
-      alert("Patient Name enter karein.");
-      return;
-    }
+  if (!patient.name.trim()) {
+    alert("Patient Name enter karein.");
+    return;
+  }
 
-    if (!patient.age) {
-      alert("Patient Age enter karein.");
-      return;
-    }
+  if (!patient.age) {
+    alert("Patient Age enter karein.");
+    return;
+  }
 
+  const { data, error } = await supabase
+    .from("patients")
+    .insert([
+      {
+        patient_id: patient.id,
+        name: patient.name,
+        age: Number(patient.age),
+        age_unit: patient.ageUnit,
+        gender: patient.gender,
+        mobile: patient.mobile,
+        referring_doctor: patient.doctor,
+        address: patient.address,
+      },
+    ])
+    .select();
 
+  if (error) {
+    console.error(error);
+    alert("Patient save nahi hua: " + error.message);
+    return;
+  }
+
+  localStorage.setItem("nidanPatient", JSON.stringify(patient));
+  window.location.href = "/tests";
+};
   return (
     <div className="labApp">
 
