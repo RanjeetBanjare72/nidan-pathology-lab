@@ -636,3 +636,306 @@ button {
     margin: 0;
   }
 }
+/* TEST SELECTION PAGE */
+
+.testWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) 360px;
+  gap: 22px;
+  align-items: start;
+}
+
+.testSelectionPanel,
+.selectedPanel {
+  background: #ffffff;
+  border: 1px solid #e2e8ef;
+  border-radius: 15px;
+}
+
+.testSelectionPanel {
+  padding: 22px;
+}
+
+.testSearchBox input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #d8e0e7;
+  border-radius: 10px;
+  outline: none;
+  font-size: 14px;
+}
+
+.testSearchBox input:focus {
+  border-color: #079c9a;
+  box-shadow: 0 0 0 3px rgba(7, 156, 154, 0.08);
+}
+
+.sectionHeading {
+  margin: 22px 0 16px;
+}
+
+.sectionHeading h2 {
+  font-size: 19px;
+}
+
+.sectionHeading p {
+  color: #7d8995;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.testCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.testCard {
+  min-height: 185px;
+  padding: 16px;
+  border: 1px solid #dde4ea;
+  background: #ffffff;
+  border-radius: 12px;
+  text-align: left;
+  transition: 0.2s;
+}
+
+.testCard:hover {
+  border-color: #079c9a;
+  transform: translateY(-2px);
+}
+
+.selectedTest {
+  border: 2px solid #079c9a;
+  background: #f0fbfb;
+}
+
+.testCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.testEmoji {
+  font-size: 25px;
+}
+
+.testCheck {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #edf4f5;
+  color: #078f8d;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 800;
+}
+
+.selectedTest .testCheck {
+  background: #079c9a;
+  color: white;
+}
+
+.testCard h3 {
+  margin-top: 18px;
+  font-size: 18px;
+}
+
+.testCard > p {
+  color: #768391;
+  font-size: 12px;
+  margin-top: 5px;
+  min-height: 29px;
+}
+
+.testMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.testMeta span {
+  background: #f0f4f7;
+  padding: 4px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #64717e;
+}
+
+.testPrice {
+  margin-top: 13px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #078f8d;
+}
+
+/* SELECTED TEST PANEL */
+
+.selectedPanel {
+  overflow: hidden;
+  position: sticky;
+  top: 100px;
+}
+
+.selectedHeader {
+  padding: 20px;
+  border-bottom: 1px solid #e7ecf0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.selectedHeader h2 {
+  font-size: 18px;
+}
+
+.selectedHeader p {
+  color: #7e8a97;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.selectedCount {
+  width: 35px;
+  height: 35px;
+  background: #079c9a;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 800;
+}
+
+.noSelectedTest {
+  text-align: center;
+  padding: 45px 20px;
+}
+
+.noSelectedTest > div {
+  font-size: 34px;
+}
+
+.noSelectedTest h3 {
+  margin-top: 10px;
+}
+
+.noSelectedTest p {
+  color: #89939f;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.selectedList {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.selectedItem {
+  padding: 14px 18px;
+  border-bottom: 1px solid #edf0f3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.selectedItem small {
+  display: block;
+  color: #8a949e;
+  margin-top: 4px;
+}
+
+.selectedPrice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.selectedPrice button {
+  width: 25px;
+  height: 25px;
+  border: none;
+  border-radius: 50%;
+  background: #fff0f1;
+  color: #dc4854;
+}
+
+.billSummary {
+  padding: 17px 20px;
+  background: #f8fafb;
+  border-top: 1px solid #e8edf1;
+}
+
+.billSummary > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+
+.billSummary span {
+  color: #74818e;
+  font-size: 13px;
+}
+
+.grandTotal {
+  margin-top: 6px;
+  padding-top: 12px !important;
+  border-top: 1px dashed #ccd5dc;
+}
+
+.grandTotal strong {
+  color: #078f8d;
+  font-size: 21px;
+}
+
+.continueBtn {
+  width: calc(100% - 40px);
+  margin: 0 20px 20px;
+  border: none;
+  background: #079c9a;
+  color: white;
+  padding: 14px;
+  border-radius: 9px;
+  font-weight: 800;
+}
+
+.continueBtn:hover {
+  background: #078986;
+}
+
+@media (max-width: 1100px) {
+  .testCards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .testWorkspace {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+}
+
+@media (max-width: 800px) {
+  .testWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .selectedPanel {
+    position: static;
+  }
+
+  .testCards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .testCards {
+    grid-template-columns: 1fr;
+  }
+
+  .testCard {
+    min-height: auto;
+  }
+}
