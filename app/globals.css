@@ -939,3 +939,192 @@ button {
     min-height: auto;
   }
 }
+/* BILLING PAGE */
+
+.billingGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) 360px;
+  gap: 22px;
+  align-items: start;
+}
+
+.billingCard,
+.paymentCard {
+  background: white;
+  border: 1px solid #e2e8ef;
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.billingTitle {
+  padding: 20px 22px;
+  border-bottom: 1px solid #e8edf2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.billingTitle h2 {
+  font-size: 18px;
+}
+
+.billingTitle p {
+  color: #7d8995;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.billBadge {
+  background: #e9f8f8;
+  color: #078f8d;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.patientBillInfo {
+  padding: 18px 22px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  background: #f8fafb;
+}
+
+.patientBillInfo small {
+  display: block;
+  color: #83909d;
+  font-size: 10px;
+  margin-bottom: 5px;
+}
+
+.patientBillInfo strong {
+  font-size: 13px;
+}
+
+.billTableWrap {
+  overflow-x: auto;
+}
+
+.billTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.billTable th {
+  background: #f4f7f9;
+  color: #657382;
+  font-size: 11px;
+  text-align: left;
+  padding: 12px 15px;
+}
+
+.billTable td {
+  padding: 15px;
+  border-bottom: 1px solid #edf0f3;
+  font-size: 13px;
+}
+
+.billTable td small {
+  display: block;
+  color: #8a949f;
+  margin-top: 4px;
+}
+
+.removeBillTest {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: #fff0f1;
+  color: #d94c58;
+}
+
+.paymentCard {
+  position: sticky;
+  top: 100px;
+}
+
+.paymentRows {
+  padding: 20px;
+}
+
+.paymentRows > div {
+  margin-bottom: 16px;
+}
+
+.paymentRows > div:not(.paymentInputRow) {
+  display: flex;
+  justify-content: space-between;
+}
+
+.paymentInputRow label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+
+.paymentInputRow input,
+.paymentInputRow select {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+}
+
+.netPayable {
+  padding: 15px 0;
+  border-top: 1px dashed #ccd5dc;
+  border-bottom: 1px dashed #ccd5dc;
+}
+
+.netPayable strong {
+  color: #078f8d;
+  font-size: 23px;
+}
+
+.balanceRow strong {
+  color: #d5535d;
+}
+
+.fullPaymentBtn {
+  width: calc(100% - 40px);
+  margin: 0 20px 10px;
+  padding: 11px;
+  background: white;
+  color: #078f8d;
+  border: 1px solid #079c9a;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.billingContinue {
+  margin-top: 0;
+}
+
+.emptyBill {
+  text-align: center;
+  padding: 35px !important;
+  color: #83909c;
+}
+
+@media (max-width: 900px) {
+  .billingGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .paymentCard {
+    position: static;
+  }
+
+  .patientBillInfo {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .patientBillInfo {
+    grid-template-columns: 1fr;
+  }
+}
