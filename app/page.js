@@ -145,9 +145,12 @@ const continueToTests = async (e) => {
           <span>▤</span> Result Entry
         </button>
 
-        <button className="menu">
-          <span>▣</span> Reports
-        </button>
+        <button
+  className="menu"
+  onClick={() => (window.location.href = "/reports")}
+>
+  <span>▣</span> Reports
+</button>
 
         <div className="menuLabel second">MANAGEMENT</div>
 
