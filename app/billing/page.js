@@ -228,7 +228,7 @@ export default function BillingPage() {
                 <div>
                   <small>Age / Sex</small>
                   <strong>
-                    {patient.age || "-"} / {patient.sex || "-"}
+                    {patient.age || "-"} / {patient.gender || patient.sex || "-"}
                   </strong>
                 </div>
 
