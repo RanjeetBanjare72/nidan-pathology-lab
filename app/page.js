@@ -63,7 +63,24 @@ export default function Home() {
   JSON.stringify(patient)
 );
 
-    window.location.href = "/tests";
+const existingPatients = JSON.parse(
+  localStorage.getItem("nidanPatients") || "[]"
+);
+
+const patientExists = existingPatients.some(
+  (item) => item.id === patient.id
+);
+
+if (!patientExists) {
+  existingPatients.unshift(patient);
+
+  localStorage.setItem(
+    "nidanPatients",
+    JSON.stringify(existingPatients)
+  );
+}
+
+window.location.href = "/tests";
   };
 
   return (
