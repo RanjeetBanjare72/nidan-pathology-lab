@@ -1520,3 +1520,488 @@ button {
     width: 100%;
   }
 }
+/* =========================================
+   PROFESSIONAL FINAL PATHOLOGY REPORT
+========================================= */
+
+.finalReportPage {
+  min-height: 100vh;
+  background: #eef2f5;
+  padding: 25px;
+  color: #182333;
+}
+
+.reportScreenToolbar {
+  max-width: 1000px;
+  margin: 0 auto 20px;
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  box-shadow: 0 3px 15px rgba(0,0,0,.06);
+}
+
+.reportScreenToolbar strong {
+  display: block;
+  font-size: 17px;
+}
+
+.reportScreenToolbar small {
+  display: block;
+  color: #7d8994;
+  margin-top: 3px;
+}
+
+.reportToolbarButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.reportToolbarButtons button {
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reportBackButton {
+  border: 1px solid #d5dde4;
+  background: white;
+  color: #273342;
+}
+
+.reportPrintButton {
+  border: none;
+  background: #079b98;
+  color: white;
+}
+
+.reportNewButton {
+  border: none;
+  background: #172333;
+  color: white;
+}
+
+
+/* A4 REPORT */
+
+.printableReport {
+  width: 210mm;
+  min-height: 297mm;
+  margin: auto;
+  background: white;
+  padding: 13mm 14mm;
+  box-sizing: border-box;
+  box-shadow: 0 5px 30px rgba(0,0,0,.10);
+}
+
+
+/* HEADER */
+
+.labReportHeader {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  gap: 15px;
+  align-items: center;
+}
+
+.reportLogo {
+  width: 62px;
+  height: 62px;
+  background: #079b98;
+  color: white;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 25px;
+  font-weight: 900;
+}
+
+.reportLabIdentity h1 {
+  margin: 0;
+  color: #142033;
+  font-size: 27px;
+  letter-spacing: .3px;
+}
+
+.reportLabIdentity p {
+  margin: 3px 0 0;
+  color: #687582;
+  font-size: 11px;
+}
+
+.reportLabIdentity .reportTagline {
+  color: #078f8d;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.reportHeaderRight {
+  text-align: right;
+}
+
+.reportHeaderRight strong {
+  display: block;
+  color: #079b98;
+  font-size: 12px;
+}
+
+.reportHeaderRight span {
+  display: block;
+  margin-top: 7px;
+  color: #6e7a85;
+  font-size: 10px;
+}
+
+.reportAccentLine {
+  height: 4px;
+  background: #079b98;
+  margin: 13px 0 8px;
+}
+
+
+/* LAB CONTACT */
+
+.reportLabDetails {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dfe5e9;
+  color: #66727e;
+  font-size: 9px;
+}
+
+
+/* PATIENT */
+
+.reportPatientSection {
+  margin-top: 14px;
+}
+
+.reportSectionTitle {
+  background: #172333;
+  color: white;
+  padding: 7px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .6px;
+}
+
+.reportPatientGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid #e0e5e9;
+  border-top: none;
+}
+
+.reportPatientGrid > div {
+  padding: 8px 10px;
+  border-right: 1px solid #e5e9ec;
+  border-bottom: 1px solid #e5e9ec;
+}
+
+.reportPatientGrid span {
+  display: block;
+  color: #7c8791;
+  font-size: 8px;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.reportPatientGrid strong {
+  font-size: 11px;
+}
+
+
+/* TEST SECTION */
+
+.reportTestSection {
+  margin-top: 16px;
+  page-break-inside: avoid;
+}
+
+.reportTestHeading {
+  color: #078f8d;
+  font-weight: 900;
+  font-size: 13px;
+  padding: 7px 9px;
+  background: #edf8f7;
+  border-left: 4px solid #079b98;
+}
+
+.finalReportTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.finalReportTable th {
+  background: #f3f6f8;
+  color: #596673;
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 1px solid #dce3e7;
+  font-size: 8px;
+}
+
+.finalReportTable td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #e8ecef;
+  font-size: 10px;
+}
+
+.finalReportTable th:nth-child(1) {
+  width: 31%;
+}
+
+.finalReportTable th:nth-child(2) {
+  width: 16%;
+}
+
+.finalReportTable th:nth-child(3) {
+  width: 17%;
+}
+
+.finalReportTable th:nth-child(4) {
+  width: 27%;
+}
+
+.finalReportTable th:nth-child(5) {
+  width: 9%;
+}
+
+.normalResult {
+  font-weight: 800;
+  color: #182333;
+}
+
+.abnormalResult {
+  font-weight: 900;
+  color: #d8424d;
+}
+
+.reportFlag {
+  background: #ffe9eb;
+  color: #d8424d;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-weight: 900;
+}
+
+
+/* REMARKS */
+
+.reportRemarks {
+  margin-top: 20px;
+  padding: 10px;
+  border: 1px solid #e0e5e8;
+  font-size: 10px;
+}
+
+.remarksLine {
+  margin-top: 8px;
+  color: #8b949c;
+}
+
+
+/* SIGNATURE */
+
+.reportSignatureSection {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 25px;
+}
+
+.reportSignatureBox {
+  width: 180px;
+  text-align: center;
+}
+
+.signatureSpace {
+  height: 35px;
+  border-bottom: 1px solid #59636c;
+  margin-bottom: 6px;
+}
+
+.reportSignatureBox strong {
+  display: block;
+  font-size: 10px;
+}
+
+.reportSignatureBox span {
+  display: block;
+  font-size: 8px;
+  color: #77828c;
+  margin-top: 2px;
+}
+
+
+/* NOTES */
+
+.reportNotes {
+  margin-top: 25px;
+  background: #f6f8f9;
+  padding: 9px 11px;
+  font-size: 8px;
+  color: #66727d;
+}
+
+.reportNotes strong {
+  color: #273342;
+}
+
+.reportNotes p {
+  display: inline;
+  line-height: 1.5;
+}
+
+
+/* FOOTER */
+
+.reportFooter {
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 2px solid #079b98;
+  display: flex;
+  justify-content: space-between;
+  color: #697580;
+  font-size: 8px;
+}
+
+.reportFooter strong {
+  color: #079b98;
+}
+
+.reportEmpty {
+  text-align: center;
+  padding: 50px;
+  color: #8a959e;
+}
+
+
+/* MOBILE SCREEN */
+
+@media (max-width: 900px) {
+
+  .finalReportPage {
+    padding: 10px;
+  }
+
+  .reportScreenToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reportToolbarButtons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .reportPrintButton {
+    grid-column: span 2;
+  }
+
+  .printableReport {
+    width: 100%;
+    min-height: auto;
+    padding: 18px;
+    overflow-x: auto;
+  }
+
+  .labReportHeader {
+    grid-template-columns: 55px 1fr;
+  }
+
+  .reportLogo {
+    width: 50px;
+    height: 50px;
+  }
+
+  .reportLabIdentity h1 {
+    font-size: 19px;
+  }
+
+  .reportHeaderRight {
+    grid-column: span 2;
+    text-align: left;
+  }
+
+  .reportPatientGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .reportLabDetails {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .finalReportTable {
+    min-width: 650px;
+  }
+
+  .investigationReport {
+    overflow-x: auto;
+  }
+}
+
+
+/* =========================================
+   PRINT / SAVE PDF
+========================================= */
+
+@media print {
+
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .sidebar,
+  .topbar,
+  .reportScreenToolbar {
+    display: none !important;
+  }
+
+  .finalReportPage {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .printableReport {
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    box-shadow: none !important;
+  }
+
+  .reportTestSection {
+    break-inside: avoid;
+  }
+
+  .finalReportTable {
+    min-width: 0 !important;
+  }
+
+  .reportSignatureSection {
+    break-inside: avoid;
+  }
+
+  .reportNotes {
+    break-inside: avoid;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
