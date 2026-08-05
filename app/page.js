@@ -1,9 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 export default function Home() {
+  const [patients, setPatients] = useState([]);
+
+useEffect(() => {
+  fetchPatients();
+}, []);
+
+const fetchPatients = async () => {
+  const { data, error } = await supabase
+    .from("patients")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Patients load error:", error);
+    return;
+  }
+
+  setPatients(data || []);
+};
   const [active, setActive] = useState("dashboard");
   const [patient, setPatient] = useState({
     id: "",
@@ -189,8 +208,8 @@ const continueToTests = async (e) => {
               <div className="statCard">
                 <div className="statIcon">♙</div>
                 <div>
-                  <p>Today's Patients</p>
-                  <h2>0</h2>
+                  <p>Total Patients</p>
+                   <h2>{patients.length}</h2>
                 </div>
               </div>
 
@@ -205,8 +224,8 @@ const continueToTests = async (e) => {
               <div className="statCard">
                 <div className="statIcon">⌁</div>
                 <div>
-                  <p>Pending Samples</p>
-                  <h2>0</h2>
+                  <p>Total Patients</p>
+                   <h2>{patients.length}</h2>
                 </div>
               </div>
 
@@ -230,17 +249,24 @@ const continueToTests = async (e) => {
                   <button>View All</button>
                 </div>
 
-                <div className="emptyState">
-                  <div>♙</div>
-                  <h3>No patients registered yet</h3>
-                  <p>
-                    Patient registration shuru karne ke liye
-                    New Patient par click karein.
-                  </p>
-                  <button onClick={openNewPatient}>
-                    Register Patient
-                  </button>
-                </div>
+                {patients.length === 0 ? (
+  <div className="emptyState">
+    <div>♙</div>
+    <h3>No patients registered yet</h3>
+    <p>Patient registration shuru karne ke liye New Patient par click karein.</p>
+    <button onClick={openNewPatient}>Register Patient</button>
+  </div>
+) : (
+  <div>
+    {patients.slice(0, 5).map((p) => (
+      <div key={p.id} style={{ padding: "10px", borderBottom: "1px solid #eee" }}>
+        <b>{p.name}</b>
+        <div>{p.patient_id}</div>
+        <small>{p.mobile || "No mobile"} • {p.age} {p.age_unit}</small>
+      </div>
+    ))}
+  </div>
+)}
               </section>
 
               <section className="panel quickPanel">
