@@ -68,6 +68,7 @@ export default function SavedReportViewPage() {
 
   const patient = getPatient();
   const tests = getTests();
+const results = report?.report_data?.results || {};
 
   return (
     <main
@@ -228,59 +229,65 @@ export default function SavedReportViewPage() {
                   </thead>
 
                   <tbody>
-                    {Array.isArray(test.parameters) &&
-                    test.parameters.length > 0 ? (
-                      test.parameters.map(
-                        (parameter, i) => (
-                          <tr key={i}>
-                            <td style={cellStyle}>
-                              {parameter.name || "-"}
-                            </td>
+  {Array.isArray(test.tests) && test.tests.length > 0 ? (
+    test.tests.map((parameter, i) => {
+      const key = `${test.id}-${parameter.name}-${i}`;
 
-                            <td style={cellStyle}>
-                              {parameter.result ??
-                                parameter.value ??
-                                "-"}
-                            </td>
+      const value =
+        results[key] ??
+        results[parameter.id] ??
+        parameter.result ??
+        parameter.value ??
+        "";
 
-                            <td style={cellStyle}>
-                              {parameter.unit || "-"}
-                            </td>
+      const reference =
+        parameter.range ||
+        parameter.referenceRange ||
+        parameter.reference ||
+        (parameter.min !== undefined && parameter.max !== undefined
+          ? `${parameter.min} - ${parameter.max}`
+          : "-");
 
-                            <td style={cellStyle}>
-                              {parameter.range ||
-                                parameter.referenceRange ||
-                                "-"}
-                            </td>
-                          </tr>
-                        )
-                      )
-                    ) : (
-                      <tr>
-                        <td style={cellStyle}>
-                          {test.parameter ||
-                            test.name ||
-                            "-"}
-                        </td>
+      return (
+        <tr key={key}>
+          <td style={cellStyle}>
+            {parameter.name || "-"}
+          </td>
 
-                        <td style={cellStyle}>
-                          {test.result ??
-                            test.value ??
-                            "-"}
-                        </td>
+          <td style={cellStyle}>
+            <strong>{value !== "" ? value : "-"}</strong>
+          </td>
 
-                        <td style={cellStyle}>
-                          {test.unit || "-"}
-                        </td>
+          <td style={cellStyle}>
+            {parameter.unit || "-"}
+          </td>
 
-                        <td style={cellStyle}>
-                          {test.range ||
-                            test.referenceRange ||
-                            "-"}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
+          <td style={cellStyle}>
+            {reference}
+          </td>
+        </tr>
+      );
+    })
+  ) : (
+    <tr>
+      <td style={cellStyle}>
+        {test.parameter || test.name || "-"}
+      </td>
+
+      <td style={cellStyle}>
+        {test.result ?? test.value ?? "-"}
+      </td>
+
+      <td style={cellStyle}>
+        {test.unit || "-"}
+      </td>
+
+      <td style={cellStyle}>
+        {test.range || test.referenceRange || "-"}
+      </td>
+    </tr>
+  )}
+</tbody>
                 </table>
               </div>
             ))
