@@ -59,9 +59,9 @@ export default function Home() {
     }
 
     localStorage.setItem(
-      "nidan_current_patient",
-      JSON.stringify(patient)
-    );
+  "nidanPatient",
+  JSON.stringify(patient)
+);
 
     window.location.href = "/tests";
   };
