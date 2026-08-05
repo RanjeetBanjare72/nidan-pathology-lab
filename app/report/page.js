@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -93,9 +94,39 @@ export default function ReportPage() {
     return "";
   }
 
-  function printReport() {
+  async function printReport() {
+  try {
+    const reportPayload = {
+      patient: patient,
+      selectedTests: selectedTests,
+      results: results,
+      reportDate: reportDate,
+    };
+
+    const { error } = await supabase
+      .from("reports")
+      .insert([
+        {
+          report_no: `RPT-${Date.now()}`,
+          patient_id: patient.patientId || patient.id,
+          status: "completed",
+          report_data: reportPayload,
+        },
+      ]);
+
+    if (error) {
+      console.error("Report save error:", error);
+      alert("Report save nahi hua: " + error.message);
+      return;
+    }
+
+    alert("Report successfully saved.");
     window.print();
+  } catch (error) {
+    console.error("Report save error:", error);
+    alert("Report save karne me error aaya.");
   }
+}
 
   function newPatient() {
     const confirmNew = window.confirm(
