@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "../lib/supabase";
 
 export default function Home() {
   const [active, setActive] = useState("dashboard");
@@ -58,30 +59,6 @@ export default function Home() {
       return;
     }
 
-    localStorage.setItem(
-  "nidanPatient",
-  JSON.stringify(patient)
-);
-
-const existingPatients = JSON.parse(
-  localStorage.getItem("nidanPatients") || "[]"
-);
-
-const patientExists = existingPatients.some(
-  (item) => item.id === patient.id
-);
-
-if (!patientExists) {
-  existingPatients.unshift(patient);
-
-  localStorage.setItem(
-    "nidanPatients",
-    JSON.stringify(existingPatients)
-  );
-}
-
-window.location.href = "/tests";
-  };
 
   return (
     <div className="labApp">
