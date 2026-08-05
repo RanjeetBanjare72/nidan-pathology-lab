@@ -96,12 +96,47 @@ export default function ReportPage() {
 
   async function printReport() {
   try {
-    const reportPayload = {
-      patient: patient,
-      selectedTests: selectedTests,
-      results: results,
-      reportDate: reportDate,
-    };
+    const reportTests = selectedTests.map((test) => ({
+  id: test.id,
+  name: test.name || test.testName || "Test",
+  parameters: (test.tests || test.parameters || []).map(
+    (parameter, index) => {
+      const key = parameterKey(test.id, parameter, index);
+
+      return {
+        name:
+          parameter.name ||
+          parameter.testName ||
+          parameter.investigation ||
+          "Investigation",
+
+        result: results[key] ?? "",
+
+        unit:
+          parameter.unit ||
+          parameter.units ||
+          "",
+
+        referenceRange:
+          referenceRange(parameter),
+
+        min:
+          parameter.min ?? null,
+
+        max:
+          parameter.max ?? null,
+      };
+    }
+  ),
+}));
+
+const reportPayload = {
+  patient: patient,
+  selectedTests: selectedTests,
+  results: results,
+  reportTests: reportTests,
+  reportDate: reportDate,
+};
 
     const { error } = await supabase
       .from("reports")
