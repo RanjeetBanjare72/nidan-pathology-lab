@@ -2005,3 +2005,147 @@ button {
     print-color-adjust: exact !important;
   }
 }
+/* =========================================
+   PATIENT LIST
+========================================= */
+
+.patientsCard {
+  background: white;
+  border: 1px solid #e2e8ed;
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.patientsToolbar {
+  padding: 18px 20px;
+  border-bottom: 1px solid #e7ebef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+.patientSearch {
+  width: min(520px, 100%);
+  display: flex;
+  align-items: center;
+  border: 1px solid #d7e0e6;
+  border-radius: 9px;
+  padding: 0 13px;
+  background: white;
+}
+
+.patientSearch span {
+  color: #87939e;
+  font-size: 20px;
+}
+
+.patientSearch input {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  outline: none;
+}
+
+.patientCount {
+  color: #778490;
+  font-size: 12px;
+}
+
+.patientCount strong {
+  color: #078f8d;
+  margin-left: 6px;
+  font-size: 16px;
+}
+
+.patientTableWrap {
+  overflow-x: auto;
+}
+
+.patientTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 850px;
+}
+
+.patientTable th {
+  padding: 12px 16px;
+  background: #f5f7f9;
+  text-align: left;
+  color: #687582;
+  font-size: 10px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+.patientTable td {
+  padding: 15px 16px;
+  border-bottom: 1px solid #edf0f2;
+  font-size: 12px;
+  color: #3c4855;
+}
+
+.patientTable tbody tr:hover {
+  background: #fafcfc;
+}
+
+.patientIdText {
+  color: #078f8d;
+}
+
+.patientActions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.patientOpenBtn {
+  border: 1px solid #079b98;
+  background: #edf9f8;
+  color: #078b88;
+  padding: 7px 11px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.patientDeleteBtn {
+  width: 29px;
+  height: 29px;
+  border: none;
+  border-radius: 7px;
+  background: #fff0f1;
+  color: #d74b57;
+  font-size: 17px;
+}
+
+.patientsEmpty {
+  text-align: center;
+  padding: 65px 20px !important;
+}
+
+.patientsEmpty > div {
+  font-size: 40px;
+  color: #9ba8b2;
+}
+
+.patientsEmpty h3 {
+  margin-top: 10px;
+  color: #25313f;
+}
+
+.patientsEmpty p {
+  color: #84909b;
+  margin-top: 6px;
+}
+
+@media (max-width: 700px) {
+  .patientsToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .patientSearch {
+    width: 100%;
+  }
+}
