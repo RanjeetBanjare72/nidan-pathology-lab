@@ -326,7 +326,7 @@ export default function ResultsPage() {
               <small>AGE / SEX</small>
               <strong>
                 {patient.age || "-"} /{" "}
-                {patient.sex || "-"}
+                {patient.gender || patient.sex || "-"}
               </strong>
             </div>
 
