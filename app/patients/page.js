@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-
+import { supabase } from "../../lib/supabase";
 export default function PatientsPage() {
   const router = useRouter();
 
@@ -10,15 +10,23 @@ export default function PatientsPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    try {
-      const saved =
-        JSON.parse(localStorage.getItem("nidanPatients") || "[]");
+  async function loadPatients() {
+    const { data, error } = await supabase
+      .from("patients")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-      setPatients(saved);
-    } catch {
+    if (error) {
+      console.error("Patients load error:", error);
       setPatients([]);
+      return;
     }
-  }, []);
+
+    setPatients(data || []);
+  }
+
+  loadPatients();
+}, []);
 
   const filteredPatients = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -52,24 +60,30 @@ export default function PatientsPage() {
     router.push("/tests");
   }
 
-  function deletePatient(id) {
-    const ok = window.confirm(
-      "Kya aap is patient record ko delete karna chahte hain?"
-    );
+  async function deletePatient(id) {
+  const ok = window.confirm(
+    "Kya aap is patient record ko delete karna chahte hain?"
+  );
 
-    if (!ok) return;
+  if (!ok) return;
 
-    const updated = patients.filter(
-      (patient) => patient.id !== id
-    );
+  const { error } = await supabase
+    .from("patients")
+    .delete()
+    .eq("id", id);
 
-    setPatients(updated);
-
-    localStorage.setItem(
-      "nidanPatients",
-      JSON.stringify(updated)
-    );
+  if (error) {
+    console.error("Delete error:", error);
+    alert("Patient delete nahi hua: " + error.message);
+    return;
   }
+
+  setPatients((currentPatients) =>
+    currentPatients.filter((patient) => patient.id !== id)
+  );
+
+  alert("Patient record delete ho gaya.");
+}
 
   return (
     <div className="labApp">
