@@ -3,16 +3,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-/* =========================================================
-   NIDAN PATHOLOGY LAB
-   TEST SELECTION
-   app/tests/page.js
-   ========================================================= */
+/*
+  ============================================================
+  NIDAN PATHOLOGY LAB
+  MASTER TEST DATABASE
 
-const testGroups = [
-  /* =======================================================
-     HAEMATOLOGY
-     ======================================================= */
+  IMPORTANT:
+  Reference ranges can vary by:
+  - Analyzer
+  - Laboratory method
+  - Age
+  - Sex
+  - Pregnancy
+  - Local laboratory validation
+
+  Verify ranges before clinical use.
+  ============================================================
+*/
+
+const MASTER_TESTS = [
+  // =========================================================
+  // HEMATOLOGY
+  // =========================================================
 
   {
     id: "cbc",
@@ -21,282 +33,186 @@ const testGroups = [
     icon: "🩸",
     price: 250,
     category: "Hematology",
-    department: "HAEMATOLOGY",
-
     tests: [
       {
         name: "Haemoglobin",
         unit: "g/dL",
-        reference: "Male: 13-17 | Female: 12-15",
+        min: 13,
+        max: 17,
+        range: "Male: 13-17 | Female: 12-15",
       },
-
       {
         name: "Total Leucocyte Count (TLC)",
         unit: "/cumm",
         min: 4000,
         max: 11000,
-        reference: "4000-11000",
+        range: "4000-11000",
       },
-
       {
         name: "Neutrophils",
         unit: "%",
         min: 40,
         max: 75,
-        reference: "40-75",
+        range: "40-75",
       },
-
       {
         name: "Lymphocytes",
         unit: "%",
         min: 20,
         max: 40,
-        reference: "20-40",
+        range: "20-40",
       },
-
       {
         name: "Eosinophils",
         unit: "%",
         min: 1,
         max: 6,
-        reference: "1-6",
+        range: "1-6",
       },
-
       {
         name: "Monocytes",
         unit: "%",
         min: 1,
         max: 10,
-        reference: "1-10",
+        range: "1-10",
       },
-
       {
         name: "Basophils",
         unit: "%",
         min: 0,
         max: 1,
-        reference: "0-1",
+        range: "0-1",
       },
-
       {
         name: "RBC Count",
         unit: "million/cumm",
-        reference:
-          "Male: 4.5-6.0 | Female: 4.0-5.5",
+        min: 4.5,
+        max: 6.0,
+        range: "Male: 4.5-6.0 | Female: 4.0-5.5",
       },
-
       {
         name: "PCV / Haematocrit",
         unit: "%",
-        reference:
-          "Male: 40-50 | Female: 36-46",
+        min: 40,
+        max: 50,
+        range: "Male: 40-50 | Female: 36-46",
       },
-
       {
         name: "MCV",
         unit: "fL",
         min: 80,
         max: 100,
-        reference: "80-100",
+        range: "80-100",
       },
-
       {
         name: "MCH",
         unit: "pg",
         min: 27,
         max: 32,
-        reference: "27-32",
+        range: "27-32",
       },
-
       {
         name: "MCHC",
         unit: "g/dL",
         min: 32,
         max: 36,
-        reference: "32-36",
+        range: "32-36",
       },
-
       {
         name: "RDW-CV",
         unit: "%",
         min: 11.5,
         max: 14.5,
-        reference: "11.5-14.5",
+        range: "11.5-14.5",
       },
-
       {
         name: "Platelet Count",
         unit: "Lac/cumm",
         min: 1.5,
         max: 4.5,
-        reference: "1.5-4.5",
+        range: "1.5-4.5",
       },
-
       {
         name: "MPV",
         unit: "fL",
         min: 7.5,
         max: 11.5,
-        reference: "7.5-11.5",
+        range: "7.5-11.5",
       },
-
       {
         name: "PDW",
         unit: "%",
         min: 9,
         max: 17,
-        reference: "9-17",
+        range: "9-17",
       },
-
       {
         name: "PCT",
         unit: "%",
         min: 0.15,
-        max: 0.4,
-        reference: "0.15-0.40",
+        max: 0.40,
+        range: "0.15-0.40",
+      },
+    ],
+  },
+
+  {
+    id: "hb",
+    name: "Haemoglobin",
+    short: "Hb",
+    icon: "🩸",
+    price: 100,
+    category: "Hematology",
+    tests: [
+      {
+        name: "Haemoglobin",
+        unit: "g/dL",
+        min: 13,
+        max: 17,
+        range: "Male: 13-17 | Female: 12-15",
       },
     ],
   },
 
   {
     id: "esr",
-    name: "ESR",
+    name: "Erythrocyte Sedimentation Rate",
     short: "ESR",
     icon: "⏱️",
     price: 100,
     category: "Hematology",
-    department: "HAEMATOLOGY",
-
     tests: [
       {
-        name: "ESR (Westergren Method)",
-        unit: "mm/1st hr",
-        reference:
-          "Male: 0-15 | Female: 0-20",
+        name: "ESR",
+        unit: "mm/hr",
+        min: 0,
+        max: 20,
+        range: "Male: 0-15 | Female: 0-20",
       },
     ],
   },
 
   {
-    id: "bloodgroup",
-    name: "Blood Group",
-    short: "Blood Group",
+    id: "reticulocyte",
+    name: "Reticulocyte Count",
+    short: "Reticulocyte",
     icon: "🩸",
-    price: 100,
+    price: 200,
     category: "Hematology",
-    department: "HAEMATOLOGY",
-
     tests: [
       {
-        name: "ABO Blood Group",
-        unit: "",
-        reference: "A / B / AB / O",
-      },
-
-      {
-        name: "Rh Type",
-        unit: "",
-        reference: "Positive / Negative",
+        name: "Reticulocyte Count",
+        unit: "%",
+        min: 0.5,
+        max: 2.5,
+        range: "0.5-2.5",
       },
     ],
   },
 
-  {
-    id: "btct",
-    name: "Bleeding Time / Clotting Time",
-    short: "BT / CT",
-    icon: "⏱️",
-    price: 150,
-    category: "Hematology",
-    department: "HAEMATOLOGY",
-
-    tests: [
-      {
-        name: "Bleeding Time (BT)",
-        unit: "minutes",
-        min: 2,
-        max: 7,
-        reference: "2-7",
-      },
-
-      {
-        name: "Clotting Time (CT)",
-        unit: "minutes",
-        min: 5,
-        max: 11,
-        reference: "5-11",
-      },
-    ],
-  },
-
-  /* =======================================================
-     COAGULATION
-     ======================================================= */
-
-  {
-    id: "ptinr",
-    name: "Prothrombin Time (PT/INR)",
-    short: "PT / INR",
-    icon: "🩸",
-    price: 350,
-    category: "Coagulation",
-    department: "COAGULATION",
-
-    tests: [
-      {
-        name: "Prothrombin Time (PT)",
-        unit: "sec",
-        min: 11,
-        max: 16,
-        reference: "11-16",
-      },
-
-      {
-        name: "Control PT",
-        unit: "sec",
-        reference: "Laboratory Control",
-      },
-
-      {
-        name: "INR",
-        unit: "",
-        min: 0.8,
-        max: 1.2,
-        reference: "0.8-1.2",
-      },
-    ],
-  },
-
-  {
-    id: "aptt",
-    name: "Activated Partial Thromboplastin Time",
-    short: "APTT",
-    icon: "🩸",
-    price: 350,
-    category: "Coagulation",
-    department: "COAGULATION",
-
-    tests: [
-      {
-        name:
-          "Activated Partial Thromboplastin Time",
-        unit: "sec",
-        min: 25,
-        max: 35,
-        reference: "25-35",
-      },
-
-      {
-        name: "Control",
-        unit: "sec",
-        reference: "Laboratory Control",
-      },
-    ],
-  },
-
-  /* =======================================================
-     BIOCHEMISTRY
-     ======================================================= */
+  // =========================================================
+  // BIOCHEMISTRY
+  // =========================================================
 
   {
     id: "fbs",
@@ -305,15 +221,13 @@ const testGroups = [
     icon: "🩸",
     price: 100,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
         name: "Fasting Blood Sugar",
         unit: "mg/dL",
         min: 70,
         max: 99,
-        reference: "70-99",
+        range: "70-99",
       },
     ],
   },
@@ -325,14 +239,13 @@ const testGroups = [
     icon: "🩸",
     price: 100,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
         name: "Post Prandial Blood Sugar",
         unit: "mg/dL",
+        min: 70,
         max: 140,
-        reference: "<140",
+        range: "<140",
       },
     ],
   },
@@ -344,198 +257,172 @@ const testGroups = [
     icon: "🩸",
     price: 100,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
         name: "Random Blood Sugar",
         unit: "mg/dL",
         min: 70,
         max: 140,
-        reference: "70-140",
+        range: "70-140",
       },
     ],
   },
 
   {
     id: "hba1c",
-    name: "HbA1c",
+    name: "Glycated Haemoglobin",
     short: "HbA1c",
     icon: "💉",
     price: 450,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
         name: "HbA1c",
         unit: "%",
-        reference:
-          "Normal: <5.7 | Prediabetes: 5.7-6.4 | Diabetes: ≥6.5",
-      },
-
-      {
-        name:
-          "Estimated Average Glucose (eAG)",
-        unit: "mg/dL",
-        reference: "",
+        min: 4,
+        max: 5.6,
+        range: "Normal: <5.7 | Prediabetes: 5.7-6.4 | Diabetes: ≥6.5",
       },
     ],
   },
 
   {
     id: "kft",
-    name: "Kidney Function Test (KFT/RFT)",
-    short: "KFT",
+    name: "Kidney Function Test",
+    short: "KFT / RFT",
     icon: "🧪",
     price: 500,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
         name: "Blood Urea",
         unit: "mg/dL",
         min: 15,
         max: 40,
-        reference: "15-40",
+        range: "15-40",
       },
-
       {
         name: "Serum Creatinine",
         unit: "mg/dL",
         min: 0.6,
         max: 1.3,
-        reference: "0.6-1.3",
+        range: "0.6-1.3",
       },
-
       {
         name: "Uric Acid",
         unit: "mg/dL",
-        reference:
-          "Male: 3.4-7.0 | Female: 2.4-6.0",
+        min: 3.5,
+        max: 7.2,
+        range: "Male: 3.5-7.2 | Female: 2.6-6.0",
       },
-
       {
-        name: "Blood Urea Nitrogen (BUN)",
+        name: "BUN",
         unit: "mg/dL",
         min: 7,
         max: 20,
-        reference: "7-20",
+        range: "7-20",
       },
-
       {
         name: "Sodium",
         unit: "mmol/L",
         min: 135,
         max: 145,
-        reference: "135-145",
+        range: "135-145",
       },
-
       {
         name: "Potassium",
         unit: "mmol/L",
         min: 3.5,
         max: 5.1,
-        reference: "3.5-5.1",
+        range: "3.5-5.1",
       },
-
       {
         name: "Chloride",
         unit: "mmol/L",
         min: 98,
         max: 107,
-        reference: "98-107",
+        range: "98-107",
       },
     ],
   },
 
   {
     id: "lft",
-    name: "Liver Function Test (LFT)",
+    name: "Liver Function Test",
     short: "LFT",
     icon: "🧪",
     price: 500,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
         name: "Total Bilirubin",
         unit: "mg/dL",
-        min: 0.2,
+        min: 0.3,
         max: 1.2,
-        reference: "0.2-1.2",
+        range: "0.3-1.2",
       },
-
       {
         name: "Direct Bilirubin",
         unit: "mg/dL",
         min: 0,
         max: 0.3,
-        reference: "0.0-0.3",
+        range: "0-0.3",
       },
-
       {
         name: "Indirect Bilirubin",
         unit: "mg/dL",
         min: 0.2,
         max: 0.9,
-        reference: "0.2-0.9",
+        range: "0.2-0.9",
       },
-
       {
         name: "SGOT / AST",
         unit: "U/L",
+        min: 5,
         max: 40,
-        reference: "Up to 40",
+        range: "5-40",
       },
-
       {
         name: "SGPT / ALT",
         unit: "U/L",
+        min: 5,
         max: 40,
-        reference: "Up to 40",
+        range: "5-40",
       },
-
       {
-        name: "Alkaline Phosphatase (ALP)",
+        name: "Alkaline Phosphatase",
         unit: "U/L",
         min: 44,
         max: 147,
-        reference: "44-147",
+        range: "44-147",
       },
-
       {
         name: "Total Protein",
         unit: "g/dL",
-        min: 6,
+        min: 6.0,
         max: 8.3,
-        reference: "6.0-8.3",
+        range: "6.0-8.3",
       },
-
       {
         name: "Albumin",
         unit: "g/dL",
         min: 3.5,
-        max: 5.2,
-        reference: "3.5-5.2",
+        max: 5.0,
+        range: "3.5-5.0",
       },
-
       {
         name: "Globulin",
         unit: "g/dL",
-        min: 2,
+        min: 2.0,
         max: 3.5,
-        reference: "2.0-3.5",
+        range: "2.0-3.5",
       },
-
       {
         name: "A/G Ratio",
-        unit: "",
-        min: 1,
-        max: 2.2,
-        reference: "1.0-2.2",
+        unit: "Ratio",
+        min: 1.0,
+        max: 2.5,
+        range: "1.0-2.5",
       },
     ],
   },
@@ -547,77 +434,39 @@ const testGroups = [
     icon: "❤️",
     price: 500,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
         name: "Total Cholesterol",
         unit: "mg/dL",
-        max: 200,
-        reference: "Desirable: <200",
+        min: 0,
+        max: 199,
+        range: "Desirable: <200",
       },
-
       {
         name: "Triglycerides",
         unit: "mg/dL",
-        max: 150,
-        reference: "Normal: <150",
+        min: 0,
+        max: 149,
+        range: "Normal: <150",
       },
-
       {
         name: "HDL Cholesterol",
         unit: "mg/dL",
-        min: 40,
-        max: 60,
-        reference: "40-60",
+        range: "Male: >40 | Female: >50",
       },
-
       {
         name: "LDL Cholesterol",
         unit: "mg/dL",
-        max: 100,
-        reference: "Optimal: <100",
+        min: 0,
+        max: 99,
+        range: "Optimal: <100",
       },
-
       {
         name: "VLDL Cholesterol",
         unit: "mg/dL",
         min: 5,
         max: 40,
-        reference: "5-40",
-      },
-
-      {
-        name: "TC/HDL Ratio",
-        unit: "",
-        max: 5,
-        reference: "<5.0",
-      },
-
-      {
-        name: "LDL/HDL Ratio",
-        unit: "",
-        max: 3.5,
-        reference: "<3.5",
-      },
-    ],
-  },
-
-  {
-    id: "uricacid",
-    name: "Serum Uric Acid",
-    short: "Uric Acid",
-    icon: "🧪",
-    price: 150,
-    category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
-    tests: [
-      {
-        name: "Serum Uric Acid",
-        unit: "mg/dL",
-        reference:
-          "Male: 3.4-7.0 | Female: 2.4-6.0",
+        range: "5-40",
       },
     ],
   },
@@ -629,234 +478,128 @@ const testGroups = [
     icon: "🧪",
     price: 200,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
         name: "Serum Calcium",
         unit: "mg/dL",
         min: 8.5,
         max: 10.5,
-        reference: "8.5-10.5",
+        range: "8.5-10.5",
       },
     ],
   },
 
   {
-    id: "electrolytes",
-    name: "Serum Electrolytes",
-    short: "Electrolytes",
+    id: "phosphorus",
+    name: "Serum Phosphorus",
+    short: "Phosphorus",
+    icon: "🧪",
+    price: 200,
+    category: "Biochemistry",
+    tests: [
+      {
+        name: "Serum Phosphorus",
+        unit: "mg/dL",
+        min: 2.5,
+        max: 4.5,
+        range: "2.5-4.5",
+      },
+    ],
+  },
+
+  {
+    id: "amylase",
+    name: "Serum Amylase",
+    short: "Amylase",
     icon: "🧪",
     price: 400,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
-        name: "Sodium (Na+)",
-        unit: "mmol/L",
-        min: 135,
-        max: 145,
-        reference: "135-145",
-      },
-
-      {
-        name: "Potassium (K+)",
-        unit: "mmol/L",
-        min: 3.5,
-        max: 5.1,
-        reference: "3.5-5.1",
-      },
-
-      {
-        name: "Chloride (Cl-)",
-        unit: "mmol/L",
-        min: 98,
-        max: 107,
-        reference: "98-107",
+        name: "Serum Amylase",
+        unit: "U/L",
+        min: 30,
+        max: 110,
+        range: "30-110",
       },
     ],
   },
 
   {
-    id: "ironprofile",
-    name: "Iron Profile",
-    short: "Iron Profile",
-    icon: "🩸",
-    price: 700,
+    id: "lipase",
+    name: "Serum Lipase",
+    short: "Lipase",
+    icon: "🧪",
+    price: 500,
     category: "Biochemistry",
-    department: "BIOCHEMISTRY",
-
     tests: [
       {
-        name: "Serum Iron",
-        unit: "µg/dL",
-        min: 60,
-        max: 170,
-        reference: "60-170",
-      },
-
-      {
-        name: "TIBC",
-        unit: "µg/dL",
-        min: 240,
-        max: 450,
-        reference: "240-450",
-      },
-
-      {
-        name: "Transferrin Saturation",
-        unit: "%",
-        min: 20,
-        max: 50,
-        reference: "20-50",
-      },
-
-      {
-        name: "Serum Ferritin",
-        unit: "ng/mL",
-        reference:
-          "Lab / Age / Sex dependent",
+        name: "Serum Lipase",
+        unit: "U/L",
+        min: 13,
+        max: 60,
+        range: "13-60",
       },
     ],
   },
 
-  /* =======================================================
-     THYROID / IMMUNOASSAY
-     ======================================================= */
+  // =========================================================
+  // THYROID / HORMONE
+  // =========================================================
 
   {
     id: "thyroid",
     name: "Thyroid Profile",
-    short: "Thyroid",
+    short: "T3 T4 TSH",
     icon: "🧬",
     price: 600,
     category: "Hormone",
-    department: "IMMUNOASSAY",
-
     tests: [
       {
-        name: "T3 (Triiodothyronine)",
+        name: "T3",
         unit: "ng/dL",
         min: 80,
         max: 200,
-        reference: "80-200",
+        range: "80-200",
       },
-
       {
-        name: "T4 (Thyroxine)",
+        name: "T4",
         unit: "µg/dL",
-        min: 5,
-        max: 12,
-        reference: "5.0-12.0",
+        min: 5.1,
+        max: 14.1,
+        range: "5.1-14.1",
       },
-
       {
         name: "TSH",
         unit: "µIU/mL",
         min: 0.4,
-        max: 4.5,
-        reference: "0.4-4.5",
+        max: 4.0,
+        range: "0.4-4.0",
       },
     ],
   },
 
   {
-    id: "thyroidft3ft4",
-    name: "Thyroid Profile (FT3, FT4, TSH)",
-    short: "FT3 FT4 TSH",
+    id: "tsh",
+    name: "Thyroid Stimulating Hormone",
+    short: "TSH",
     icon: "🧬",
-    price: 750,
+    price: 300,
     category: "Hormone",
-    department: "IMMUNOASSAY",
-
     tests: [
-      {
-        name: "FT3",
-        unit: "pg/mL",
-        min: 2,
-        max: 4.4,
-        reference: "2.0-4.4",
-      },
-
-      {
-        name: "FT4",
-        unit: "ng/dL",
-        min: 0.8,
-        max: 1.8,
-        reference: "0.8-1.8",
-      },
-
       {
         name: "TSH",
         unit: "µIU/mL",
         min: 0.4,
-        max: 4.5,
-        reference: "0.4-4.5",
+        max: 4.0,
+        range: "0.4-4.0",
       },
     ],
   },
 
-  /* =======================================================
-     SEROLOGY
-     ======================================================= */
-
-  {
-    id: "crp",
-    name: "C-Reactive Protein (CRP)",
-    short: "CRP",
-    icon: "🧪",
-    price: 300,
-    category: "Serology",
-    department: "SEROLOGY",
-
-    tests: [
-      {
-        name: "C-Reactive Protein",
-        unit: "mg/L",
-        max: 6,
-        reference: "<6",
-      },
-    ],
-  },
-
-  {
-    id: "rafactor",
-    name: "Rheumatoid Factor",
-    short: "RA Factor",
-    icon: "🧪",
-    price: 300,
-    category: "Serology",
-    department: "SEROLOGY",
-
-    tests: [
-      {
-        name: "Rheumatoid Factor",
-        unit: "IU/mL",
-        max: 14,
-        reference: "<14",
-      },
-    ],
-  },
-
-  {
-    id: "aso",
-    name: "ASO Titre",
-    short: "ASO",
-    icon: "🧪",
-    price: 300,
-    category: "Serology",
-    department: "SEROLOGY",
-
-    tests: [
-      {
-        name: "ASO Titre",
-        unit: "IU/mL",
-        max: 200,
-        reference: "<200",
-      },
-    ],
-  },
+  // =========================================================
+  // SEROLOGY
+  // =========================================================
 
   {
     id: "widal",
@@ -865,79 +608,80 @@ const testGroups = [
     icon: "🧫",
     price: 200,
     category: "Serology",
-    department: "SEROLOGY",
-
     tests: [
       {
         name: "S. Typhi O",
         unit: "Titre",
-        reference: "Lab / Regional cut-off",
+        range: "Report titre",
       },
-
       {
         name: "S. Typhi H",
         unit: "Titre",
-        reference: "Lab / Regional cut-off",
+        range: "Report titre",
       },
-
       {
-        name: "S. Paratyphi AH",
+        name: "S. Typhi AH",
         unit: "Titre",
-        reference: "Lab / Regional cut-off",
+        range: "Report titre",
       },
-
       {
-        name: "S. Paratyphi BH",
+        name: "S. Typhi BH",
         unit: "Titre",
-        reference: "Lab / Regional cut-off",
+        range: "Report titre",
       },
     ],
   },
 
   {
-    id: "dengue",
-    name: "Dengue Profile",
-    short: "Dengue",
-    icon: "🦟",
-    price: 800,
+    id: "crp",
+    name: "C-Reactive Protein",
+    short: "CRP",
+    icon: "🧫",
+    price: 350,
     category: "Serology",
-    department: "SEROLOGY",
-
     tests: [
       {
-        name: "Dengue NS1 Antigen",
-        unit: "",
-        reference: "Negative",
-      },
-
-      {
-        name: "Dengue IgM",
-        unit: "",
-        reference: "Negative",
-      },
-
-      {
-        name: "Dengue IgG",
-        unit: "",
-        reference: "Negative",
+        name: "C-Reactive Protein",
+        unit: "mg/L",
+        min: 0,
+        max: 6,
+        range: "<6",
       },
     ],
   },
 
   {
-    id: "hbsag",
-    name: "HBsAg",
-    short: "HBsAg",
-    icon: "🧪",
+    id: "ra",
+    name: "Rheumatoid Factor",
+    short: "RA Factor",
+    icon: "🧫",
     price: 300,
     category: "Serology",
-    department: "SEROLOGY",
-
     tests: [
       {
-        name: "HBsAg",
-        unit: "",
-        reference: "Non-Reactive",
+        name: "Rheumatoid Factor",
+        unit: "IU/mL",
+        min: 0,
+        max: 14,
+        range: "<14",
+      },
+    ],
+  },
+
+  {
+    id: "aso",
+    name: "Anti Streptolysin O",
+    short: "ASO",
+    icon: "🧫",
+    price: 300,
+    category: "Serology",
+    tests: [
+      {
+        name: "ASO Titre",
+        unit: "IU/mL",
+        min: 0,
+        max: 200,
+        range: "<200",
       },
     ],
   },
@@ -946,93 +690,53 @@ const testGroups = [
     id: "hiv",
     name: "HIV 1 & 2",
     short: "HIV",
-    icon: "🧪",
-    price: 350,
+    icon: "🧫",
+    price: 300,
     category: "Serology",
-    department: "SEROLOGY",
-
     tests: [
       {
         name: "HIV 1 & 2",
         unit: "",
-        reference: "Non-Reactive",
+        range: "Non-Reactive",
+      },
+    ],
+  },
+
+  {
+    id: "hbsag",
+    name: "Hepatitis B Surface Antigen",
+    short: "HBsAg",
+    icon: "🧫",
+    price: 300,
+    category: "Serology",
+    tests: [
+      {
+        name: "HBsAg",
+        unit: "",
+        range: "Non-Reactive",
       },
     ],
   },
 
   {
     id: "hcv",
-    name: "Anti-HCV",
+    name: "Hepatitis C Virus Antibody",
     short: "Anti-HCV",
-    icon: "🧪",
-    price: 400,
+    icon: "🧫",
+    price: 500,
     category: "Serology",
-    department: "SEROLOGY",
-
     tests: [
       {
         name: "Anti-HCV",
         unit: "",
-        reference: "Non-Reactive",
+        range: "Non-Reactive",
       },
     ],
   },
 
-  {
-    id: "vdrl",
-    name: "VDRL",
-    short: "VDRL",
-    icon: "🧪",
-    price: 250,
-    category: "Serology",
-    department: "SEROLOGY",
-
-    tests: [
-      {
-        name: "VDRL",
-        unit: "",
-        reference: "Non-Reactive",
-      },
-    ],
-  },
-
-  /* =======================================================
-     PARASITOLOGY
-     ======================================================= */
-
-  {
-    id: "malaria",
-    name: "Malaria Test",
-    short: "Malaria",
-    icon: "🦟",
-    price: 250,
-    category: "Parasitology",
-    department: "PARASITOLOGY",
-
-    tests: [
-      {
-        name: "Malaria Parasite",
-        unit: "",
-        reference: "Not Detected",
-      },
-
-      {
-        name: "P. falciparum",
-        unit: "",
-        reference: "Negative",
-      },
-
-      {
-        name: "P. vivax",
-        unit: "",
-        reference: "Negative",
-      },
-    ],
-  },
-
-  /* =======================================================
-     CLINICAL PATHOLOGY
-     ======================================================= */
+  // =========================================================
+  // CLINICAL PATHOLOGY
+  // =========================================================
 
   {
     id: "urine",
@@ -1041,109 +745,81 @@ const testGroups = [
     icon: "🔬",
     price: 150,
     category: "Clinical Pathology",
-    department: "CLINICAL PATHOLOGY",
-
     tests: [
       {
         name: "Colour",
         unit: "",
-        reference: "Pale Yellow",
+        range: "Pale Yellow",
       },
-
       {
         name: "Appearance",
         unit: "",
-        reference: "Clear",
+        range: "Clear",
       },
-
+      {
+        name: "Reaction / pH",
+        unit: "",
+        range: "4.5-8.0",
+      },
       {
         name: "Specific Gravity",
         unit: "",
-        reference: "1.005-1.030",
+        range: "1.005-1.030",
       },
-
       {
-        name: "pH",
+        name: "Albumin",
         unit: "",
-        reference: "4.5-8.0",
+        range: "Nil",
       },
-
       {
-        name: "Protein / Albumin",
+        name: "Sugar",
         unit: "",
-        reference: "Negative",
+        range: "Nil",
       },
-
-      {
-        name: "Sugar / Glucose",
-        unit: "",
-        reference: "Negative",
-      },
-
       {
         name: "Ketone Bodies",
         unit: "",
-        reference: "Negative",
+        range: "Negative",
       },
-
       {
         name: "Bile Salt",
         unit: "",
-        reference: "Negative",
+        range: "Negative",
       },
-
       {
         name: "Bile Pigment",
         unit: "",
-        reference: "Negative",
+        range: "Negative",
       },
-
-      {
-        name: "Blood",
-        unit: "",
-        reference: "Negative",
-      },
-
       {
         name: "Pus Cells",
         unit: "/HPF",
-        reference: "0-5",
+        range: "0-5",
       },
-
       {
         name: "Epithelial Cells",
         unit: "/HPF",
-        reference: "0-5",
+        range: "0-5",
       },
-
       {
         name: "RBC",
         unit: "/HPF",
-        reference: "0-2",
+        range: "0-2",
       },
-
       {
         name: "Casts",
         unit: "/LPF",
-        reference: "Nil",
+        range: "Nil",
       },
-
       {
         name: "Crystals",
         unit: "",
-        reference: "Nil",
+        range: "Nil",
       },
-
       {
         name: "Bacteria",
         unit: "",
-        reference: "Nil",
-      },
-
-      {
-        name: "Yeast Cells",
-        unit: "",
-        reference: "Nil",
+        range: "Nil",
       },
     ],
   },
@@ -1155,61 +831,150 @@ const testGroups = [
     icon: "🔬",
     price: 150,
     category: "Clinical Pathology",
-    department: "CLINICAL PATHOLOGY",
-
     tests: [
       {
         name: "Colour",
         unit: "",
-        reference: "Brown",
+        range: "Brown",
       },
-
       {
         name: "Consistency",
         unit: "",
-        reference: "Formed",
+        range: "Formed",
       },
-
       {
         name: "Mucus",
         unit: "",
-        reference: "Absent",
+        range: "Absent",
       },
-
       {
         name: "Blood",
         unit: "",
-        reference: "Absent",
+        range: "Absent",
       },
-
       {
         name: "Pus Cells",
         unit: "/HPF",
-        reference: "Nil / Few",
+        range: "Nil / Few",
       },
-
       {
         name: "RBC",
         unit: "/HPF",
-        reference: "Nil",
+        range: "Nil",
       },
-
       {
         name: "Ova",
         unit: "",
-        reference: "Not Seen",
+        range: "Not Seen",
       },
-
       {
         name: "Cyst",
         unit: "",
-        reference: "Not Seen",
+        range: "Not Seen",
       },
-
       {
         name: "Parasite",
         unit: "",
-        reference: "Not Seen",
+        range: "Not Seen",
+      },
+    ],
+  },
+
+  // =========================================================
+  // COAGULATION
+  // =========================================================
+
+  {
+    id: "ptinr",
+    name: "Prothrombin Time / INR",
+    short: "PT / INR",
+    icon: "🩸",
+    price: 400,
+    category: "Coagulation",
+    tests: [
+      {
+        name: "Prothrombin Time",
+        unit: "sec",
+        range: "Lab control dependent",
+      },
+      {
+        name: "Control",
+        unit: "sec",
+        range: "Laboratory Control",
+      },
+      {
+        name: "INR",
+        unit: "",
+        min: 0.8,
+        max: 1.2,
+        range: "0.8-1.2",
+      },
+    ],
+  },
+
+  {
+    id: "aptt",
+    name: "Activated Partial Thromboplastin Time",
+    short: "APTT",
+    icon: "🩸",
+    price: 400,
+    category: "Coagulation",
+    tests: [
+      {
+        name: "APTT",
+        unit: "sec",
+        range: "Lab control dependent",
+      },
+      {
+        name: "Control",
+        unit: "sec",
+        range: "Laboratory Control",
+      },
+    ],
+  },
+
+  {
+    id: "btct",
+    name: "Bleeding Time / Clotting Time",
+    short: "BT / CT",
+    icon: "🩸",
+    price: 150,
+    category: "Coagulation",
+    tests: [
+      {
+        name: "Bleeding Time",
+        unit: "min",
+        range: "Method dependent",
+      },
+      {
+        name: "Clotting Time",
+        unit: "min",
+        range: "Method dependent",
+      },
+    ],
+  },
+
+  // =========================================================
+  // OTHER COMMON TESTS
+  // =========================================================
+
+  {
+    id: "bloodgroup",
+    name: "ABO & Rh Blood Group",
+    short: "Blood Group",
+    icon: "🩸",
+    price: 100,
+    category: "Hematology",
+    tests: [
+      {
+        name: "ABO Blood Group",
+        unit: "",
+        range: "A / B / AB / O",
+      },
+      {
+        name: "Rh Type",
+        unit: "",
+        range: "Positive / Negative",
       },
     ],
   },
@@ -1221,211 +986,166 @@ const testGroups = [
     icon: "🧪",
     price: 150,
     category: "Clinical Pathology",
-    department: "CLINICAL PATHOLOGY",
-
     tests: [
       {
         name: "Urine Pregnancy Test",
         unit: "",
-        reference: "Negative",
+        range: "Negative",
       },
     ],
   },
 
   {
-    id: "semen",
-    name: "Semen Analysis",
-    short: "Semen Analysis",
+    id: "malaria",
+    name: "Malaria Parasite",
+    short: "MP",
     icon: "🔬",
-    price: 500,
-    category: "Clinical Pathology",
-    department: "CLINICAL PATHOLOGY",
-
+    price: 200,
+    category: "Hematology",
     tests: [
       {
-        name: "Volume",
-        unit: "mL",
-        reference: "≥1.4",
-      },
-
-      {
-        name: "Colour / Appearance",
+        name: "Malaria Parasite",
         unit: "",
-        reference: "Grey-opalescent",
-      },
-
-      {
-        name: "Liquefaction Time",
-        unit: "minutes",
-        reference: "Within 60",
-      },
-
-      {
-        name: "pH",
-        unit: "",
-        reference: "≥7.2",
-      },
-
-      {
-        name: "Sperm Concentration",
-        unit: "million/mL",
-        reference: "≥16",
-      },
-
-      {
-        name: "Total Sperm Number",
-        unit: "million/ejaculate",
-        reference: "≥39",
-      },
-
-      {
-        name: "Total Motility",
-        unit: "%",
-        reference: "≥42",
-      },
-
-      {
-        name: "Progressive Motility",
-        unit: "%",
-        reference: "≥30",
-      },
-
-      {
-        name: "Normal Forms",
-        unit: "%",
-        reference: "≥4",
-      },
-
-      {
-        name: "Pus Cells",
-        unit: "/HPF",
-        reference: "Few / Nil",
+        range: "Not Seen",
       },
     ],
   },
 ];
 
-/* =========================================================
-   MAIN COMPONENT
-   ========================================================= */
+const CATEGORIES = [
+  "All",
+  "Hematology",
+  "Biochemistry",
+  "Serology",
+  "Clinical Pathology",
+  "Hormone",
+  "Coagulation",
+];
 
 export default function TestsPage() {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
   const [selected, setSelected] = useState([]);
 
-  /* Load already selected tests if user comes back */
+  // ---------------------------------------------------------
+  // LOAD PREVIOUSLY SELECTED TESTS
+  // ---------------------------------------------------------
 
   useEffect(() => {
     try {
       const saved = JSON.parse(
-        localStorage.getItem(
-          "nidanSelectedTests"
-        ) || "[]"
+        localStorage.getItem("nidanSelectedTests") || "[]"
       );
 
       if (Array.isArray(saved)) {
         /*
-         * Important:
-         * Old saved tests may contain string parameters.
-         * Rebuild them from the new master library.
-         */
+          Rebuild from current MASTER_TESTS so old localStorage
+          entries using string parameters do not break Result Entry.
+        */
+        const ids = saved.map((item) => item.id);
 
-        const restored = saved
-          .map((savedTest) =>
-            testGroups.find(
-              (masterTest) =>
-                masterTest.id === savedTest.id
-            )
-          )
-          .filter(Boolean);
+        const restored = MASTER_TESTS.filter((item) =>
+          ids.includes(item.id)
+        );
 
         setSelected(restored);
       }
     } catch (error) {
-      console.error(
-        "Selected tests load error:",
-        error
-      );
+      console.error("Selected test load error:", error);
     }
   }, []);
 
-  /* Search */
+  // ---------------------------------------------------------
+  // FILTER TESTS
+  // ---------------------------------------------------------
 
   const filteredTests = useMemo(() => {
-    const value = search
-      .toLowerCase()
-      .trim();
+    const value = search.toLowerCase().trim();
 
-    if (!value) return testGroups;
+    return MASTER_TESTS.filter((item) => {
+      const categoryMatch =
+        category === "All" || item.category === category;
 
-    return testGroups.filter((item) => {
-      const parameterNames = item.tests
-        .map((parameter) => parameter.name)
-        .join(" ")
-        .toLowerCase();
+      if (!categoryMatch) return false;
+
+      if (!value) return true;
+
+      const parameterMatch = item.tests.some((parameter) =>
+        parameter.name.toLowerCase().includes(value)
+      );
 
       return (
-        item.name
-          .toLowerCase()
-          .includes(value) ||
-        item.short
-          .toLowerCase()
-          .includes(value) ||
-        item.category
-          .toLowerCase()
-          .includes(value) ||
-        parameterNames.includes(value)
+        item.name.toLowerCase().includes(value) ||
+        item.short.toLowerCase().includes(value) ||
+        item.category.toLowerCase().includes(value) ||
+        parameterMatch
       );
     });
-  }, [search]);
+  }, [search, category]);
 
-  /* Select / Unselect */
+  // ---------------------------------------------------------
+  // SELECT / REMOVE
+  // ---------------------------------------------------------
 
   function toggleTest(item) {
-    setSelected((current) => {
-      const alreadySelected =
-        current.some(
-          (test) => test.id === item.id
-        );
+    setSelected((previous) => {
+      const exists = previous.some(
+        (test) => test.id === item.id
+      );
 
-      if (alreadySelected) {
-        return current.filter(
+      if (exists) {
+        return previous.filter(
           (test) => test.id !== item.id
         );
       }
 
-      return [...current, item];
+      return [...previous, item];
     });
   }
 
-  /* Total */
+  function clearAll() {
+    if (selected.length === 0) return;
+
+    const confirmClear = window.confirm(
+      "Sabhi selected tests remove karna hai?"
+    );
+
+    if (confirmClear) {
+      setSelected([]);
+    }
+  }
+
+  // ---------------------------------------------------------
+  // TOTAL
+  // ---------------------------------------------------------
 
   const totalAmount = selected.reduce(
-    (sum, item) =>
-      sum + Number(item.price || 0),
+    (sum, item) => sum + Number(item.price || 0),
     0
   );
 
-  /* Continue */
+  const totalParameters = selected.reduce(
+    (sum, item) => sum + (item.tests?.length || 0),
+    0
+  );
+
+  // ---------------------------------------------------------
+  // CONTINUE BILLING
+  // ---------------------------------------------------------
 
   function continueBilling() {
     if (selected.length === 0) {
-      alert(
-        "Kam se kam ek test select karein."
-      );
+      alert("Kam se kam ek test select karein.");
       return;
     }
 
     /*
-     * Remove old result data because parameter
-     * structure may have changed.
-     */
-
-    localStorage.removeItem(
-      "nidanResults"
-    );
+      Clear old results because test structure may have changed.
+      This prevents old patient/test result keys from mixing.
+    */
+    localStorage.removeItem("nidanResults");
 
     localStorage.setItem(
       "nidanSelectedTests",
@@ -1442,14 +1162,13 @@ export default function TestsPage() {
 
   return (
     <div className="labApp">
-
-      {/* SIDEBAR */}
+      {/* =====================================================
+          SIDEBAR
+      ====================================================== */}
 
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandLogo">
-            N+
-          </div>
+          <div className="brandLogo">N+</div>
 
           <div>
             <h2>NIDAN</h2>
@@ -1463,9 +1182,7 @@ export default function TestsPage() {
 
         <button
           className="menu"
-          onClick={() =>
-            router.push("/")
-          }
+          onClick={() => router.push("/")}
         >
           <span>⌂</span>
           Dashboard
@@ -1473,9 +1190,7 @@ export default function TestsPage() {
 
         <button
           className="menu"
-          onClick={() =>
-            router.push("/patients")
-          }
+          onClick={() => router.push("/patients")}
         >
           <span>♙</span>
           Patients
@@ -1488,9 +1203,7 @@ export default function TestsPage() {
 
         <button
           className="menu"
-          onClick={() =>
-            router.push("/billing")
-          }
+          onClick={() => router.push("/billing")}
         >
           <span>₹</span>
           Billing
@@ -1498,9 +1211,7 @@ export default function TestsPage() {
 
         <button
           className="menu"
-          onClick={() =>
-            router.push("/results")
-          }
+          onClick={() => router.push("/results")}
         >
           <span>✎</span>
           Result Entry
@@ -1508,40 +1219,36 @@ export default function TestsPage() {
 
         <button
           className="menu"
-          onClick={() =>
-            router.push("/reports")
-          }
+          onClick={() => router.push("/reports")}
         >
           <span>▤</span>
           Reports
         </button>
       </aside>
 
-      {/* MAIN */}
+      {/* =====================================================
+          MAIN
+      ====================================================== */}
 
       <main className="mainArea">
-
         <header className="topbar">
           <div>
-            <h3>
-              Test Selection
-            </h3>
-
+            <h3>Test Selection</h3>
             <p>
-              Select laboratory
-              investigations for the patient
+              Select laboratory investigations for the patient
             </p>
           </div>
 
           <div className="topRight">
-            <span className="statusDot" />
+            <span className="statusDot"></span>
             NIDAN Lab System
           </div>
         </header>
 
         <div className="content">
-
-          {/* HEADING */}
+          {/* =================================================
+              PAGE HEADING
+          ================================================== */}
 
           <div className="pageHeading">
             <div>
@@ -1549,218 +1256,233 @@ export default function TestsPage() {
                 STEP 2 OF 5
               </div>
 
-              <h1>
-                Select Laboratory Tests
-              </h1>
+              <h1>Select Laboratory Tests</h1>
 
               <p>
-                Patient ke liye required test
-                ya profile select karein.
+                Patient ke liye required test ya profile
+                select karein.
               </p>
             </div>
 
             <button
               className="backBtn"
-              onClick={() =>
-                router.back()
-              }
+              onClick={() => router.push("/patients")}
             >
-              ← Back
+              ← Back to Patient
             </button>
           </div>
 
-          {/* STEPS */}
+          {/* =================================================
+              STEPS
+          ================================================== */}
 
           <div className="steps">
-
             <div className="step">
               <span>✓</span>
-
               <div>
                 Patient
-                <small>
-                  Registered
-                </small>
+                <small>Registered</small>
               </div>
             </div>
 
             <div className="step activeStep">
               <span>2</span>
-
               <div>
                 Tests
-                <small>
-                  Select Tests
-                </small>
+                <small>Select Tests</small>
               </div>
             </div>
 
             <div className="step">
               <span>3</span>
-
               <div>
                 Billing
-                <small>
-                  Create Bill
-                </small>
+                <small>Create Bill</small>
               </div>
             </div>
 
             <div className="step">
               <span>4</span>
-
               <div>
                 Results
-                <small>
-                  Enter Results
-                </small>
+                <small>Enter Results</small>
               </div>
             </div>
 
             <div className="step">
               <span>5</span>
-
               <div>
                 Report
-                <small>
-                  Print / PDF
-                </small>
+                <small>Print / PDF</small>
               </div>
             </div>
-
           </div>
 
-          {/* WORKSPACE */}
+          {/* =================================================
+              WORKSPACE
+          ================================================== */}
 
           <div className="testWorkspace">
-
-            {/* TEST LIST */}
-
             <section className="testSelectionPanel">
+              {/* SEARCH */}
 
               <div className="testSearchBox">
                 <input
                   type="text"
-                  placeholder="🔎 Search CBC, LFT, KFT, Sugar, Thyroid..."
+                  placeholder="🔎 Search CBC, LFT, KFT, Sugar, Thyroid, CRP..."
                   value={search}
                   onChange={(event) =>
-                    setSearch(
-                      event.target.value
-                    )
+                    setSearch(event.target.value)
                   }
                 />
               </div>
 
+              {/* CATEGORY FILTER */}
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                  marginBottom: "20px",
+                }}
+              >
+                {CATEGORIES.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setCategory(item)}
+                    style={{
+                      border:
+                        category === item
+                          ? "1px solid #0fa8a0"
+                          : "1px solid #dce3ea",
+
+                      background:
+                        category === item
+                          ? "#e8fbf9"
+                          : "#ffffff",
+
+                      color:
+                        category === item
+                          ? "#07877f"
+                          : "#53606f",
+
+                      padding: "8px 13px",
+                      borderRadius: "20px",
+                      cursor: "pointer",
+                      fontWeight: "700",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+
+              {/* HEADING */}
+
               <div className="sectionHeading">
                 <div>
-                  <h2>
-                    Available Tests
-                  </h2>
+                  <h2>Available Tests</h2>
 
                   <p>
-                    Profile select karne par
-                    uske sabhi parameters
-                    result entry aur report me
-                    add honge.
+                    {filteredTests.length} tests/profiles
+                    available
                   </p>
                 </div>
               </div>
 
-              <div className="testCards">
+              {/* TEST CARDS */}
 
-                {filteredTests.length ===
-                0 ? (
+              <div className="testCards">
+                {filteredTests.length === 0 ? (
                   <div
                     style={{
-                      padding: "25px",
+                      padding: "40px",
+                      textAlign: "center",
+                      background: "#fff",
+                      border: "1px solid #e5e9ef",
+                      borderRadius: "12px",
                     }}
                   >
-                    No test found.
+                    <div
+                      style={{
+                        fontSize: "35px",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      🔎
+                    </div>
+
+                    <strong>
+                      Test nahi mila
+                    </strong>
+
+                    <p>
+                      Search ya category change karein.
+                    </p>
                   </div>
                 ) : (
-                  filteredTests.map(
-                    (item) => {
-                      const active =
-                        selected.some(
-                          (test) =>
-                            test.id ===
-                            item.id
-                        );
+                  filteredTests.map((item) => {
+                    const active = selected.some(
+                      (test) => test.id === item.id
+                    );
 
-                      return (
-                        <button
-                          key={item.id}
-                          className={
-                            active
-                              ? "testCard selectedTest"
-                              : "testCard"
-                          }
-                          onClick={() =>
-                            toggleTest(
-                              item
-                            )
-                          }
-                        >
-                          <div className="testCardTop">
-                            <span className="testEmoji">
-                              {
-                                item.icon
-                              }
-                            </span>
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={
+                          active
+                            ? "testCard selectedTest"
+                            : "testCard"
+                        }
+                        onClick={() => toggleTest(item)}
+                      >
+                        <div className="testCardTop">
+                          <span className="testEmoji">
+                            {item.icon}
+                          </span>
 
-                            <span className="testCheck">
-                              {active
-                                ? "✓"
-                                : "+"}
-                            </span>
-                          </div>
+                          <span className="testCheck">
+                            {active ? "✓" : "+"}
+                          </span>
+                        </div>
 
-                          <h3>
-                            {
-                              item.short
-                            }
-                          </h3>
+                        <h3>
+                          {item.short}
+                        </h3>
 
-                          <p>
-                            {item.name}
-                          </p>
+                        <p>
+                          {item.name}
+                        </p>
 
-                          <div className="testMeta">
-                            <span>
-                              {
-                                item.category
-                              }
-                            </span>
+                        <div className="testMeta">
+                          <span>
+                            {item.category}
+                          </span>
 
-                            <span>
-                              {
-                                item
-                                  .tests
-                                  .length
-                              }{" "}
-                              Parameters
-                            </span>
-                          </div>
+                          <span>
+                            {item.tests.length} Parameters
+                          </span>
+                        </div>
 
-                          <div className="testPrice">
-                            ₹
-                            {
-                              item.price
-                            }
-                          </div>
-                        </button>
-                      );
-                    }
-                  )
+                        <div className="testPrice">
+                          ₹{item.price}
+                        </div>
+                      </button>
+                    );
+                  })
                 )}
-
               </div>
             </section>
 
-            {/* SELECTED PANEL */}
+            {/* =================================================
+                SELECTED PANEL
+            ================================================== */}
 
             <aside className="selectedPanel">
-
               <div className="selectedHeader">
                 <div>
                   <h2>
@@ -1768,8 +1490,7 @@ export default function TestsPage() {
                   </h2>
 
                   <p>
-                    {selected.length}{" "}
-                    test/profile selected
+                    {selected.length} test/profile selected
                   </p>
                 </div>
 
@@ -1777,6 +1498,26 @@ export default function TestsPage() {
                   {selected.length}
                 </div>
               </div>
+
+              {selected.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  style={{
+                    width: "100%",
+                    marginBottom: "12px",
+                    padding: "8px",
+                    border: "1px solid #efcccc",
+                    background: "#fff",
+                    color: "#b43b3b",
+                    borderRadius: "7px",
+                    cursor: "pointer",
+                    fontWeight: "700",
+                  }}
+                >
+                  Clear All
+                </button>
+              )}
 
               {selected.length === 0 ? (
                 <div className="noSelectedTest">
@@ -1787,64 +1528,48 @@ export default function TestsPage() {
                   </h3>
 
                   <p>
-                    Laboratory tests select
+                    Left side se laboratory tests select
                     karein.
                   </p>
                 </div>
               ) : (
                 <div className="selectedList">
+                  {selected.map((item) => (
+                    <div
+                      className="selectedItem"
+                      key={item.id}
+                    >
+                      <div>
+                        <strong>
+                          {item.short}
+                        </strong>
 
-                  {selected.map(
-                    (item) => (
-                      <div
-                        className="selectedItem"
-                        key={item.id}
-                      >
-                        <div>
-                          <strong>
-                            {
-                              item.short
-                            }
-                          </strong>
-
-                          <small>
-                            {
-                              item
-                                .tests
-                                .length
-                            }{" "}
-                            parameters
-                          </small>
-                        </div>
-
-                        <div className="selectedPrice">
-                          ₹
-                          {
-                            item.price
-                          }
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              toggleTest(
-                                item
-                              )
-                            }
-                          >
-                            ×
-                          </button>
-                        </div>
+                        <small>
+                          {item.tests.length} parameters
+                        </small>
                       </div>
-                    )
-                  )}
 
+                      <div className="selectedPrice">
+                        ₹{item.price}
+
+                        <button
+                          type="button"
+                          aria-label={`Remove ${item.name}`}
+                          onClick={() =>
+                            toggleTest(item)
+                          }
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {/* BILL SUMMARY */}
+              {/* SUMMARY */}
 
               <div className="billSummary">
-
                 <div>
                   <span>
                     Selected Tests
@@ -1852,6 +1577,16 @@ export default function TestsPage() {
 
                   <strong>
                     {selected.length}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Total Parameters
+                  </span>
+
+                  <strong>
+                    {totalParameters}
                   </strong>
                 </div>
 
@@ -1864,20 +1599,30 @@ export default function TestsPage() {
                     ₹{totalAmount}
                   </strong>
                 </div>
-
               </div>
+
+              {/* CONTINUE */}
 
               <button
                 className="continueBtn"
-                onClick={
-                  continueBilling
-                }
+                onClick={continueBilling}
               >
                 Continue to Billing →
               </button>
 
+              <p
+                style={{
+                  margin: "12px 0 0",
+                  fontSize: "11px",
+                  color: "#7b8795",
+                  lineHeight: "1.5",
+                  textAlign: "center",
+                }}
+              >
+                Selected test parameters automatically
+                Result Entry aur Final Report me jayenge.
+              </p>
             </aside>
-
           </div>
         </div>
       </main>
