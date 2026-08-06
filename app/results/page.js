@@ -5,19 +5,7 @@ import { useRouter } from "next/navigation";
 
 /* =========================================================
    NIDAN PATHOLOGY LAB
-   RESULT ENTRY PAGE
-   app/results/page.js
-
-   Features:
-   - Patient details
-   - Selected test navigation
-   - Numeric + text results
-   - Automatic HIGH / LOW / NORMAL flags
-   - Male / Female reference support
-   - String + object parameter compatibility
-   - Result progress
-   - LocalStorage save
-   - Final report navigation
+   ADVANCED RESULT ENTRY PAGE
    ========================================================= */
 
 export default function ResultsPage() {
@@ -27,117 +15,81 @@ export default function ResultsPage() {
   const [selectedTests, setSelectedTests] = useState([]);
   const [results, setResults] = useState({});
   const [activeTest, setActiveTest] = useState("");
-  const [loaded, setLoaded] = useState(false);
+  const [savedMessage, setSavedMessage] = useState("");
 
-  /* =======================================================
-     LOAD SAVED DATA
-     ======================================================= */
+  /* =========================================================
+     LOAD DATA
+     ========================================================= */
 
   useEffect(() => {
     try {
-      const savedPatient = JSON.parse(
+      const patientData = JSON.parse(
         localStorage.getItem("nidanPatient") || "{}"
       );
 
-      const savedTests = JSON.parse(
+      const testData = JSON.parse(
         localStorage.getItem("nidanSelectedTests") || "[]"
       );
 
-      const savedResults = JSON.parse(
+      const resultData = JSON.parse(
         localStorage.getItem("nidanResults") || "{}"
       );
 
-      setPatient(savedPatient || {});
-      setSelectedTests(
-        Array.isArray(savedTests) ? savedTests : []
-      );
+      setPatient(patientData);
+      setSelectedTests(testData);
+      setResults(resultData);
 
-      setResults(
-        savedResults &&
-          typeof savedResults === "object" &&
-          !Array.isArray(savedResults)
-          ? savedResults
-          : {}
-      );
-
-      if (
-        Array.isArray(savedTests) &&
-        savedTests.length > 0
-      ) {
-        setActiveTest(savedTests[0]?.id || "");
+      if (testData.length > 0) {
+        setActiveTest(testData[0].id);
       }
     } catch (error) {
-      console.error(
-        "Result page data load error:",
-        error
-      );
-
-      setPatient({});
-      setSelectedTests([]);
-      setResults({});
-    } finally {
-      setLoaded(true);
+      console.error("Result page load error:", error);
     }
   }, []);
 
-  /* =======================================================
-     BASIC HELPERS
-     ======================================================= */
+  /* =========================================================
+     CURRENT TEST
+     ========================================================= */
 
-  function normalizeText(value) {
-    return String(value ?? "")
-      .toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/[^a-z0-9]+/g, "");
-  }
+  const currentTest = useMemo(() => {
+    return selectedTests.find(
+      (test) => test.id === activeTest
+    );
+  }, [selectedTests, activeTest]);
 
-  function getParameterName(parameter) {
-    if (typeof parameter === "string") {
-      return parameter;
+  /* =========================================================
+     PATIENT AGE / GENDER
+     ========================================================= */
+
+  function getPatientAge() {
+    const age = parseFloat(patient.age);
+
+    if (Number.isNaN(age)) {
+      return null;
     }
 
-    return (
-      parameter?.name ||
-      parameter?.parameterName ||
-      parameter?.parameter_name ||
-      parameter?.testName ||
-      parameter?.label ||
-      "Investigation"
-    );
+    return age;
   }
 
-  function getParameterKey(
-    testId,
-    parameter,
-    index
-  ) {
-    const parameterName =
-      getParameterName(parameter);
-
-    return `${testId}-${parameterName}-${index}`;
-  }
-
-  function getPatientSex() {
-    const value = String(
-      patient?.gender ||
-        patient?.sex ||
-        ""
+  function getPatientGender() {
+    const gender = String(
+      patient.gender || patient.sex || ""
     )
       .trim()
       .toLowerCase();
 
     if (
-      value === "male" ||
-      value === "m" ||
-      value.startsWith("male")
+      gender === "male" ||
+      gender === "m" ||
+      gender === "पुरुष"
     ) {
       return "male";
     }
 
     if (
-      value === "female" ||
-      value === "f" ||
-      value.startsWith("female")
+      gender === "female" ||
+      gender === "f" ||
+      gender === "महिला"
     ) {
       return "female";
     }
@@ -145,725 +97,689 @@ export default function ResultsPage() {
     return "";
   }
 
-  function getNumericValue(value) {
-    if (
-      value === "" ||
-      value === undefined ||
-      value === null
-    ) {
-      return null;
-    }
+  /* =========================================================
+     PARAMETER NAME NORMALIZER
+     ========================================================= */
 
-    const cleaned = String(value)
-      .replace(/,/g, "")
+  function normalizeParameterName(name = "") {
+    return String(name)
+      .toLowerCase()
+      .replace(/[()]/g, "")
+      .replace(/[./_-]/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
-
-    if (!cleaned) return null;
-
-    /*
-      Strict numeric check.
-      "Positive", "Negative", "1:80" etc.
-      numeric result nahi maane jayenge.
-    */
-
-    if (!/^-?\d+(\.\d+)?$/.test(cleaned)) {
-      return null;
-    }
-
-    const number = Number(cleaned);
-
-    return Number.isFinite(number)
-      ? number
-      : null;
   }
 
-  /* =======================================================
-     MASTER FALLBACK PARAMETER INFORMATION
+  /* =========================================================
+     DEFAULT REFERENCE DATABASE
+     Used only when parameter itself does not contain
+     min/max/range/reference information.
+     ========================================================= */
 
-     Current Tests page me agar parameters sirf strings hain,
-     tab bhi unit/reference/result entry useful rahega.
+  function getDefaultReference(parameterName) {
+    const name = normalizeParameterName(parameterName);
 
-     IMPORTANT:
-     Ye software defaults hain.
-     Production use me apne laboratory method/analyser ke
-     validated reference intervals ke according configure karein.
-     ======================================================= */
+    const gender = getPatientGender();
+    const age = getPatientAge();
 
-  function getFallbackParameter(parameterName) {
-    const name = normalizeText(parameterName);
+    /* -------------------------
+       CBC
+       ------------------------- */
 
-    const library = {
-      hemoglobin: {
+    if (
+      name === "hemoglobin" ||
+      name === "haemoglobin" ||
+      name === "hb"
+    ) {
+      if (age !== null && age < 12) {
+        return {
+          min: 11,
+          max: 15,
+          unit: "g/dL",
+          range: "11 - 15",
+        };
+      }
+
+      if (gender === "female") {
+        return {
+          min: 12,
+          max: 15,
+          unit: "g/dL",
+          range: "12 - 15",
+        };
+      }
+
+      return {
+        min: 13,
+        max: 17,
         unit: "g/dL",
-        maleMin: 13,
-        maleMax: 17,
-        femaleMin: 12,
-        femaleMax: 15,
-        maleReference: "13 - 17",
-        femaleReference: "12 - 15",
-      },
+        range: "13 - 17",
+      };
+    }
 
-      haemoglobin: {
-        unit: "g/dL",
-        maleMin: 13,
-        maleMax: 17,
-        femaleMin: 12,
-        femaleMax: 15,
-        maleReference: "13 - 17",
-        femaleReference: "12 - 15",
-      },
-
-      rbccount: {
-        unit: "million/cumm",
-        maleMin: 4.5,
-        maleMax: 6.0,
-        femaleMin: 4.0,
-        femaleMax: 5.5,
-        maleReference: "4.5 - 6.0",
-        femaleReference: "4.0 - 5.5",
-      },
-
-      totalwbccount: {
-        unit: "/cumm",
+    if (
+      name.includes("total leucocyte") ||
+      name.includes("total leukocyte") ||
+      name === "tlc" ||
+      name.includes("wbc")
+    ) {
+      return {
         min: 4000,
         max: 11000,
-        reference: "4000 - 11000",
-      },
-
-      totalleucocytecount: {
         unit: "/cumm",
-        min: 4000,
-        max: 11000,
-        reference: "4000 - 11000",
-      },
+        range: "4000 - 11000",
+      };
+    }
 
-      plateletcount: {
-        unit: "Lac/cumm",
-        min: 1.5,
-        max: 4.5,
-        reference: "1.5 - 4.5",
-      },
-
-      pcvhematocrit: {
-        unit: "%",
-        maleMin: 40,
-        maleMax: 50,
-        femaleMin: 36,
-        femaleMax: 46,
-        maleReference: "40 - 50",
-        femaleReference: "36 - 46",
-      },
-
-      pcvhaematocrit: {
-        unit: "%",
-        maleMin: 40,
-        maleMax: 50,
-        femaleMin: 36,
-        femaleMax: 46,
-        maleReference: "40 - 50",
-        femaleReference: "36 - 46",
-      },
-
-      mcv: {
-        unit: "fL",
-        min: 80,
-        max: 100,
-        reference: "80 - 100",
-      },
-
-      mch: {
-        unit: "pg",
-        min: 27,
-        max: 32,
-        reference: "27 - 32",
-      },
-
-      mchc: {
-        unit: "g/dL",
-        min: 32,
-        max: 36,
-        reference: "32 - 36",
-      },
-
-      rdwcv: {
-        unit: "%",
-        min: 11.5,
-        max: 14.5,
-        reference: "11.5 - 14.5",
-      },
-
-      neutrophils: {
-        unit: "%",
+    if (name === "neutrophils") {
+      return {
         min: 40,
         max: 75,
-        reference: "40 - 75",
-      },
-
-      lymphocytes: {
         unit: "%",
+        range: "40 - 75",
+      };
+    }
+
+    if (name === "lymphocytes") {
+      return {
         min: 20,
         max: 40,
-        reference: "20 - 40",
-      },
-
-      monocytes: {
         unit: "%",
-        min: 1,
-        max: 10,
-        reference: "1 - 10",
-      },
+        range: "20 - 40",
+      };
+    }
 
-      eosinophils: {
-        unit: "%",
+    if (name === "eosinophils") {
+      return {
         min: 1,
         max: 6,
-        reference: "1 - 6",
-      },
-
-      basophils: {
         unit: "%",
+        range: "1 - 6",
+      };
+    }
+
+    if (name === "monocytes") {
+      return {
+        min: 1,
+        max: 10,
+        unit: "%",
+        range: "1 - 10",
+      };
+    }
+
+    if (name === "basophils") {
+      return {
         min: 0,
         max: 1,
-        reference: "0 - 1",
-      },
+        unit: "%",
+        range: "0 - 1",
+      };
+    }
 
-      esr: {
-        unit: "mm/1st hr",
-        maleMin: 0,
-        maleMax: 15,
-        femaleMin: 0,
-        femaleMax: 20,
-        maleReference: "0 - 15",
-        femaleReference: "0 - 20",
-      },
+    if (
+      name === "rbc count" ||
+      name === "total rbc count"
+    ) {
+      if (gender === "female") {
+        return {
+          min: 4.0,
+          max: 5.5,
+          unit: "million/cumm",
+          range: "4.0 - 5.5",
+        };
+      }
 
-      fastingbloodsugar: {
-        unit: "mg/dL",
+      return {
+        min: 4.5,
+        max: 6.0,
+        unit: "million/cumm",
+        range: "4.5 - 6.0",
+      };
+    }
+
+    if (
+      name.includes("pcv") ||
+      name.includes("haematocrit") ||
+      name.includes("hematocrit")
+    ) {
+      if (gender === "female") {
+        return {
+          min: 36,
+          max: 46,
+          unit: "%",
+          range: "36 - 46",
+        };
+      }
+
+      return {
+        min: 40,
+        max: 50,
+        unit: "%",
+        range: "40 - 50",
+      };
+    }
+
+    if (name === "mcv") {
+      return {
+        min: 80,
+        max: 100,
+        unit: "fL",
+        range: "80 - 100",
+      };
+    }
+
+    if (name === "mch") {
+      return {
+        min: 27,
+        max: 32,
+        unit: "pg",
+        range: "27 - 32",
+      };
+    }
+
+    if (name === "mchc") {
+      return {
+        min: 32,
+        max: 36,
+        unit: "g/dL",
+        range: "32 - 36",
+      };
+    }
+
+    if (
+      name === "rdw cv" ||
+      name === "rdw-cv"
+    ) {
+      return {
+        min: 11.5,
+        max: 14.5,
+        unit: "%",
+        range: "11.5 - 14.5",
+      };
+    }
+
+    if (
+      name === "platelet count" ||
+      name === "platelets"
+    ) {
+      return {
+        min: 1.5,
+        max: 4.5,
+        unit: "Lac/cumm",
+        range: "1.5 - 4.5",
+      };
+    }
+
+    if (name === "mpv") {
+      return {
+        min: 7.5,
+        max: 11.5,
+        unit: "fL",
+        range: "7.5 - 11.5",
+      };
+    }
+
+    if (name === "pdw") {
+      return {
+        min: 9,
+        max: 17,
+        unit: "%",
+        range: "9 - 17",
+      };
+    }
+
+    if (name === "pct") {
+      return {
+        min: 0.15,
+        max: 0.4,
+        unit: "%",
+        range: "0.15 - 0.40",
+      };
+    }
+
+    /* -------------------------
+       ESR
+       ------------------------- */
+
+    if (
+      name === "esr" ||
+      name.includes("erythrocyte sedimentation")
+    ) {
+      if (gender === "female") {
+        return {
+          min: 0,
+          max: 20,
+          unit: "mm/hr",
+          range: "0 - 20",
+        };
+      }
+
+      return {
+        min: 0,
+        max: 15,
+        unit: "mm/hr",
+        range: "0 - 15",
+      };
+    }
+
+    /* -------------------------
+       BLOOD SUGAR
+       ------------------------- */
+
+    if (
+      name.includes("fasting blood sugar") ||
+      name === "fbs" ||
+      name.includes("fasting glucose")
+    ) {
+      return {
         min: 70,
         max: 99,
-        reference: "70 - 99",
-      },
-
-      postprandialbloodsugar: {
         unit: "mg/dL",
-        max: 140,
-        reference: "< 140",
-      },
+        range: "70 - 99",
+      };
+    }
 
-      randombloodsugar: {
-        unit: "mg/dL",
+    if (
+      name.includes("post prandial") ||
+      name === "ppbs" ||
+      name.includes("postprandial")
+    ) {
+      return {
         min: 70,
         max: 140,
-        reference: "70 - 140",
-      },
-
-      bloodurea: {
         unit: "mg/dL",
+        range: "70 - 140",
+      };
+    }
+
+    if (
+      name.includes("random blood sugar") ||
+      name === "rbs" ||
+      name.includes("random glucose")
+    ) {
+      return {
+        min: 70,
+        max: 140,
+        unit: "mg/dL",
+        range: "70 - 140",
+      };
+    }
+
+    /* -------------------------
+       KFT
+       ------------------------- */
+
+    if (
+      name === "blood urea" ||
+      name === "urea"
+    ) {
+      return {
         min: 15,
         max: 40,
-        reference: "15 - 40",
-      },
-
-      serumcreatinine: {
         unit: "mg/dL",
+        range: "15 - 40",
+      };
+    }
+
+    if (
+      name === "serum creatinine" ||
+      name === "creatinine"
+    ) {
+      return {
         min: 0.6,
         max: 1.3,
-        reference: "0.6 - 1.3",
-      },
-
-      uricacid: {
         unit: "mg/dL",
-        maleMin: 3.4,
-        maleMax: 7.0,
-        femaleMin: 2.4,
-        femaleMax: 6.0,
-        maleReference: "3.4 - 7.0",
-        femaleReference: "2.4 - 6.0",
-      },
+        range: "0.6 - 1.3",
+      };
+    }
 
-      sodium: {
-        unit: "mmol/L",
+    if (name === "uric acid") {
+      if (gender === "female") {
+        return {
+          min: 2.4,
+          max: 6.0,
+          unit: "mg/dL",
+          range: "2.4 - 6.0",
+        };
+      }
+
+      return {
+        min: 3.4,
+        max: 7.0,
+        unit: "mg/dL",
+        range: "3.4 - 7.0",
+      };
+    }
+
+    if (name === "sodium") {
+      return {
         min: 135,
         max: 145,
-        reference: "135 - 145",
-      },
+        unit: "mEq/L",
+        range: "135 - 145",
+      };
+    }
 
-      potassium: {
-        unit: "mmol/L",
+    if (name === "potassium") {
+      return {
         min: 3.5,
         max: 5.1,
-        reference: "3.5 - 5.1",
-      },
+        unit: "mEq/L",
+        range: "3.5 - 5.1",
+      };
+    }
 
-      chloride: {
-        unit: "mmol/L",
+    if (name === "chloride") {
+      return {
         min: 98,
         max: 107,
-        reference: "98 - 107",
-      },
+        unit: "mEq/L",
+        range: "98 - 107",
+      };
+    }
 
-      bun: {
-        unit: "mg/dL",
+    if (name === "bun") {
+      return {
         min: 7,
         max: 20,
-        reference: "7 - 20",
-      },
-
-      totalbilirubin: {
         unit: "mg/dL",
+        range: "7 - 20",
+      };
+    }
+
+    /* -------------------------
+       LFT
+       ------------------------- */
+
+    if (name === "total bilirubin") {
+      return {
         min: 0.2,
         max: 1.2,
-        reference: "0.2 - 1.2",
-      },
-
-      directbilirubin: {
         unit: "mg/dL",
+        range: "0.2 - 1.2",
+      };
+    }
+
+    if (name === "direct bilirubin") {
+      return {
         min: 0,
         max: 0.3,
-        reference: "0.0 - 0.3",
-      },
-
-      indirectbilirubin: {
         unit: "mg/dL",
-        min: 0.2,
-        max: 0.9,
-        reference: "0.2 - 0.9",
-      },
+        range: "0 - 0.3",
+      };
+    }
 
-      sgotast: {
-        unit: "U/L",
+    if (
+      name.includes("sgot") ||
+      name === "ast"
+    ) {
+      return {
+        min: 0,
         max: 40,
-        reference: "Up to 40",
-      },
-
-      sgptalt: {
         unit: "U/L",
+        range: "Up to 40",
+      };
+    }
+
+    if (
+      name.includes("sgpt") ||
+      name === "alt"
+    ) {
+      return {
+        min: 0,
         max: 40,
-        reference: "Up to 40",
-      },
-
-      alkalinephosphatase: {
         unit: "U/L",
+        range: "Up to 40",
+      };
+    }
+
+    if (
+      name.includes("alkaline phosphatase") ||
+      name === "alp"
+    ) {
+      return {
         min: 44,
         max: 147,
-        reference: "44 - 147",
-      },
+        unit: "U/L",
+        range: "44 - 147",
+      };
+    }
 
-      totalprotein: {
-        unit: "g/dL",
+    if (name === "total protein") {
+      return {
         min: 6.0,
         max: 8.3,
-        reference: "6.0 - 8.3",
-      },
-
-      albumin: {
         unit: "g/dL",
+        range: "6.0 - 8.3",
+      };
+    }
+
+    if (name === "albumin") {
+      return {
         min: 3.5,
-        max: 5.2,
-        reference: "3.5 - 5.2",
-      },
-
-      globulin: {
+        max: 5.0,
         unit: "g/dL",
+        range: "3.5 - 5.0",
+      };
+    }
+
+    if (name === "globulin") {
+      return {
         min: 2.0,
         max: 3.5,
-        reference: "2.0 - 3.5",
-      },
+        unit: "g/dL",
+        range: "2.0 - 3.5",
+      };
+    }
 
-      totalcholesterol: {
-        unit: "mg/dL",
+    /* -------------------------
+       LIPID PROFILE
+       ------------------------- */
+
+    if (name.includes("total cholesterol")) {
+      return {
+        min: 0,
         max: 200,
-        reference: "Desirable: < 200",
-      },
-
-      triglycerides: {
         unit: "mg/dL",
+        range: "< 200",
+      };
+    }
+
+    if (name.includes("triglyceride")) {
+      return {
+        min: 0,
         max: 150,
-        reference: "Normal: < 150",
-      },
-
-      hdlcholesterol: {
         unit: "mg/dL",
+        range: "< 150",
+      };
+    }
+
+    if (name.includes("hdl")) {
+      return {
         min: 40,
-        max: 60,
-        reference: "40 - 60",
-      },
-
-      ldlcholesterol: {
+        max: null,
         unit: "mg/dL",
+        range: "> 40",
+      };
+    }
+
+    if (name.includes("ldl")) {
+      return {
+        min: 0,
         max: 100,
-        reference: "Optimal: < 100",
-      },
-
-      vldlcholesterol: {
         unit: "mg/dL",
+        range: "< 100",
+      };
+    }
+
+    if (name.includes("vldl")) {
+      return {
         min: 5,
         max: 40,
-        reference: "5 - 40",
-      },
+        unit: "mg/dL",
+        range: "5 - 40",
+      };
+    }
 
-      hba1c: {
-        unit: "%",
+    /* -------------------------
+       HBA1C
+       ------------------------- */
+
+    if (
+      name === "hba1c" ||
+      name.includes("glycated")
+    ) {
+      return {
+        min: 4,
         max: 5.6,
-        reference: "Normal: < 5.7",
-      },
+        unit: "%",
+        range: "4.0 - 5.6",
+      };
+    }
 
-      t3: {
-        unit: "ng/dL",
+    /* -------------------------
+       THYROID
+       ------------------------- */
+
+    if (name === "t3") {
+      return {
         min: 80,
         max: 200,
-        reference: "80 - 200",
-      },
+        unit: "ng/dL",
+        range: "80 - 200",
+      };
+    }
 
-      t4: {
-        unit: "µg/dL",
+    if (name === "t4") {
+      return {
         min: 5,
         max: 12,
-        reference: "5.0 - 12.0",
-      },
+        unit: "µg/dL",
+        range: "5 - 12",
+      };
+    }
 
-      tsh: {
-        unit: "µIU/mL",
+    if (name === "tsh") {
+      return {
         min: 0.4,
-        max: 4.5,
-        reference: "0.4 - 4.5",
-      },
-
-      colour: {
-        unit: "",
-        reference: "Pale Yellow",
-      },
-
-      appearance: {
-        unit: "",
-        reference: "Clear",
-      },
-
-      reactionph: {
-        unit: "",
-        min: 4.5,
-        max: 8,
-        reference: "4.5 - 8.0",
-      },
-
-      specificgravity: {
-        unit: "",
-        min: 1.005,
-        max: 1.03,
-        reference: "1.005 - 1.030",
-      },
-
-      puscells: {
-        unit: "/HPF",
-        reference: "0 - 5",
-      },
-
-      epithelialcells: {
-        unit: "/HPF",
-        reference: "0 - 5",
-      },
-
-      rbc: {
-        unit: "/HPF",
-        reference: "0 - 2",
-      },
-
-      crystals: {
-        unit: "",
-        reference: "Nil",
-      },
-
-      styphio: {
-        unit: "Titre",
-        reference: "Lab / Regional cut-off",
-      },
-
-      styphih: {
-        unit: "Titre",
-        reference: "Lab / Regional cut-off",
-      },
-
-      styphiah: {
-        unit: "Titre",
-        reference: "Lab / Regional cut-off",
-      },
-
-      styphibh: {
-        unit: "Titre",
-        reference: "Lab / Regional cut-off",
-      },
-    };
-
-    return library[name] || {};
-  }
-
-  /* =======================================================
-     MERGE SAVED PARAMETER WITH FALLBACK INFORMATION
-     ======================================================= */
-
-  function getParameterInfo(parameter) {
-    const parameterName =
-      getParameterName(parameter);
-
-    const fallback =
-      getFallbackParameter(parameterName);
-
-    if (
-      !parameter ||
-      typeof parameter === "string"
-    ) {
-      return {
-        name: parameterName,
-        ...fallback,
+        max: 4.0,
+        unit: "µIU/mL",
+        range: "0.4 - 4.0",
       };
     }
 
-    /*
-      Saved test data ko priority di gayi hai.
-      Fallback sirf missing fields fill karega.
-    */
+    return null;
+  }
+
+  /* =========================================================
+     RESOLVE PARAMETER
+     IMPORTANT:
+     Explicit data from tests/page.js gets priority.
+     ========================================================= */
+
+  function resolveParameter(parameter) {
+    const defaultData = getDefaultReference(
+      parameter.name ||
+        parameter.testName ||
+        parameter.investigation ||
+        ""
+    );
+
+    let min = parameter.min;
+
+    let max = parameter.max;
+
+    let unit =
+      parameter.unit ||
+      parameter.units ||
+      defaultData?.unit ||
+      "";
+
+    let range =
+      parameter.range ||
+      parameter.reference ||
+      parameter.referenceRange ||
+      "";
+
+    if (
+      (min === undefined ||
+        min === null ||
+        min === "") &&
+      defaultData
+    ) {
+      min = defaultData.min;
+    }
+
+    if (
+      (max === undefined ||
+        max === null ||
+        max === "") &&
+      defaultData
+    ) {
+      max = defaultData.max;
+    }
+
+    if (!range && defaultData) {
+      range = defaultData.range;
+    }
+
+    if (!range) {
+      if (
+        min !== undefined &&
+        min !== null &&
+        min !== "" &&
+        max !== undefined &&
+        max !== null &&
+        max !== ""
+      ) {
+        range = `${min} - ${max}`;
+      } else if (
+        max !== undefined &&
+        max !== null &&
+        max !== ""
+      ) {
+        range = `< ${max}`;
+      } else if (
+        min !== undefined &&
+        min !== null &&
+        min !== ""
+      ) {
+        range = `> ${min}`;
+      } else {
+        range = "-";
+      }
+    }
 
     return {
-      name: parameterName,
-      ...fallback,
       ...parameter,
+      min,
+      max,
+      unit,
+      range,
     };
   }
 
-  /* =======================================================
-     UNIT
-     ======================================================= */
+  /* =========================================================
+     RESULT KEY
+     ========================================================= */
 
-  function getUnit(parameter) {
-    const info = getParameterInfo(parameter);
+  function getParameterKey(
+    testId,
+    parameter,
+    index
+  ) {
+    const name =
+      parameter.name ||
+      parameter.testName ||
+      parameter.investigation ||
+      `parameter-${index}`;
 
-    return (
-      info.unit ||
-      info.units ||
-      "-"
-    );
+    return `${testId}-${name}-${index}`;
   }
 
-  /* =======================================================
-     REFERENCE LIMITS
-     ======================================================= */
-
-  function getLimits(parameter) {
-    const info = getParameterInfo(parameter);
-    const sex = getPatientSex();
-
-    if (sex === "male") {
-      return {
-        min:
-          info.maleMin ??
-          info.male_min ??
-          info.min,
-
-        max:
-          info.maleMax ??
-          info.male_max ??
-          info.max,
-      };
-    }
-
-    if (sex === "female") {
-      return {
-        min:
-          info.femaleMin ??
-          info.female_min ??
-          info.min,
-
-        max:
-          info.femaleMax ??
-          info.female_max ??
-          info.max,
-      };
-    }
-
-    return {
-      min: info.min,
-      max: info.max,
-    };
-  }
-
-  /* =======================================================
-     REFERENCE RANGE DISPLAY
-     ======================================================= */
-
-  function getReference(parameter) {
-    const info = getParameterInfo(parameter);
-    const sex = getPatientSex();
-
-    if (sex === "male") {
-      const maleReference =
-        info.maleReference ||
-        info.male_reference;
-
-      if (maleReference) {
-        return maleReference;
-      }
-    }
-
-    if (sex === "female") {
-      const femaleReference =
-        info.femaleReference ||
-        info.female_reference;
-
-      if (femaleReference) {
-        return femaleReference;
-      }
-    }
-
-    if (info.range) {
-      return info.range;
-    }
-
-    if (info.reference) {
-      return info.reference;
-    }
-
-    if (info.referenceRange) {
-      return info.referenceRange;
-    }
-
-    if (info.reference_range) {
-      return info.reference_range;
-    }
-
-    const { min, max } =
-      getLimits(parameter);
-
-    const hasMin =
-      min !== undefined &&
-      min !== null &&
-      min !== "";
-
-    const hasMax =
-      max !== undefined &&
-      max !== null &&
-      max !== "";
-
-    if (hasMin && hasMax) {
-      return `${min} - ${max}`;
-    }
-
-    if (hasMax) {
-      return `≤ ${max}`;
-    }
-
-    if (hasMin) {
-      return `≥ ${min}`;
-    }
-
-    return "-";
-  }
-
-  /* =======================================================
-     HIGH / LOW / NORMAL FLAG
-     ======================================================= */
-
-  function getFlag(value, parameter) {
-    const numericValue =
-      getNumericValue(value);
-
-    if (numericValue === null) {
-      return "";
-    }
-
-    const { min, max } =
-      getLimits(parameter);
-
-    const hasMin =
-      min !== undefined &&
-      min !== null &&
-      min !== "" &&
-      Number.isFinite(Number(min));
-
-    const hasMax =
-      max !== undefined &&
-      max !== null &&
-      max !== "" &&
-      Number.isFinite(Number(max));
-
-    if (
-      hasMin &&
-      numericValue < Number(min)
-    ) {
-      return "LOW";
-    }
-
-    if (
-      hasMax &&
-      numericValue > Number(max)
-    ) {
-      return "HIGH";
-    }
-
-    if (hasMin || hasMax) {
-      return "NORMAL";
-    }
-
-    return "";
-  }
-
-  /* =======================================================
-     RESULT INPUT TYPE / SUGGESTIONS
-     ======================================================= */
-
-  function getResultSuggestions(parameter) {
-    const name = normalizeText(
-      getParameterName(parameter)
-    );
-
-    if (name === "colour") {
-      return [
-        "Pale Yellow",
-        "Yellow",
-        "Dark Yellow",
-        "Red",
-      ];
-    }
-
-    if (name === "appearance") {
-      return [
-        "Clear",
-        "Slightly Turbid",
-        "Turbid",
-      ];
-    }
-
-    if (
-      name === "albumin" ||
-      name === "sugar" ||
-      name.includes("protein")
-    ) {
-      return [
-        "Negative",
-        "Trace",
-        "+",
-        "++",
-        "+++",
-        "++++",
-      ];
-    }
-
-    if (
-      name === "crystals"
-    ) {
-      return [
-        "Nil",
-        "Calcium Oxalate",
-        "Uric Acid",
-        "Triple Phosphate",
-      ];
-    }
-
-    return [];
-  }
-
-  /* =======================================================
+  /* =========================================================
      UPDATE RESULT
-     ======================================================= */
+     ========================================================= */
 
   function updateResult(
     testId,
@@ -883,53 +799,198 @@ export default function ResultsPage() {
     }));
   }
 
-  /* =======================================================
-     ACTIVE TEST
-     ======================================================= */
+  /* =========================================================
+     FLAG CALCULATION
+     ========================================================= */
 
-  const currentTest = useMemo(() => {
-    return selectedTests.find(
-      (test) => test?.id === activeTest
+  function getFlag(value, parameter) {
+    if (
+      value === "" ||
+      value === undefined ||
+      value === null
+    ) {
+      return "";
+    }
+
+    const resolved = resolveParameter(parameter);
+
+    const numericValue = Number(
+      String(value).replace(/,/g, "")
     );
-  }, [selectedTests, activeTest]);
 
-  /* =======================================================
-     TOTAL PARAMETERS
-     ======================================================= */
+    if (Number.isNaN(numericValue)) {
+      return "";
+    }
 
-  const totalParameters = useMemo(() => {
-    return selectedTests.reduce(
-      (total, test) => {
-        const parameters =
-          Array.isArray(test?.tests)
-            ? test.tests
-            : Array.isArray(test?.parameters)
-            ? test.parameters
-            : [];
+    const hasMin =
+      resolved.min !== undefined &&
+      resolved.min !== null &&
+      resolved.min !== "";
 
-        return total + parameters.length;
-      },
-      0
+    const hasMax =
+      resolved.max !== undefined &&
+      resolved.max !== null &&
+      resolved.max !== "";
+
+    if (hasMin) {
+      const min = Number(resolved.min);
+
+      if (
+        !Number.isNaN(min) &&
+        numericValue < min
+      ) {
+        return "LOW";
+      }
+    }
+
+    if (hasMax) {
+      const max = Number(resolved.max);
+
+      if (
+        !Number.isNaN(max) &&
+        numericValue > max
+      ) {
+        return "HIGH";
+      }
+    }
+
+    if (hasMin || hasMax) {
+      return "NORMAL";
+    }
+
+    return "";
+  }
+
+  /* =========================================================
+     TEXT / SELECT PARAMETERS
+     ========================================================= */
+
+  function getOptions(parameter) {
+    if (
+      Array.isArray(parameter.options) &&
+      parameter.options.length > 0
+    ) {
+      return parameter.options;
+    }
+
+    const name = normalizeParameterName(
+      parameter.name || ""
     );
-  }, [selectedTests]);
 
-  /* =======================================================
-     COMPLETED PARAMETERS
+    if (
+      name.includes("hiv") ||
+      name.includes("hbsag") ||
+      name.includes("hcv")
+    ) {
+      return [
+        "Non-Reactive",
+        "Reactive",
+      ];
+    }
 
-     Sirf selected tests ke current result keys count honge.
-     Purane patient ke stale localStorage values count nahi honge.
-     ======================================================= */
+    if (
+      name === "albumin" ||
+      name === "sugar"
+    ) {
+      return [
+        "Nil",
+        "Trace",
+        "+",
+        "++",
+        "+++",
+        "++++",
+      ];
+    }
 
-  const completedResults = useMemo(() => {
-    let count = 0;
+    if (
+      name === "colour" ||
+      name === "color"
+    ) {
+      return [
+        "Pale Yellow",
+        "Yellow",
+        "Dark Yellow",
+        "Straw",
+        "Colourless",
+        "Other",
+      ];
+    }
+
+    if (name === "appearance") {
+      return [
+        "Clear",
+        "Slightly Turbid",
+        "Turbid",
+      ];
+    }
+
+    return [];
+  }
+
+  /* =========================================================
+     REFERENCE RANGE
+     ========================================================= */
+
+  function getReference(parameter) {
+    const resolved = resolveParameter(parameter);
+
+    return resolved.range || "-";
+  }
+
+  /* =========================================================
+     UNIT
+     ========================================================= */
+
+  function getUnit(parameter) {
+    const resolved = resolveParameter(parameter);
+
+    return resolved.unit || "-";
+  }
+
+  /* =========================================================
+     SAVE
+     ========================================================= */
+
+  function saveResults(showAlert = true) {
+    try {
+      localStorage.setItem(
+        "nidanResults",
+        JSON.stringify(results)
+      );
+
+      if (showAlert) {
+        setSavedMessage(
+          "✓ Results saved successfully"
+        );
+
+        setTimeout(() => {
+          setSavedMessage("");
+        }, 2500);
+      }
+
+      return true;
+    } catch (error) {
+      console.error(
+        "Result save error:",
+        error
+      );
+
+      alert("Results save nahi ho paye.");
+
+      return false;
+    }
+  }
+
+  /* =========================================================
+     CHECK MISSING RESULTS
+     ========================================================= */
+
+  function getMissingResults() {
+    const missing = [];
 
     selectedTests.forEach((test) => {
       const parameters =
-        Array.isArray(test?.tests)
-          ? test.tests
-          : Array.isArray(test?.parameters)
-          ? test.parameters
-          : [];
+        test.tests || test.parameters || [];
 
       parameters.forEach(
         (parameter, index) => {
@@ -942,63 +1003,32 @@ export default function ResultsPage() {
           const value = results[key];
 
           if (
-            value !== undefined &&
-            value !== null &&
-            String(value).trim() !== ""
+            value === undefined ||
+            value === null ||
+            String(value).trim() === ""
           ) {
-            count += 1;
+            missing.push({
+              test:
+                test.short ||
+                test.name ||
+                "Test",
+
+              parameter:
+                parameter.name ||
+                parameter.testName ||
+                "Parameter",
+            });
           }
         }
       );
     });
 
-    return count;
-  }, [selectedTests, results]);
-
-  const progressPercentage =
-    totalParameters > 0
-      ? Math.round(
-          (completedResults /
-            totalParameters) *
-            100
-        )
-      : 0;
-
-  /* =======================================================
-     SAVE RESULTS
-     ======================================================= */
-
-  function saveResults(showAlert = true) {
-    try {
-      localStorage.setItem(
-        "nidanResults",
-        JSON.stringify(results)
-      );
-
-      if (showAlert) {
-        alert(
-          "Results successfully saved."
-        );
-      }
-
-      return true;
-    } catch (error) {
-      console.error(
-        "Result save error:",
-        error
-      );
-
-      alert(
-        "Results save nahi ho paaye."
-      );
-
-      return false;
-    }
+    return missing;
   }
 
-  /* =======================================================
+  /* =========================================================
      FINAL REPORT
-     ======================================================= */
+     ========================================================= */
 
   function continueReport() {
     if (selectedTests.length === 0) {
@@ -1008,52 +1038,78 @@ export default function ResultsPage() {
       return;
     }
 
-    const saved = saveResults(false);
+    const missing = getMissingResults();
 
-    if (!saved) return;
+    if (missing.length > 0) {
+      const preview = missing
+        .slice(0, 5)
+        .map(
+          (item) =>
+            `${item.test}: ${item.parameter}`
+        )
+        .join("\n");
+
+      const more =
+        missing.length > 5
+          ? `\nAur ${
+              missing.length - 5
+            } result blank hain.`
+          : "";
+
+      const proceed = window.confirm(
+        `${missing.length} result blank hain:\n\n${preview}${more}\n\nKya phir bhi Final Report banana hai?`
+      );
+
+      if (!proceed) {
+        return;
+      }
+    }
+
+    saveResults(false);
 
     router.push("/report");
   }
 
-  /* =======================================================
-     TEST NAVIGATION
-     ======================================================= */
+  /* =========================================================
+     NEXT TEST
+     ========================================================= */
 
   function nextTest() {
     const index =
       selectedTests.findIndex(
-        (test) =>
-          test?.id === activeTest
+        (test) => test.id === activeTest
       );
 
     if (
       index >= 0 &&
-      index <
-        selectedTests.length - 1
+      index < selectedTests.length - 1
     ) {
       setActiveTest(
-        selectedTests[index + 1]?.id ||
-          ""
+        selectedTests[index + 1].id
       );
 
       window.scrollTo({
         top: 0,
         behavior: "smooth",
       });
+    } else {
+      continueReport();
     }
   }
+
+  /* =========================================================
+     PREVIOUS TEST
+     ========================================================= */
 
   function previousTest() {
     const index =
       selectedTests.findIndex(
-        (test) =>
-          test?.id === activeTest
+        (test) => test.id === activeTest
       );
 
     if (index > 0) {
       setActiveTest(
-        selectedTests[index - 1]?.id ||
-          ""
+        selectedTests[index - 1].id
       );
 
       window.scrollTo({
@@ -1063,41 +1119,74 @@ export default function ResultsPage() {
     }
   }
 
-  const activeIndex =
-    selectedTests.findIndex(
-      (test) => test?.id === activeTest
+  /* =========================================================
+     PARAMETER COUNTS
+     ========================================================= */
+
+  const totalParameters =
+    selectedTests.reduce(
+      (total, test) =>
+        total +
+        (
+          test.tests ||
+          test.parameters ||
+          []
+        ).length,
+      0
     );
 
-  /* =======================================================
-     LOADING
-     ======================================================= */
+  const completedResults =
+    selectedTests.reduce(
+      (total, test) => {
+        const parameters =
+          test.tests ||
+          test.parameters ||
+          [];
 
-  if (!loaded) {
-    return (
-      <div
-        style={{
-          padding: "40px",
-          fontFamily: "Arial",
-        }}
-      >
-        Loading laboratory results...
-      </div>
+        const completed =
+          parameters.filter(
+            (parameter, index) => {
+              const key =
+                getParameterKey(
+                  test.id,
+                  parameter,
+                  index
+                );
+
+              const value =
+                results[key];
+
+              return (
+                value !== undefined &&
+                value !== null &&
+                String(value).trim() !== ""
+              );
+            }
+          ).length;
+
+        return total + completed;
+      },
+      0
     );
-  }
 
-  /* =======================================================
-     PAGE
-     ======================================================= */
+  const progress =
+    totalParameters > 0
+      ? Math.round(
+          (completedResults /
+            totalParameters) *
+            100
+        )
+      : 0;
+
+  /* =========================================================
+     UI
+     ========================================================= */
 
   return (
     <div className="labApp">
-
-      {/* ===================================================
-          SIDEBAR
-          =================================================== */}
+      {/* SIDEBAR */}
 
       <aside className="sidebar">
-
         <div className="brand">
           <div className="brandLogo">
             N+
@@ -1167,41 +1256,31 @@ export default function ResultsPage() {
           <span>▤</span>
           Reports
         </button>
-
       </aside>
 
-      {/* ===================================================
-          MAIN AREA
-          =================================================== */}
+      {/* MAIN */}
 
       <main className="mainArea">
-
         <header className="topbar">
-
           <div>
             <h3>Result Entry</h3>
 
             <p>
-              Enter laboratory investigation
-              results
+              Enter laboratory
+              investigation results
             </p>
           </div>
 
           <div className="topRight">
-            <span className="statusDot"></span>
+            <span className="statusDot" />
             NIDAN Lab System
           </div>
-
         </header>
 
         <div className="content">
-
-          {/* =================================================
-              PAGE HEADING
-              ================================================= */}
+          {/* PAGE HEADING */}
 
           <div className="pageHeading">
-
             <div>
               <div className="smallTitle">
                 STEP 4 OF 5
@@ -1225,21 +1304,19 @@ export default function ResultsPage() {
             >
               ← Back to Billing
             </button>
-
           </div>
 
-          {/* =================================================
-              STEPS
-              ================================================= */}
+          {/* STEPS */}
 
           <div className="steps">
-
             <div className="step">
               <span>✓</span>
 
               <div>
                 Patient
-                <small>Registered</small>
+                <small>
+                  Registered
+                </small>
               </div>
             </div>
 
@@ -1248,7 +1325,9 @@ export default function ResultsPage() {
 
               <div>
                 Tests
-                <small>Selected</small>
+                <small>
+                  Selected
+                </small>
               </div>
             </div>
 
@@ -1257,7 +1336,9 @@ export default function ResultsPage() {
 
               <div>
                 Billing
-                <small>Completed</small>
+                <small>
+                  Completed
+                </small>
               </div>
             </div>
 
@@ -1266,7 +1347,9 @@ export default function ResultsPage() {
 
               <div>
                 Results
-                <small>Enter Results</small>
+                <small>
+                  Enter Results
+                </small>
               </div>
             </div>
 
@@ -1275,20 +1358,20 @@ export default function ResultsPage() {
 
               <div>
                 Report
-                <small>Print / PDF</small>
+                <small>
+                  Print / PDF
+                </small>
               </div>
             </div>
-
           </div>
 
-          {/* =================================================
-              PATIENT CARD
-              ================================================= */}
+          {/* PATIENT */}
 
           <div className="resultPatientCard">
-
             <div>
-              <small>PATIENT ID</small>
+              <small>
+                PATIENT ID
+              </small>
 
               <strong>
                 {patient.patientId ||
@@ -1298,7 +1381,9 @@ export default function ResultsPage() {
             </div>
 
             <div>
-              <small>PATIENT NAME</small>
+              <small>
+                PATIENT NAME
+              </small>
 
               <strong>
                 {patient.name || "-"}
@@ -1306,7 +1391,9 @@ export default function ResultsPage() {
             </div>
 
             <div>
-              <small>AGE / SEX</small>
+              <small>
+                AGE / SEX
+              </small>
 
               <strong>
                 {patient.age || "-"} /{" "}
@@ -1317,7 +1404,9 @@ export default function ResultsPage() {
             </div>
 
             <div>
-              <small>REF. DOCTOR</small>
+              <small>
+                REF. DOCTOR
+              </small>
 
               <strong>
                 {patient.doctor ||
@@ -1325,17 +1414,12 @@ export default function ResultsPage() {
                   "-"}
               </strong>
             </div>
-
           </div>
 
-          {/* =================================================
-              PROGRESS
-              ================================================= */}
+          {/* PROGRESS */}
 
           <div className="resultProgressCard">
-
             <div>
-
               <div>
                 <strong>
                   Result Progress
@@ -1349,77 +1433,74 @@ export default function ResultsPage() {
               </div>
 
               <strong className="progressNumber">
-                {progressPercentage}%
+                {progress}%
               </strong>
-
             </div>
 
             <div className="progressTrack">
-
               <div
                 className="progressFill"
                 style={{
-                  width: `${Math.min(
-                    progressPercentage,
-                    100
-                  )}%`,
+                  width: `${progress}%`,
                 }}
               />
-
             </div>
-
           </div>
 
-          {/* =================================================
-              WORKSPACE
-              ================================================= */}
+          {/* SAVE MESSAGE */}
+
+          {savedMessage && (
+            <div
+              style={{
+                marginBottom: "14px",
+                padding: "12px 16px",
+                background: "#ecfdf5",
+                border:
+                  "1px solid #a7f3d0",
+                borderRadius: "10px",
+                color: "#047857",
+                fontWeight: "600",
+              }}
+            >
+              {savedMessage}
+            </div>
+          )}
+
+          {/* WORKSPACE */}
 
           <div className="resultWorkspace">
-
-            {/* ===============================================
-                TEST NAVIGATION
-                =============================================== */}
+            {/* TEST NAVIGATION */}
 
             <aside className="testResultNav">
-
               <div className="resultNavHeading">
                 Selected Tests
               </div>
 
-              {selectedTests.length === 0 ? (
+              {selectedTests.length ===
+              0 ? (
                 <div className="noSelectedTests">
                   No tests selected.
                 </div>
               ) : (
                 selectedTests.map(
                   (test, index) => {
-
                     const parameters =
-                      Array.isArray(
-                        test?.tests
-                      )
-                        ? test.tests
-                        : Array.isArray(
-                            test?.parameters
-                          )
-                        ? test.parameters
-                        : [];
+                      test.tests ||
+                      test.parameters ||
+                      [];
 
                     return (
                       <button
-                        key={
-                          test?.id ||
-                          `test-${index}`
-                        }
+                        key={test.id}
                         className={
                           activeTest ===
-                          test?.id
+                          test.id
                             ? "resultTestButton activeResultTest"
                             : "resultTestButton"
                         }
                         onClick={() =>
                           setActiveTest(
-                            test?.id
+                            test.id
                           )
                         }
                       >
@@ -1429,9 +1510,8 @@ export default function ResultsPage() {
 
                         <div>
                           <strong>
-                            {test?.short ||
-                              test?.name ||
-                              "Test"}
+                            {test.short ||
+                              test.name}
                           </strong>
 
                           <small>
@@ -1441,25 +1521,18 @@ export default function ResultsPage() {
                             parameters
                           </small>
                         </div>
-
                       </button>
                     );
                   }
                 )
               )}
-
             </aside>
 
-            {/* ===============================================
-                RESULT ENTRY
-                =============================================== */}
+            {/* RESULT CARD */}
 
             <section className="resultEntryCard">
-
               {!currentTest ? (
-
                 <div className="emptyResultPage">
-
                   <div>🧪</div>
 
                   <h2>
@@ -1475,68 +1548,48 @@ export default function ResultsPage() {
                   <button
                     className="continueBtn"
                     onClick={() =>
-                      router.push("/tests")
+                      router.push(
+                        "/tests"
+                      )
                     }
                   >
                     Select Tests
                   </button>
-
                 </div>
-
               ) : (
-
                 <>
-
-                  {/* =========================================
-                      TEST HEADER
-                      ========================================= */}
+                  {/* TEST HEADER */}
 
                   <div className="resultCardHeader">
-
                     <div>
-
                       <div className="smallTitle">
                         INVESTIGATION
                       </div>
 
                       <h2>
-                        {currentTest.name ||
-                          currentTest.short ||
-                          "Laboratory Test"}
+                        {currentTest.name}
                       </h2>
 
                       <p>
-                        Enter patient laboratory
-                        results.
+                        Enter patient
+                        laboratory results.
                       </p>
-
                     </div>
 
                     <div className="parameterBadge">
-                      {Array.isArray(
-                        currentTest.tests
-                      )
-                        ? currentTest.tests
-                            .length
-                        : Array.isArray(
-                            currentTest.parameters
-                          )
-                        ? currentTest
-                            .parameters.length
-                        : 0}{" "}
+                      {(
+                        currentTest.tests ||
+                        currentTest.parameters ||
+                        []
+                      ).length}{" "}
                       Parameters
                     </div>
-
                   </div>
 
-                  {/* =========================================
-                      RESULT TABLE
-                      ========================================= */}
+                  {/* TABLE */}
 
                   <div className="resultTableWrapper">
-
                     <table className="resultTable">
-
                       <thead>
                         <tr>
                           <th>
@@ -1562,27 +1615,15 @@ export default function ResultsPage() {
                       </thead>
 
                       <tbody>
-
-                        {(Array.isArray(
-                          currentTest.tests
-                        )
-                          ? currentTest.tests
-                          : Array.isArray(
-                              currentTest.parameters
-                            )
-                          ? currentTest.parameters
-                          : []
+                        {(
+                          currentTest.tests ||
+                          currentTest.parameters ||
+                          []
                         ).map(
                           (
                             parameter,
                             index
                           ) => {
-
-                            const parameterName =
-                              getParameterName(
-                                parameter
-                              );
-
                             const key =
                               getParameterKey(
                                 currentTest.id,
@@ -1594,27 +1635,30 @@ export default function ResultsPage() {
                               results[key] ??
                               "";
 
+                            const resolved =
+                              resolveParameter(
+                                parameter
+                              );
+
                             const flag =
                               getFlag(
                                 value,
                                 parameter
                               );
 
-                            const suggestions =
-                              getResultSuggestions(
+                            const options =
+                              getOptions(
                                 parameter
                               );
 
-                            const dataListId =
-                              `result-options-${normalizeText(
-                                currentTest.id
-                              )}-${index}`;
+                            const parameterName =
+                              parameter.name ||
+                              parameter.testName ||
+                              parameter.investigation ||
+                              "Investigation";
 
                             return (
                               <tr key={key}>
-
-                                {/* INVESTIGATION */}
-
                                 <td>
                                   <strong>
                                     {
@@ -1623,49 +1667,32 @@ export default function ResultsPage() {
                                   </strong>
                                 </td>
 
-                                {/* RESULT */}
-
                                 <td>
-
-                                  <input
-                                    className="resultInput"
-                                    type="text"
-                                    inputMode={
-                                      suggestions.length >
-                                      0
-                                        ? "text"
-                                        : "decimal"
-                                    }
-                                    list={
-                                      suggestions.length >
-                                      0
-                                        ? dataListId
-                                        : undefined
-                                    }
-                                    placeholder="Enter result"
-                                    value={value}
-                                    onChange={(
-                                      event
-                                    ) =>
-                                      updateResult(
-                                        currentTest.id,
-                                        parameter,
-                                        index,
-                                        event
-                                          .target
-                                          .value
-                                      )
-                                    }
-                                  />
-
-                                  {suggestions.length >
-                                    0 && (
-                                    <datalist
-                                      id={
-                                        dataListId
+                                  {options.length >
+                                  0 ? (
+                                    <select
+                                      className="resultInput"
+                                      value={
+                                        value
+                                      }
+                                      onChange={(
+                                        e
+                                      ) =>
+                                        updateResult(
+                                          currentTest.id,
+                                          parameter,
+                                          index,
+                                          e
+                                            .target
+                                            .value
+                                        )
                                       }
                                     >
-                                      {suggestions.map(
+                                      <option value="">
+                                        Select
+                                      </option>
+
+                                      {options.map(
                                         (
                                           option
                                         ) => (
@@ -1676,15 +1703,45 @@ export default function ResultsPage() {
                                             value={
                                               option
                                             }
-                                          />
+                                          >
+                                            {
+                                              option
+                                            }
+                                          </option>
                                         )
                                       )}
-                                    </datalist>
+                                    </select>
+                                  ) : (
+                                    <input
+                                      className="resultInput"
+                                      type="text"
+                                      inputMode={
+                                        resolved.min !==
+                                          undefined ||
+                                        resolved.max !==
+                                          undefined
+                                          ? "decimal"
+                                          : "text"
+                                      }
+                                      placeholder="Enter result"
+                                      value={
+                                        value
+                                      }
+                                      onChange={(
+                                        e
+                                      ) =>
+                                        updateResult(
+                                          currentTest.id,
+                                          parameter,
+                                          index,
+                                          e
+                                            .target
+                                            .value
+                                        )
+                                      }
+                                    />
                                   )}
-
                                 </td>
-
-                                {/* UNIT */}
 
                                 <td>
                                   {getUnit(
@@ -1692,18 +1749,13 @@ export default function ResultsPage() {
                                   )}
                                 </td>
 
-                                {/* REFERENCE */}
-
                                 <td>
                                   {getReference(
                                     parameter
                                   )}
                                 </td>
 
-                                {/* FLAG */}
-
                                 <td>
-
                                   {flag && (
                                     <span
                                       className={`resultFlag ${
@@ -1716,94 +1768,78 @@ export default function ResultsPage() {
                                           : "flagNormal"
                                       }`}
                                     >
-                                      {flag}
+                                      {
+                                        flag
+                                      }
                                     </span>
                                   )}
-
                                 </td>
-
                               </tr>
                             );
                           }
                         )}
-
                       </tbody>
-
                     </table>
-
                   </div>
 
-                  {/* =========================================
-                      TEST FOOTER
-                      ========================================= */}
+                  {/* FOOTER */}
 
                   <div className="resultFooter">
-
                     <button
                       className="secondaryResultBtn"
                       onClick={
                         previousTest
                       }
                       disabled={
-                        activeIndex <= 0
+                        selectedTests.findIndex(
+                          (test) =>
+                            test.id ===
+                            activeTest
+                        ) === 0
                       }
                     >
                       ← Previous Test
                     </button>
 
                     <div className="resultFooterRight">
-
                       <button
                         className="saveResultBtn"
                         onClick={() =>
-                          saveResults(true)
+                          saveResults(
+                            true
+                          )
                         }
                       >
                         Save Results
                       </button>
 
-                      {activeIndex <
-                      selectedTests.length -
-                        1 ? (
-                        <button
-                          className="nextResultBtn"
-                          onClick={
-                            nextTest
-                          }
-                        >
-                          Next Test →
-                        </button>
-                      ) : (
-                        <button
-                          className="nextResultBtn"
-                          onClick={
-                            continueReport
-                          }
-                        >
-                          Final Report →
-                        </button>
-                      )}
-
+                      <button
+                        className="nextResultBtn"
+                        onClick={
+                          nextTest
+                        }
+                      >
+                        {selectedTests.findIndex(
+                          (test) =>
+                            test.id ===
+                            activeTest
+                        ) ===
+                        selectedTests.length -
+                          1
+                          ? "Final Report →"
+                          : "Next Test →"}
+                      </button>
                     </div>
-
                   </div>
-
                 </>
-
               )}
-
             </section>
-
           </div>
 
-          {/* =================================================
-              BOTTOM ACTION
-              ================================================= */}
+          {/* BOTTOM */}
 
           <div className="resultBottomActions">
-
             <div>
-
               <strong>
                 Results ready?
               </strong>
@@ -1812,22 +1848,19 @@ export default function ResultsPage() {
                 Save results and create
                 final laboratory report.
               </p>
-
             </div>
 
             <button
               className="generateReportBtn"
-              onClick={continueReport}
+              onClick={
+                continueReport
+              }
             >
               Generate Final Report →
             </button>
-
           </div>
-
         </div>
-
       </main>
-
     </div>
   );
 }
