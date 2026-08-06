@@ -2,21 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
 
 export default function BillingPage() {
   const router = useRouter();
 
   const [tests, setTests] = useState([]);
+  const [patient, setPatient] = useState({});
+  const [patients, setPatients] = useState([]);
+
   const [discount, setDiscount] = useState(0);
   const [paid, setPaid] = useState(0);
   const [paymentMode, setPaymentMode] = useState("Cash");
-  const [patient, setPatient] = useState({});
-  const [billNo, setBillNo] = useState("");
-  const [loaded, setLoaded] = useState(false);
 
-  // ============================================================
-  // LOAD PATIENT + TESTS + EXISTING BILLING
-  // ============================================================
+  const [search, setSearch] = useState("");
+  const [showPatientSearch, setShowPatientSearch] = useState(false);
+  const [loadingPatients, setLoadingPatients] = useState(false);
+
+  // -------------------------------------------------------
+  // LOAD LOCAL DATA
+  // -------------------------------------------------------
 
   useEffect(() => {
     try {
@@ -35,120 +40,281 @@ export default function BillingPage() {
       setTests(Array.isArray(savedTests) ? savedTests : []);
       setPatient(savedPatient || {});
 
-      // Restore billing only when it belongs to current patient/tests
-      if (savedBilling && savedBilling.billNo) {
-        setBillNo(savedBilling.billNo);
+      if (savedBilling?.discount !== undefined) {
+        setDiscount(savedBilling.discount || 0);
+      }
 
-        if (savedBilling.discount !== undefined) {
-          setDiscount(savedBilling.discount);
-        }
+      if (savedBilling?.paid !== undefined) {
+        setPaid(savedBilling.paid || 0);
+      }
 
-        if (savedBilling.paid !== undefined) {
-          setPaid(savedBilling.paid);
-        }
+      if (savedBilling?.paymentMode) {
+        setPaymentMode(savedBilling.paymentMode);
+      }
 
-        if (savedBilling.paymentMode) {
-          setPaymentMode(savedBilling.paymentMode);
-        }
-      } else {
-        setBillNo(createBillNumber());
+      // Agar patient nahi hai to automatically search panel kholo
+      if (
+        !savedPatient ||
+        (!savedPatient.id &&
+          !savedPatient.patientId &&
+          !savedPatient.patient_id &&
+          !savedPatient.name)
+      ) {
+        setShowPatientSearch(true);
       }
     } catch (error) {
-      console.error("Billing load error:", error);
-
+      console.error("Billing local data error:", error);
       setTests([]);
       setPatient({});
-      setBillNo(createBillNumber());
-    } finally {
-      setLoaded(true);
+      setShowPatientSearch(true);
     }
   }, []);
 
-  // ============================================================
-  // BILL NUMBER
-  // ============================================================
+  // -------------------------------------------------------
+  // FETCH PATIENTS
+  // -------------------------------------------------------
 
-  function createBillNumber() {
-    const now = new Date();
+  async function fetchPatients() {
+    setLoadingPatients(true);
 
-    const year = now.getFullYear().toString().slice(-2);
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
+    try {
+      const { data, error } = await supabase
+        .from("patients")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-    const unique = Date.now().toString().slice(-6);
+      if (error) {
+        console.error("Patients fetch error:", error);
+        alert("Patients load nahi ho paye: " + error.message);
+        return;
+      }
 
-    return `NPL-BILL-${year}${month}${day}-${unique}`;
+      setPatients(data || []);
+    } catch (error) {
+      console.error("Patients loading error:", error);
+      alert("Patients load karte samay error aaya.");
+    } finally {
+      setLoadingPatients(false);
+    }
   }
 
-  // ============================================================
-  // SUBTOTAL
-  // ============================================================
+  useEffect(() => {
+    if (showPatientSearch && patients.length === 0) {
+      fetchPatients();
+    }
+  }, [showPatientSearch]);
+
+  // -------------------------------------------------------
+  // NORMALIZED PATIENT VALUES
+  // -------------------------------------------------------
+
+  const patientId =
+    patient.patientId ||
+    patient.patient_id ||
+    patient.id ||
+    "";
+
+  const patientName =
+    patient.name ||
+    patient.patient_name ||
+    "";
+
+  const patientAge =
+    patient.age !== undefined && patient.age !== null
+      ? patient.age
+      : "";
+
+  const patientAgeUnit =
+    patient.ageUnit ||
+    patient.age_unit ||
+    "Years";
+
+  const patientGender =
+    patient.gender ||
+    patient.sex ||
+    "";
+
+  const patientMobile =
+    patient.mobile ||
+    patient.phone ||
+    "";
+
+  const patientDoctor =
+    patient.doctor ||
+    patient.refDoctor ||
+    patient.ref_doctor ||
+    patient.referring_doctor ||
+    "";
+
+  const hasPatient = Boolean(patientId || patientName);
+
+  // -------------------------------------------------------
+  // SEARCH PATIENTS
+  // -------------------------------------------------------
+
+  const filteredPatients = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return patients.slice(0, 20);
+    }
+
+    return patients
+      .filter((item) => {
+        const id = String(
+          item.patient_id ||
+            item.patientId ||
+            item.id ||
+            ""
+        ).toLowerCase();
+
+        const name = String(
+          item.name ||
+            item.patient_name ||
+            ""
+        ).toLowerCase();
+
+        const mobile = String(
+          item.mobile ||
+            item.phone ||
+            ""
+        ).toLowerCase();
+
+        return (
+          id.includes(query) ||
+          name.includes(query) ||
+          mobile.includes(query)
+        );
+      })
+      .slice(0, 30);
+  }, [patients, search]);
+
+  // -------------------------------------------------------
+  // SELECT PATIENT
+  // -------------------------------------------------------
+
+  function selectPatient(selectedPatient) {
+    const normalizedPatient = {
+      ...selectedPatient,
+
+      id:
+        selectedPatient.id ||
+        selectedPatient.patient_id ||
+        selectedPatient.patientId ||
+        "",
+
+      patientId:
+        selectedPatient.patient_id ||
+        selectedPatient.patientId ||
+        selectedPatient.id ||
+        "",
+
+      name:
+        selectedPatient.name ||
+        selectedPatient.patient_name ||
+        "",
+
+      age:
+        selectedPatient.age ?? "",
+
+      ageUnit:
+        selectedPatient.age_unit ||
+        selectedPatient.ageUnit ||
+        "Years",
+
+      gender:
+        selectedPatient.gender ||
+        selectedPatient.sex ||
+        "",
+
+      mobile:
+        selectedPatient.mobile ||
+        selectedPatient.phone ||
+        "",
+
+      doctor:
+        selectedPatient.referring_doctor ||
+        selectedPatient.doctor ||
+        selectedPatient.refDoctor ||
+        selectedPatient.ref_doctor ||
+        "",
+
+      address:
+        selectedPatient.address || "",
+    };
+
+    setPatient(normalizedPatient);
+
+    localStorage.setItem(
+      "nidanPatient",
+      JSON.stringify(normalizedPatient)
+    );
+
+    // New patient select karne par old test/bill mix na ho
+    setTests([]);
+    setDiscount(0);
+    setPaid(0);
+    setPaymentMode("Cash");
+
+    localStorage.removeItem("nidanSelectedTests");
+    localStorage.removeItem("nidanBilling");
+
+    setShowPatientSearch(false);
+    setSearch("");
+  }
+
+  // -------------------------------------------------------
+  // BILL CALCULATION
+  // -------------------------------------------------------
 
   const subtotal = useMemo(() => {
     return tests.reduce((total, test) => {
-      const price = Number(test?.price || 0);
-
-      return total + (Number.isFinite(price) ? price : 0);
+      return total + Number(test.price || test.rate || 0);
     }, 0);
   }, [tests]);
-
-  // ============================================================
-  // DISCOUNT
-  // ============================================================
 
   const discountAmount = Math.min(
     Math.max(Number(discount) || 0, 0),
     subtotal
   );
 
-  // ============================================================
-  // NET AMOUNT
-  // ============================================================
-
   const netAmount = Math.max(
     subtotal - discountAmount,
     0
   );
-
-  // ============================================================
-  // PAID AMOUNT
-  // ============================================================
 
   const paidAmount = Math.min(
     Math.max(Number(paid) || 0, 0),
     netAmount
   );
 
-  // ============================================================
-  // BALANCE
-  // ============================================================
-
   const balance = Math.max(
     netAmount - paidAmount,
     0
   );
 
-  // ============================================================
-  // PAYMENT STATUS
-  // ============================================================
-
   const paymentStatus =
-    netAmount === 0
+    netAmount <= 0
+      ? "Not Billed"
+      : balance <= 0
       ? "Paid"
-      : paidAmount <= 0
-      ? "Pending"
-      : paidAmount >= netAmount
-      ? "Paid"
-      : "Partial";
+      : paidAmount > 0
+      ? "Partial"
+      : "Unpaid";
 
-  // ============================================================
+  // -------------------------------------------------------
   // REMOVE TEST
-  // ============================================================
+  // -------------------------------------------------------
 
-  function removeTest(id) {
-    const updated = tests.filter(
-      (test) => test.id !== id
-    );
+  function removeTest(id, indexToRemove) {
+    const updated = tests.filter((test, index) => {
+      if (id !== undefined && id !== null) {
+        return test.id !== id;
+      }
+
+      return index !== indexToRemove;
+    });
 
     setTests(updated);
 
@@ -156,31 +322,35 @@ export default function BillingPage() {
       "nidanSelectedTests",
       JSON.stringify(updated)
     );
-
-    // prevent old totals being used
-    localStorage.removeItem("nidanBilling");
-    setBillNo(createBillNumber());
   }
 
-  // ============================================================
-  // FULL PAYMENT
-  // ============================================================
+  // -------------------------------------------------------
+  // GO TO TEST SELECTION
+  // -------------------------------------------------------
 
-  function markFullPayment() {
-    setPaid(netAmount);
+  function goToTests() {
+    if (!hasPatient) {
+      alert("Pehle patient select karein.");
+      setShowPatientSearch(true);
+      return;
+    }
+
+    localStorage.setItem(
+      "nidanPatient",
+      JSON.stringify(patient)
+    );
+
+    router.push("/tests");
   }
 
-  // ============================================================
-  // SAVE BILL + CONTINUE
-  // ============================================================
+  // -------------------------------------------------------
+  // SAVE BILL AND CONTINUE
+  // -------------------------------------------------------
 
   function continueResults() {
-    if (!patient || Object.keys(patient).length === 0) {
-      alert(
-        "Patient details nahi mile. Pehle patient select/register karein."
-      );
-
-      router.push("/patients");
+    if (!hasPatient) {
+      alert("Pehle patient select karein.");
+      setShowPatientSearch(true);
       return;
     }
 
@@ -191,143 +361,61 @@ export default function BillingPage() {
       return;
     }
 
-    const finalBillNo =
-      billNo || createBillNumber();
-
     const bill = {
-      billNo: finalBillNo,
+      billNo: `NPL-BILL-${Date.now()
+        .toString()
+        .slice(-6)}`,
 
       date: new Date().toISOString(),
 
-      patientId:
-        patient.patientId ||
-        patient.id ||
-        "",
-
-      patientName:
-        patient.name ||
-        "",
-
-      age:
-        patient.age ||
-        "",
-
-      gender:
-        patient.gender ||
-        patient.sex ||
-        "",
-
-      doctor:
-        patient.doctor ||
-        patient.refDoctor ||
-        "",
-
-      mobile:
-        patient.mobile ||
-        patient.phone ||
-        "",
+      patient,
 
       subtotal,
-
       discount: discountAmount,
-
       netAmount,
-
       paid: paidAmount,
-
       balance,
-
       paymentMode,
-
       paymentStatus,
-
       tests,
-
-      status: "completed",
     };
 
-    try {
-      localStorage.setItem(
-        "nidanBilling",
-        JSON.stringify(bill)
-      );
-
-      // Backup billing copy
-      localStorage.setItem(
-        "nidanCurrentBill",
-        JSON.stringify(bill)
-      );
-
-      router.push("/results");
-    } catch (error) {
-      console.error(
-        "Billing save error:",
-        error
-      );
-
-      alert(
-        "Bill save nahi ho paya. Dobara try karein."
-      );
-    }
-  }
-
-  // ============================================================
-  // FORMAT MONEY
-  // ============================================================
-
-  function money(value) {
-    return Number(value || 0).toLocaleString(
-      "en-IN",
-      {
-        maximumFractionDigits: 2,
-      }
+    localStorage.setItem(
+      "nidanPatient",
+      JSON.stringify(patient)
     );
-  }
 
-  // ============================================================
-  // LOADING
-  // ============================================================
-
-  if (!loaded) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        Loading Billing...
-      </div>
+    localStorage.setItem(
+      "nidanSelectedTests",
+      JSON.stringify(tests)
     );
+
+    localStorage.setItem(
+      "nidanBilling",
+      JSON.stringify(bill)
+    );
+
+    router.push("/results");
   }
 
-  // ============================================================
+  // -------------------------------------------------------
   // UI
-  // ============================================================
+  // -------------------------------------------------------
 
   return (
     <div className="labApp">
 
-      {/* ======================================================
-          SIDEBAR
-      ====================================================== */}
+      {/* SIDEBAR */}
 
       <aside className="sidebar">
 
         <div className="brand">
-
-          <div className="brandLogo">
-            N+
-          </div>
+          <div className="brandLogo">N+</div>
 
           <div>
             <h2>NIDAN</h2>
             <p>PATHOLOGY LAB</p>
           </div>
-
         </div>
 
         <div className="menuLabel">
@@ -336,9 +424,7 @@ export default function BillingPage() {
 
         <button
           className="menu"
-          onClick={() =>
-            router.push("/")
-          }
+          onClick={() => router.push("/")}
         >
           <span>⌂</span>
           Dashboard
@@ -346,9 +432,7 @@ export default function BillingPage() {
 
         <button
           className="menu"
-          onClick={() =>
-            router.push("/patients")
-          }
+          onClick={() => router.push("/")}
         >
           <span>♙</span>
           Patients
@@ -356,26 +440,20 @@ export default function BillingPage() {
 
         <button
           className="menu"
-          onClick={() =>
-            router.push("/tests")
-          }
+          onClick={goToTests}
         >
           <span>🧪</span>
           Test Selection
         </button>
 
-        <button
-          className="menu active"
-        >
+        <button className="menu active">
           <span>₹</span>
           Billing
         </button>
 
         <button
           className="menu"
-          onClick={() =>
-            router.push("/reports")
-          }
+          onClick={() => router.push("/reports")}
         >
           <span>▤</span>
           Reports
@@ -383,19 +461,14 @@ export default function BillingPage() {
 
       </aside>
 
-      {/* ======================================================
-          MAIN
-      ====================================================== */}
+      {/* MAIN AREA */}
 
       <main className="mainArea">
-
-        {/* TOP BAR */}
 
         <header className="topbar">
 
           <div>
             <h3>Billing</h3>
-
             <p>
               Create patient bill and payment details
             </p>
@@ -408,305 +481,449 @@ export default function BillingPage() {
 
         </header>
 
-        {/* CONTENT */}
-
         <div className="content">
 
-          {/* ==================================================
-              PAGE HEADING
-          ================================================== */}
+          {/* PAGE HEADING */}
 
           <div className="pageHeading">
 
             <div>
-
               <div className="smallTitle">
                 STEP 3 OF 5
               </div>
 
-              <h1>
-                Create Patient Bill
-              </h1>
+              <h1>Create Patient Bill</h1>
 
               <p>
-                Selected laboratory tests ka bill
-                prepare karein.
+                Patient select karein, tests verify karein
+                aur payment details enter karein.
               </p>
-
             </div>
 
             <button
               className="backBtn"
-              onClick={() =>
-                router.push("/tests")
-              }
+              onClick={goToTests}
             >
               ← Back to Tests
             </button>
 
           </div>
 
-          {/* ==================================================
-              STEPS
-          ================================================== */}
+          {/* STEPS */}
 
           <div className="steps">
 
             <div className="step">
-
               <span>✓</span>
-
               <div>
                 Patient
                 <small>
-                  Registered
+                  {hasPatient
+                    ? "Selected"
+                    : "Select Patient"}
                 </small>
               </div>
-
             </div>
 
             <div className="step">
-
-              <span>✓</span>
+              <span>
+                {tests.length > 0 ? "✓" : "2"}
+              </span>
 
               <div>
                 Tests
                 <small>
-                  Selected
+                  {tests.length > 0
+                    ? `${tests.length} Selected`
+                    : "Select Tests"}
                 </small>
               </div>
-
             </div>
 
             <div className="step activeStep">
-
               <span>3</span>
 
               <div>
                 Billing
-                <small>
-                  Create Bill
-                </small>
+                <small>Create Bill</small>
               </div>
-
             </div>
 
             <div className="step">
-
               <span>4</span>
 
               <div>
                 Results
-                <small>
-                  Enter Results
-                </small>
+                <small>Enter Results</small>
               </div>
-
             </div>
 
             <div className="step">
-
               <span>5</span>
 
               <div>
                 Report
-                <small>
-                  Print / PDF
-                </small>
+                <small>Print / PDF</small>
               </div>
-
             </div>
 
           </div>
 
-          {/* ==================================================
-              BILLING GRID
-          ================================================== */}
+          {/* PATIENT SEARCH */}
+
+          {showPatientSearch && (
+
+            <section
+              className="billingCard"
+              style={{ marginBottom: "20px" }}
+            >
+
+              <div className="billingTitle">
+
+                <div>
+                  <h2>Select Patient</h2>
+
+                  <p>
+                    Patient ID, name ya mobile number
+                    se search karein.
+                  </p>
+                </div>
+
+                {hasPatient && (
+                  <button
+                    className="backBtn"
+                    onClick={() =>
+                      setShowPatientSearch(false)
+                    }
+                  >
+                    × Close
+                  </button>
+                )}
+
+              </div>
+
+              <div
+                style={{
+                  padding: "18px",
+                }}
+              >
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                    marginBottom: "15px",
+                  }}
+                >
+
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) =>
+                      setSearch(e.target.value)
+                    }
+                    placeholder="Search Patient ID / Name / Mobile"
+                    style={{
+                      flex: "1",
+                      minWidth: "220px",
+                      padding: "12px",
+                      border: "1px solid #d9e1e8",
+                      borderRadius: "8px",
+                    }}
+                  />
+
+                  <button
+                    className="backBtn"
+                    onClick={fetchPatients}
+                  >
+                    ↻ Refresh
+                  </button>
+
+                  <button
+                    className="continueBtn"
+                    onClick={() => router.push("/")}
+                  >
+                    + New Patient
+                  </button>
+
+                </div>
+
+                {loadingPatients ? (
+
+                  <div
+                    style={{
+                      padding: "25px",
+                      textAlign: "center",
+                    }}
+                  >
+                    Patients loading...
+                  </div>
+
+                ) : filteredPatients.length === 0 ? (
+
+                  <div
+                    style={{
+                      padding: "25px",
+                      textAlign: "center",
+                    }}
+                  >
+                    Koi patient nahi mila.
+                  </div>
+
+                ) : (
+
+                  <div
+                    style={{
+                      maxHeight: "350px",
+                      overflowY: "auto",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  >
+
+                    {filteredPatients.map(
+                      (item, index) => {
+
+                        const id =
+                          item.patient_id ||
+                          item.patientId ||
+                          item.id ||
+                          "-";
+
+                        const name =
+                          item.name ||
+                          item.patient_name ||
+                          "Unknown";
+
+                        const mobile =
+                          item.mobile ||
+                          item.phone ||
+                          "-";
+
+                        const age =
+                          item.age ?? "-";
+
+                        const gender =
+                          item.gender ||
+                          item.sex ||
+                          "-";
+
+                        return (
+
+                          <div
+                            key={`${id}-${index}`}
+                            style={{
+                              padding: "12px",
+                              borderBottom:
+                                "1px solid #edf1f4",
+                              display: "flex",
+                              justifyContent:
+                                "space-between",
+                              alignItems: "center",
+                              gap: "15px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+
+                            <div>
+                              <strong>
+                                {name}
+                              </strong>
+
+                              <div
+                                style={{
+                                  fontSize: "12px",
+                                  color: "#64748b",
+                                  marginTop: "4px",
+                                }}
+                              >
+                                {id} • {mobile} •{" "}
+                                {age} {gender}
+                              </div>
+                            </div>
+
+                            <button
+                              className="continueBtn"
+                              onClick={() =>
+                                selectPatient(item)
+                              }
+                            >
+                              Select
+                            </button>
+
+                          </div>
+                        );
+                      }
+                    )}
+
+                  </div>
+                )}
+
+              </div>
+
+            </section>
+          )}
+
+          {/* BILLING GRID */}
 
           <div className="billingGrid">
 
-            {/* ================================================
-                PATIENT + TEST CARD
-            ================================================ */}
+            {/* LEFT CARD */}
 
             <section className="billingCard">
 
               <div className="billingTitle">
 
                 <div>
-
-                  <h2>
-                    Patient & Test Details
-                  </h2>
+                  <h2>Patient & Test Details</h2>
 
                   <p>
                     Verify patient and selected
                     investigations.
                   </p>
-
                 </div>
 
                 <div className="billBadge">
-                  {tests.length}{" "}
-                  {tests.length === 1
-                    ? "Test"
-                    : "Tests"}
+                  {tests.length} Tests
                 </div>
 
               </div>
 
-              {/* BILL NUMBER */}
+              {/* PATIENT */}
 
-              <div
-                style={{
-                  padding: "12px 18px",
-                  marginBottom: "12px",
-                  background: "#f7fafc",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "10px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "15px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div>
-                  <small
+              {!hasPatient ? (
+
+                <div
+                  style={{
+                    padding: "25px",
+                    textAlign: "center",
+                  }}
+                >
+
+                  <h3>
+                    No Patient Selected
+                  </h3>
+
+                  <p>
+                    Billing continue karne ke liye
+                    patient select karein.
+                  </p>
+
+                  <button
+                    className="continueBtn"
+                    onClick={() =>
+                      setShowPatientSearch(true)
+                    }
+                  >
+                    Search / Select Patient
+                  </button>
+
+                </div>
+
+              ) : (
+
+                <>
+
+                  <div
                     style={{
-                      display: "block",
-                      color: "#64748b",
-                      marginBottom: "4px",
+                      padding: "14px 18px",
+                      background: "#f0fdfa",
+                      borderBottom:
+                        "1px solid #d5efea",
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems: "center",
+                      gap: "10px",
+                      flexWrap: "wrap",
                     }}
                   >
-                    BILL NUMBER
-                  </small>
 
-                  <strong>
-                    {billNo}
-                  </strong>
-                </div>
+                    <div>
+                      <strong>
+                        ✓ Patient Selected
+                      </strong>
 
-                <div>
-                  <small
-                    style={{
-                      display: "block",
-                      color: "#64748b",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    PAYMENT STATUS
-                  </small>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          marginTop: "3px",
+                        }}
+                      >
+                        {patientName}
+                      </div>
+                    </div>
 
-                  <strong
-                    style={{
-                      color:
-                        paymentStatus === "Paid"
-                          ? "#059669"
-                          : paymentStatus === "Partial"
-                          ? "#d97706"
-                          : "#dc2626",
-                    }}
-                  >
-                    {paymentStatus}
-                  </strong>
-                </div>
+                    <button
+                      className="backBtn"
+                      onClick={() =>
+                        setShowPatientSearch(true)
+                      }
+                    >
+                      Change Patient
+                    </button>
 
-              </div>
+                  </div>
 
-              {/* ==============================================
-                  PATIENT INFO
-              ============================================== */}
+                  <div className="patientBillInfo">
 
-              <div className="patientBillInfo">
+                    <div>
+                      <small>Patient ID</small>
+                      <strong>
+                        {patientId || "-"}
+                      </strong>
+                    </div>
 
-                <div>
+                    <div>
+                      <small>Patient Name</small>
+                      <strong>
+                        {patientName || "-"}
+                      </strong>
+                    </div>
 
-                  <small>
-                    Patient ID
-                  </small>
+                    <div>
+                      <small>Age / Sex</small>
+                      <strong>
+                        {patientAge || "-"}{" "}
+                        {patientAgeUnit} /{" "}
+                        {patientGender || "-"}
+                      </strong>
+                    </div>
 
-                  <strong>
-                    {patient.patientId ||
-                      patient.id ||
-                      "Not available"}
-                  </strong>
+                    <div>
+                      <small>Mobile</small>
+                      <strong>
+                        {patientMobile || "-"}
+                      </strong>
+                    </div>
 
-                </div>
+                    <div>
+                      <small>Ref. Doctor</small>
+                      <strong>
+                        {patientDoctor || "-"}
+                      </strong>
+                    </div>
 
-                <div>
+                  </div>
 
-                  <small>
-                    Patient Name
-                  </small>
+                </>
+              )}
 
-                  <strong>
-                    {patient.name ||
-                      "Not available"}
-                  </strong>
-
-                </div>
-
-                <div>
-
-                  <small>
-                    Age / Sex
-                  </small>
-
-                  <strong>
-                    {patient.age || "-"} /{" "}
-                    {patient.gender ||
-                      patient.sex ||
-                      "-"}
-                  </strong>
-
-                </div>
-
-                <div>
-
-                  <small>
-                    Ref. Doctor
-                  </small>
-
-                  <strong>
-                    {patient.doctor ||
-                      patient.refDoctor ||
-                      "-"}
-                  </strong>
-
-                </div>
-
-              </div>
-
-              {/* ==============================================
-                  TEST TABLE
-              ============================================== */}
+              {/* TEST TABLE */}
 
               <div className="billTableWrap">
 
                 <table className="billTable">
 
                   <thead>
-
                     <tr>
-
                       <th>#</th>
-
-                      <th>
-                        Investigation
-                      </th>
-
-                      <th>
-                        Category
-                      </th>
-
-                      <th>
-                        Rate
-                      </th>
-
+                      <th>Investigation</th>
+                      <th>Category</th>
+                      <th>Rate</th>
                       <th></th>
-
                     </tr>
-
                   </thead>
 
                   <tbody>
@@ -714,81 +931,95 @@ export default function BillingPage() {
                     {tests.length === 0 ? (
 
                       <tr>
-
                         <td
                           colSpan="5"
                           className="emptyBill"
                         >
-                          No tests selected.
-                        </td>
 
+                          <div
+                            style={{
+                              padding: "20px",
+                            }}
+                          >
+
+                            <div>
+                              No tests selected.
+                            </div>
+
+                            <button
+                              className="continueBtn"
+                              style={{
+                                marginTop: "12px",
+                              }}
+                              onClick={goToTests}
+                            >
+                              + Select Tests
+                            </button>
+
+                          </div>
+
+                        </td>
                       </tr>
 
                     ) : (
 
-                      tests.map(
-                        (test, index) => (
+                      tests.map((test, index) => (
 
-                          <tr
-                            key={
-                              test.id ||
-                              `${test.name}-${index}`
-                            }
-                          >
+                        <tr
+                          key={
+                            test.id ||
+                            `${test.name}-${index}`
+                          }
+                        >
 
-                            <td>
-                              {index + 1}
-                            </td>
+                          <td>
+                            {index + 1}
+                          </td>
 
-                            <td>
+                          <td>
+                            <strong>
+                              {test.short ||
+                                test.name ||
+                                "Test"}
+                            </strong>
 
-                              <strong>
-                                {test.short ||
-                                  test.name}
-                              </strong>
+                            <small>
+                              {test.tests?.length ||
+                                test.parameters?.length ||
+                                0}{" "}
+                              parameters
+                            </small>
+                          </td>
 
-                              <small>
-                                {test.tests?.length ||
-                                  0}{" "}
-                                parameters
-                              </small>
+                          <td>
+                            {test.category || "-"}
+                          </td>
 
-                            </td>
+                          <td>
+                            ₹
+                            {Number(
+                              test.price ||
+                                test.rate ||
+                                0
+                            ).toFixed(0)}
+                          </td>
 
-                            <td>
-                              {test.category ||
-                                "-"}
-                            </td>
+                          <td>
+                            <button
+                              className="removeBillTest"
+                              onClick={() =>
+                                removeTest(
+                                  test.id,
+                                  index
+                                )
+                              }
+                            >
+                              ×
+                            </button>
+                          </td>
 
-                            <td>
-                              ₹
-                              {money(
-                                test.price
-                              )}
-                            </td>
-
-                            <td>
-
-                              <button
-                                type="button"
-                                className="removeBillTest"
-                                title="Remove Test"
-                                onClick={() =>
-                                  removeTest(
-                                    test.id
-                                  )
-                                }
-                              >
-                                ×
-                              </button>
-
-                            </td>
-
-                          </tr>
-
-                        )
-                      )
-
+                        </tr>
+                      ))
                     )}
 
                   </tbody>
@@ -799,45 +1030,29 @@ export default function BillingPage() {
 
             </section>
 
-            {/* ================================================
-                PAYMENT CARD
-            ================================================ */}
+            {/* PAYMENT */}
 
             <aside className="paymentCard">
 
               <div className="billingTitle">
 
                 <div>
-
-                  <h2>
-                    Payment Summary
-                  </h2>
-
+                  <h2>Payment Summary</h2>
                   <p>
                     Bill amount and payment.
                   </p>
-
                 </div>
 
               </div>
 
               <div className="paymentRows">
 
-                {/* SUBTOTAL */}
-
                 <div>
-
-                  <span>
-                    Subtotal
-                  </span>
-
+                  <span>Subtotal</span>
                   <strong>
-                    ₹{money(subtotal)}
+                    ₹{subtotal.toFixed(0)}
                   </strong>
-
                 </div>
-
-                {/* DISCOUNT */}
 
                 <div className="paymentInputRow">
 
@@ -847,20 +1062,15 @@ export default function BillingPage() {
 
                   <input
                     type="number"
-                    inputMode="decimal"
                     min="0"
                     max={subtotal}
                     value={discount}
                     onChange={(e) =>
-                      setDiscount(
-                        e.target.value
-                      )
+                      setDiscount(e.target.value)
                     }
                   />
 
                 </div>
-
-                {/* NET */}
 
                 <div className="netPayable">
 
@@ -869,12 +1079,10 @@ export default function BillingPage() {
                   </span>
 
                   <strong>
-                    ₹{money(netAmount)}
+                    ₹{netAmount.toFixed(0)}
                   </strong>
 
                 </div>
-
-                {/* PAID */}
 
                 <div className="paymentInputRow">
 
@@ -884,20 +1092,15 @@ export default function BillingPage() {
 
                   <input
                     type="number"
-                    inputMode="decimal"
                     min="0"
                     max={netAmount}
                     value={paid}
                     onChange={(e) =>
-                      setPaid(
-                        e.target.value
-                      )
+                      setPaid(e.target.value)
                     }
                   />
 
                 </div>
-
-                {/* PAYMENT MODE */}
 
                 <div className="paymentInputRow">
 
@@ -913,32 +1116,16 @@ export default function BillingPage() {
                       )
                     }
                   >
-
-                    <option value="Cash">
-                      Cash
-                    </option>
-
-                    <option value="UPI">
-                      UPI
-                    </option>
-
-                    <option value="Card">
-                      Card
-                    </option>
-
-                    <option value="Bank Transfer">
+                    <option>Cash</option>
+                    <option>UPI</option>
+                    <option>Card</option>
+                    <option>
                       Bank Transfer
                     </option>
-
-                    <option value="Credit">
-                      Credit
-                    </option>
-
+                    <option>Credit</option>
                   </select>
 
                 </div>
-
-                {/* STATUS */}
 
                 <div>
 
@@ -946,24 +1133,11 @@ export default function BillingPage() {
                     Payment Status
                   </span>
 
-                  <strong
-                    style={{
-                      color:
-                        paymentStatus ===
-                        "Paid"
-                          ? "#059669"
-                          : paymentStatus ===
-                            "Partial"
-                          ? "#d97706"
-                          : "#dc2626",
-                    }}
-                  >
+                  <strong>
                     {paymentStatus}
                   </strong>
 
                 </div>
-
-                {/* BALANCE */}
 
                 <div className="balanceRow">
 
@@ -972,64 +1146,29 @@ export default function BillingPage() {
                   </span>
 
                   <strong>
-                    ₹{money(balance)}
+                    ₹{balance.toFixed(0)}
                   </strong>
 
                 </div>
 
               </div>
 
-              {/* ==============================================
-                  FULL PAYMENT
-              ============================================== */}
-
               <button
-                type="button"
                 className="fullPaymentBtn"
-                onClick={
-                  markFullPayment
-                }
-                disabled={
-                  tests.length === 0
+                disabled={netAmount <= 0}
+                onClick={() =>
+                  setPaid(netAmount)
                 }
               >
                 Mark Full Payment
               </button>
 
-              {/* ==============================================
-                  CONTINUE
-              ============================================== */}
-
               <button
-                type="button"
                 className="continueBtn billingContinue"
-                onClick={
-                  continueResults
-                }
-                disabled={
-                  tests.length === 0
-                }
+                onClick={continueResults}
               >
                 Save Bill & Continue to Results →
               </button>
-
-              {/* INFORMATION */}
-
-              <div
-                style={{
-                  marginTop: "14px",
-                  padding: "12px",
-                  borderRadius: "8px",
-                  background: "#f8fafc",
-                  fontSize: "12px",
-                  lineHeight: "1.6",
-                  color: "#64748b",
-                }}
-              >
-                Bill results page par continue
-                karne se pehle automatically
-                save hoga.
-              </div>
 
             </aside>
 
