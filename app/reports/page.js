@@ -5,871 +5,1073 @@ import { supabase } from "../../lib/supabase";
 
 /* =========================================================
    NIDAN PATHOLOGY LAB
-   SAVED REPORTS + PRINTABLE LAB REPORT
-   app/reports/page.js
-   ========================================================= */
+   SAVED REPORTS PAGE
+   MASTER TEST DATABASE
+========================================================= */
 
-/* =========================================================
-   MASTER PATHOLOGY TEST LIBRARY
-   ========================================================= */
-
-const MASTER_TESTS = {
-  cbc: {
-    name: "COMPLETE BLOOD COUNT (CBC)",
-    department: "HAEMATOLOGY",
-    parameters: [
-      { name: "Haemoglobin", unit: "g/dL", reference: "Male: 13-17 | Female: 12-15" },
-      { name: "Total Leucocyte Count (TLC)", unit: "/cumm", reference: "4000-11000" },
-
-      { name: "DIFFERENTIAL LEUCOCYTE COUNT", heading: true },
-
-      { name: "Neutrophils", unit: "%", reference: "40-75" },
-      { name: "Lymphocytes", unit: "%", reference: "20-40" },
-      { name: "Eosinophils", unit: "%", reference: "1-6" },
-      { name: "Monocytes", unit: "%", reference: "1-10" },
-      { name: "Basophils", unit: "%", reference: "0-1" },
-
-      { name: "RBC INDICES", heading: true },
-
-      { name: "RBC Count", unit: "million/cumm", reference: "Male: 4.5-6.0 | Female: 4.0-5.5" },
-      { name: "PCV / Haematocrit", unit: "%", reference: "Male: 40-50 | Female: 36-46" },
-      { name: "MCV", unit: "fL", reference: "80-100" },
-      { name: "MCH", unit: "pg", reference: "27-32" },
-      { name: "MCHC", unit: "g/dL", reference: "32-36" },
-      { name: "RDW-CV", unit: "%", reference: "11.5-14.5" },
-
-      { name: "PLATELET INDICES", heading: true },
-
-      { name: "Platelet Count", unit: "Lac/cumm", reference: "1.5-4.5" },
-      { name: "MPV", unit: "fL", reference: "7.5-11.5" },
-      { name: "PDW", unit: "%", reference: "9-17" },
-      { name: "PCT", unit: "%", reference: "0.15-0.40" },
-    ],
-  },
-
-  esr: {
-    name: "ESR",
-    department: "HAEMATOLOGY",
+const MASTER_TESTS = [
+  {
+    id: "cbc",
+    name: "Complete Blood Count (CBC)",
+    short: "CBC",
+    category: "HAEMATOLOGY",
     parameters: [
       {
-        name: "ESR (Westergren Method)",
-        unit: "mm/1st hr",
-        reference: "Male: 0-15 | Female: 0-20",
+        name: "Haemoglobin",
+        aliases: ["Hemoglobin", "Hb"],
+        unit: "g/dL",
+        maleMin: 13,
+        maleMax: 17,
+        femaleMin: 12,
+        femaleMax: 15,
+        maleRange: "13 - 17",
+        femaleRange: "12 - 15",
+      },
+      {
+        name: "Total Leucocyte Count (TLC)",
+        aliases: [
+          "Total WBC Count",
+          "WBC Count",
+          "TLC",
+          "Total Leukocyte Count",
+        ],
+        unit: "/cumm",
+        min: 4000,
+        max: 11000,
+        range: "4000 - 11000",
+      },
+      {
+        name: "Neutrophils",
+        aliases: ["Neutrophil"],
+        unit: "%",
+        min: 40,
+        max: 75,
+        range: "40 - 75",
+      },
+      {
+        name: "Lymphocytes",
+        aliases: ["Lymphocyte"],
+        unit: "%",
+        min: 20,
+        max: 40,
+        range: "20 - 40",
+      },
+      {
+        name: "Eosinophils",
+        aliases: ["Eosinophil"],
+        unit: "%",
+        min: 1,
+        max: 6,
+        range: "1 - 6",
+      },
+      {
+        name: "Monocytes",
+        aliases: ["Monocyte"],
+        unit: "%",
+        min: 1,
+        max: 10,
+        range: "1 - 10",
+      },
+      {
+        name: "Basophils",
+        aliases: ["Basophil"],
+        unit: "%",
+        min: 0,
+        max: 1,
+        range: "0 - 1",
+      },
+      {
+        name: "RBC Count",
+        aliases: [
+          "RBC",
+          "Red Blood Cell Count",
+          "Total RBC Count",
+        ],
+        unit: "million/cumm",
+        maleMin: 4.5,
+        maleMax: 6.0,
+        femaleMin: 4.0,
+        femaleMax: 5.5,
+        maleRange: "4.5 - 6.0",
+        femaleRange: "4.0 - 5.5",
+      },
+      {
+        name: "PCV / Haematocrit",
+        aliases: [
+          "PCV",
+          "Hematocrit",
+          "Haematocrit",
+          "PCV / Hematocrit",
+        ],
+        unit: "%",
+        maleMin: 40,
+        maleMax: 50,
+        femaleMin: 36,
+        femaleMax: 46,
+        maleRange: "40 - 50",
+        femaleRange: "36 - 46",
+      },
+      {
+        name: "MCV",
+        aliases: [],
+        unit: "fL",
+        min: 80,
+        max: 100,
+        range: "80 - 100",
+      },
+      {
+        name: "MCH",
+        aliases: [],
+        unit: "pg",
+        min: 27,
+        max: 32,
+        range: "27 - 32",
+      },
+      {
+        name: "MCHC",
+        aliases: [],
+        unit: "g/dL",
+        min: 32,
+        max: 36,
+        range: "32 - 36",
+      },
+      {
+        name: "RDW-CV",
+        aliases: ["RDW", "RDW CV"],
+        unit: "%",
+        min: 11.5,
+        max: 14.5,
+        range: "11.5 - 14.5",
+      },
+      {
+        name: "Platelet Count",
+        aliases: [
+          "Platelets",
+          "Total Platelet Count",
+        ],
+        unit: "Lac/cumm",
+        min: 1.5,
+        max: 4.5,
+        range: "1.5 - 4.5",
+      },
+      {
+        name: "MPV",
+        aliases: ["Mean Platelet Volume"],
+        unit: "fL",
+        min: 7.5,
+        max: 11.5,
+        range: "7.5 - 11.5",
+      },
+      {
+        name: "PDW",
+        aliases: [
+          "Platelet Distribution Width",
+        ],
+        unit: "%",
+        min: 9,
+        max: 17,
+        range: "9 - 17",
+      },
+      {
+        name: "PCT",
+        aliases: ["Plateletcrit"],
+        unit: "%",
+        min: 0.15,
+        max: 0.4,
+        range: "0.15 - 0.40",
       },
     ],
   },
 
-  bloodgroup: {
-    name: "BLOOD GROUP",
-    department: "HAEMATOLOGY",
-    parameters: [
-      { name: "ABO Blood Group", unit: "", reference: "" },
-      { name: "Rh Type", unit: "", reference: "Positive / Negative" },
-    ],
-  },
-
-  btct: {
-    name: "BT / CT",
-    department: "HAEMATOLOGY",
-    parameters: [
-      { name: "Bleeding Time (BT)", unit: "minutes", reference: "2-7" },
-      { name: "Clotting Time (CT)", unit: "minutes", reference: "5-11" },
-    ],
-  },
-
-  ptinr: {
-    name: "PROTHROMBIN TIME (PT/INR)",
-    department: "COAGULATION",
-    parameters: [
-      { name: "Prothrombin Time (PT)", unit: "sec", reference: "11-16" },
-      { name: "Control PT", unit: "sec", reference: "Laboratory Control" },
-      { name: "INR", unit: "", reference: "0.8-1.2" },
-    ],
-  },
-
-  aptt: {
-    name: "APTT",
-    department: "COAGULATION",
+  {
+    id: "esr",
+    name: "Erythrocyte Sedimentation Rate (ESR)",
+    short: "ESR",
+    category: "HAEMATOLOGY",
     parameters: [
       {
-        name: "Activated Partial Thromboplastin Time",
-        unit: "sec",
-        reference: "25-35",
-      },
-      {
-        name: "Control",
-        unit: "sec",
-        reference: "Laboratory Control",
+        name: "ESR",
+        aliases: [
+          "Erythrocyte Sedimentation Rate",
+        ],
+        unit: "mm/hr",
+        maleMin: 0,
+        maleMax: 15,
+        femaleMin: 0,
+        femaleMax: 20,
+        maleRange: "0 - 15",
+        femaleRange: "0 - 20",
       },
     ],
   },
 
-  lft: {
-    name: "LIVER FUNCTION TEST (LFT)",
-    department: "BIOCHEMISTRY",
+  {
+    id: "sugar",
+    name: "Blood Glucose",
+    short: "Blood Sugar",
+    category: "BIOCHEMISTRY",
     parameters: [
-      { name: "Total Bilirubin", unit: "mg/dL", reference: "0.2-1.2" },
-      { name: "Direct Bilirubin", unit: "mg/dL", reference: "0.0-0.3" },
-      { name: "Indirect Bilirubin", unit: "mg/dL", reference: "0.2-0.9" },
-      { name: "SGOT / AST", unit: "U/L", reference: "Up to 40" },
-      { name: "SGPT / ALT", unit: "U/L", reference: "Up to 40" },
-      { name: "Alkaline Phosphatase (ALP)", unit: "U/L", reference: "44-147" },
-      { name: "Total Protein", unit: "g/dL", reference: "6.0-8.3" },
-      { name: "Albumin", unit: "g/dL", reference: "3.5-5.2" },
-      { name: "Globulin", unit: "g/dL", reference: "2.0-3.5" },
-      { name: "A/G Ratio", unit: "", reference: "1.0-2.2" },
+      {
+        name: "Fasting Blood Sugar",
+        aliases: [
+          "FBS",
+          "Fasting Glucose",
+          "Fasting Blood Glucose",
+        ],
+        unit: "mg/dL",
+        min: 70,
+        max: 100,
+        range: "70 - 100",
+      },
+      {
+        name: "Post Prandial Blood Sugar",
+        aliases: [
+          "PPBS",
+          "Post Prandial Glucose",
+          "Postprandial Blood Sugar",
+        ],
+        unit: "mg/dL",
+        min: 70,
+        max: 140,
+        range: "70 - 140",
+      },
+      {
+        name: "Random Blood Sugar",
+        aliases: [
+          "RBS",
+          "Random Glucose",
+          "Random Blood Glucose",
+        ],
+        unit: "mg/dL",
+        min: 70,
+        max: 140,
+        range: "70 - 140",
+      },
     ],
   },
 
-  kft: {
-    name: "KIDNEY FUNCTION TEST (KFT/RFT)",
-    department: "BIOCHEMISTRY",
+  {
+    id: "kft",
+    name: "Kidney Function Test",
+    short: "KFT",
+    category: "BIOCHEMISTRY",
     parameters: [
-      { name: "Blood Urea", unit: "mg/dL", reference: "15-40" },
-      { name: "Serum Creatinine", unit: "mg/dL", reference: "0.6-1.3" },
-      { name: "Uric Acid", unit: "mg/dL", reference: "Male: 3.4-7.0 | Female: 2.4-6.0" },
-      { name: "Blood Urea Nitrogen (BUN)", unit: "mg/dL", reference: "7-20" },
-      { name: "Sodium", unit: "mmol/L", reference: "135-145" },
-      { name: "Potassium", unit: "mmol/L", reference: "3.5-5.1" },
-      { name: "Chloride", unit: "mmol/L", reference: "98-107" },
+      {
+        name: "Blood Urea",
+        aliases: ["Urea", "Serum Urea"],
+        unit: "mg/dL",
+        min: 15,
+        max: 45,
+        range: "15 - 45",
+      },
+      {
+        name: "Serum Creatinine",
+        aliases: ["Creatinine"],
+        unit: "mg/dL",
+        min: 0.6,
+        max: 1.3,
+        range: "0.6 - 1.3",
+      },
+      {
+        name: "Uric Acid",
+        aliases: ["Serum Uric Acid"],
+        unit: "mg/dL",
+        maleMin: 3.4,
+        maleMax: 7.0,
+        femaleMin: 2.4,
+        femaleMax: 6.0,
+        maleRange: "3.4 - 7.0",
+        femaleRange: "2.4 - 6.0",
+      },
+      {
+        name: "Sodium",
+        aliases: ["Serum Sodium", "Na+"],
+        unit: "mEq/L",
+        min: 135,
+        max: 145,
+        range: "135 - 145",
+      },
+      {
+        name: "Potassium",
+        aliases: [
+          "Serum Potassium",
+          "K+",
+        ],
+        unit: "mEq/L",
+        min: 3.5,
+        max: 5.1,
+        range: "3.5 - 5.1",
+      },
+      {
+        name: "Chloride",
+        aliases: [
+          "Serum Chloride",
+          "Cl-",
+        ],
+        unit: "mEq/L",
+        min: 98,
+        max: 107,
+        range: "98 - 107",
+      },
+      {
+        name: "BUN",
+        aliases: [
+          "Blood Urea Nitrogen",
+        ],
+        unit: "mg/dL",
+        min: 7,
+        max: 20,
+        range: "7 - 20",
+      },
     ],
   },
 
-  lipid: {
-    name: "LIPID PROFILE",
-    department: "BIOCHEMISTRY",
+  {
+    id: "lft",
+    name: "Liver Function Test",
+    short: "LFT",
+    category: "BIOCHEMISTRY",
     parameters: [
-      { name: "Total Cholesterol", unit: "mg/dL", reference: "Desirable: <200" },
-      { name: "Triglycerides", unit: "mg/dL", reference: "Normal: <150" },
-      { name: "HDL Cholesterol", unit: "mg/dL", reference: "40-60" },
-      { name: "LDL Cholesterol", unit: "mg/dL", reference: "Optimal: <100" },
-      { name: "VLDL Cholesterol", unit: "mg/dL", reference: "5-40" },
-      { name: "TC/HDL Ratio", unit: "", reference: "<5.0" },
-      { name: "LDL/HDL Ratio", unit: "", reference: "<3.5" },
+      {
+        name: "Total Bilirubin",
+        aliases: [
+          "Bilirubin Total",
+          "Serum Bilirubin Total",
+        ],
+        unit: "mg/dL",
+        min: 0.2,
+        max: 1.2,
+        range: "0.2 - 1.2",
+      },
+      {
+        name: "Direct Bilirubin",
+        aliases: [
+          "Bilirubin Direct",
+        ],
+        unit: "mg/dL",
+        min: 0,
+        max: 0.3,
+        range: "0 - 0.3",
+      },
+      {
+        name: "Indirect Bilirubin",
+        aliases: [
+          "Bilirubin Indirect",
+        ],
+        unit: "mg/dL",
+        min: 0.2,
+        max: 0.9,
+        range: "0.2 - 0.9",
+      },
+      {
+        name: "SGOT / AST",
+        aliases: ["SGOT", "AST"],
+        unit: "U/L",
+        min: 0,
+        max: 40,
+        range: "0 - 40",
+      },
+      {
+        name: "SGPT / ALT",
+        aliases: ["SGPT", "ALT"],
+        unit: "U/L",
+        min: 0,
+        max: 40,
+        range: "0 - 40",
+      },
+      {
+        name: "Alkaline Phosphatase",
+        aliases: ["ALP"],
+        unit: "U/L",
+        min: 44,
+        max: 147,
+        range: "44 - 147",
+      },
+      {
+        name: "Total Protein",
+        aliases: [
+          "Serum Total Protein",
+        ],
+        unit: "g/dL",
+        min: 6.0,
+        max: 8.3,
+        range: "6.0 - 8.3",
+      },
+      {
+        name: "Albumin",
+        aliases: ["Serum Albumin"],
+        unit: "g/dL",
+        min: 3.5,
+        max: 5.0,
+        range: "3.5 - 5.0",
+      },
+      {
+        name: "Globulin",
+        aliases: ["Serum Globulin"],
+        unit: "g/dL",
+        min: 2.0,
+        max: 3.5,
+        range: "2.0 - 3.5",
+      },
     ],
   },
 
-  thyroid: {
-    name: "THYROID PROFILE",
-    department: "IMMUNOASSAY",
+  {
+    id: "lipid",
+    name: "Lipid Profile",
+    short: "Lipid Profile",
+    category: "BIOCHEMISTRY",
     parameters: [
-      { name: "T3 (Triiodothyronine)", unit: "ng/dL", reference: "80-200" },
-      { name: "T4 (Thyroxine)", unit: "µg/dL", reference: "5.0-12.0" },
-      { name: "TSH", unit: "µIU/mL", reference: "0.4-4.5" },
+      {
+        name: "Total Cholesterol",
+        aliases: ["Cholesterol"],
+        unit: "mg/dL",
+        min: 0,
+        max: 200,
+        range: "< 200",
+      },
+      {
+        name: "Triglycerides",
+        aliases: ["TG"],
+        unit: "mg/dL",
+        min: 0,
+        max: 150,
+        range: "< 150",
+      },
+      {
+        name: "HDL Cholesterol",
+        aliases: ["HDL", "HDL-C"],
+        unit: "mg/dL",
+        min: 40,
+        max: 100,
+        range: "40 - 100",
+      },
+      {
+        name: "LDL Cholesterol",
+        aliases: ["LDL", "LDL-C"],
+        unit: "mg/dL",
+        min: 0,
+        max: 100,
+        range: "< 100",
+      },
+      {
+        name: "VLDL Cholesterol",
+        aliases: ["VLDL", "VLDL-C"],
+        unit: "mg/dL",
+        min: 5,
+        max: 40,
+        range: "5 - 40",
+      },
     ],
   },
 
-  thyroidft3ft4: {
-    name: "THYROID PROFILE (FT3, FT4, TSH)",
-    department: "IMMUNOASSAY",
-    parameters: [
-      { name: "FT3", unit: "pg/mL", reference: "2.0-4.4" },
-      { name: "FT4", unit: "ng/dL", reference: "0.8-1.8" },
-      { name: "TSH", unit: "µIU/mL", reference: "0.4-4.5" },
-    ],
-  },
-
-  glucose: {
-    name: "BLOOD GLUCOSE",
-    department: "BIOCHEMISTRY",
-    parameters: [
-      { name: "Blood Glucose", unit: "mg/dL", reference: "Interpret according to fasting/random status" },
-    ],
-  },
-
-  fbs: {
-    name: "FASTING BLOOD SUGAR (FBS)",
-    department: "BIOCHEMISTRY",
-    parameters: [
-      { name: "Fasting Blood Sugar", unit: "mg/dL", reference: "70-99" },
-    ],
-  },
-
-  ppbs: {
-    name: "POST PRANDIAL BLOOD SUGAR (PPBS)",
-    department: "BIOCHEMISTRY",
-    parameters: [
-      { name: "Post Prandial Blood Sugar", unit: "mg/dL", reference: "<140" },
-    ],
-  },
-
-  rbs: {
-    name: "RANDOM BLOOD SUGAR (RBS)",
-    department: "BIOCHEMISTRY",
-    parameters: [
-      { name: "Random Blood Sugar", unit: "mg/dL", reference: "70-140" },
-    ],
-  },
-
-  hba1c: {
+  {
+    id: "hba1c",
     name: "HbA1c",
-    department: "BIOCHEMISTRY",
+    short: "HbA1c",
+    category: "BIOCHEMISTRY",
     parameters: [
-      { name: "HbA1c", unit: "%", reference: "Normal: <5.7" },
-      { name: "Estimated Average Glucose (eAG)", unit: "mg/dL", reference: "" },
+      {
+        name: "HbA1c",
+        aliases: [
+          "Glycated Hemoglobin",
+          "Glycosylated Hemoglobin",
+        ],
+        unit: "%",
+        min: 4,
+        max: 5.6,
+        range: "4.0 - 5.6",
+      },
     ],
   },
 
-  uricacid: {
-    name: "URIC ACID",
-    department: "BIOCHEMISTRY",
+  {
+    id: "thyroid",
+    name: "Thyroid Profile",
+    short: "Thyroid",
+    category: "HORMONE",
     parameters: [
-      { name: "Serum Uric Acid", unit: "mg/dL", reference: "Male: 3.4-7.0 | Female: 2.4-6.0" },
+      {
+        name: "T3",
+        aliases: [
+          "Triiodothyronine",
+          "Total T3",
+        ],
+        unit: "ng/dL",
+        min: 80,
+        max: 200,
+        range: "80 - 200",
+      },
+      {
+        name: "T4",
+        aliases: [
+          "Thyroxine",
+          "Total T4",
+        ],
+        unit: "µg/dL",
+        min: 5.1,
+        max: 14.1,
+        range: "5.1 - 14.1",
+      },
+      {
+        name: "TSH",
+        aliases: [
+          "Thyroid Stimulating Hormone",
+        ],
+        unit: "µIU/mL",
+        min: 0.4,
+        max: 4.0,
+        range: "0.4 - 4.0",
+      },
     ],
   },
-
-  calcium: {
-    name: "SERUM CALCIUM",
-    department: "BIOCHEMISTRY",
-    parameters: [
-      { name: "Serum Calcium", unit: "mg/dL", reference: "8.5-10.5" },
-    ],
-  },
-
-  electrolytes: {
-    name: "SERUM ELECTROLYTES",
-    department: "BIOCHEMISTRY",
-    parameters: [
-      { name: "Sodium (Na+)", unit: "mmol/L", reference: "135-145" },
-      { name: "Potassium (K+)", unit: "mmol/L", reference: "3.5-5.1" },
-      { name: "Chloride (Cl-)", unit: "mmol/L", reference: "98-107" },
-    ],
-  },
-
-  ironprofile: {
-    name: "IRON PROFILE",
-    department: "BIOCHEMISTRY",
-    parameters: [
-      { name: "Serum Iron", unit: "µg/dL", reference: "60-170" },
-      { name: "TIBC", unit: "µg/dL", reference: "240-450" },
-      { name: "Transferrin Saturation", unit: "%", reference: "20-50" },
-      { name: "Serum Ferritin", unit: "ng/mL", reference: "Lab/Age/Sex dependent" },
-    ],
-  },
-
-  crp: {
-    name: "C-REACTIVE PROTEIN (CRP)",
-    department: "SEROLOGY",
-    parameters: [
-      { name: "C-Reactive Protein", unit: "mg/L", reference: "<6" },
-    ],
-  },
-
-  rafactor: {
-    name: "RA FACTOR",
-    department: "SEROLOGY",
-    parameters: [
-      { name: "Rheumatoid Factor", unit: "IU/mL", reference: "<14" },
-    ],
-  },
-
-  aso: {
-    name: "ASO TITRE",
-    department: "SEROLOGY",
-    parameters: [
-      { name: "ASO Titre", unit: "IU/mL", reference: "<200" },
-    ],
-  },
-
-  widal: {
-    name: "WIDAL TEST",
-    department: "SEROLOGY",
-    parameters: [
-      { name: "S. Typhi O", unit: "Titre", reference: "Lab/Regional cut-off" },
-      { name: "S. Typhi H", unit: "Titre", reference: "Lab/Regional cut-off" },
-      { name: "S. Paratyphi AH", unit: "Titre", reference: "Lab/Regional cut-off" },
-      { name: "S. Paratyphi BH", unit: "Titre", reference: "Lab/Regional cut-off" },
-    ],
-  },
-
-  dengue: {
-    name: "DENGUE PROFILE",
-    department: "SEROLOGY",
-    parameters: [
-      { name: "Dengue NS1 Antigen", unit: "", reference: "Negative" },
-      { name: "Dengue IgM", unit: "", reference: "Negative" },
-      { name: "Dengue IgG", unit: "", reference: "Negative" },
-    ],
-  },
-
-  malaria: {
-    name: "MALARIA TEST",
-    department: "PARASITOLOGY",
-    parameters: [
-      { name: "Malaria Parasite", unit: "", reference: "Not Detected" },
-      { name: "P. falciparum", unit: "", reference: "Negative" },
-      { name: "P. vivax", unit: "", reference: "Negative" },
-    ],
-  },
-
-  hbsag: {
-    name: "HBsAg",
-    department: "SEROLOGY",
-    parameters: [
-      { name: "HBsAg", unit: "", reference: "Non-Reactive" },
-    ],
-  },
-
-  hiv: {
-    name: "HIV 1 & 2",
-    department: "SEROLOGY",
-    parameters: [
-      { name: "HIV 1 & 2", unit: "", reference: "Non-Reactive" },
-    ],
-  },
-
-  hcv: {
-    name: "ANTI-HCV",
-    department: "SEROLOGY",
-    parameters: [
-      { name: "Anti-HCV", unit: "", reference: "Non-Reactive" },
-    ],
-  },
-
-  vdrl: {
-    name: "VDRL",
-    department: "SEROLOGY",
-    parameters: [
-      { name: "VDRL", unit: "", reference: "Non-Reactive" },
-    ],
-  },
-
-  urine: {
-    name: "URINE ROUTINE & MICROSCOPY",
-    department: "CLINICAL PATHOLOGY",
-    parameters: [
-      { name: "PHYSICAL EXAMINATION", heading: true },
-
-      { name: "Colour", unit: "", reference: "Pale Yellow" },
-      { name: "Appearance", unit: "", reference: "Clear" },
-      { name: "Specific Gravity", unit: "", reference: "1.005-1.030" },
-
-      { name: "CHEMICAL EXAMINATION", heading: true },
-
-      { name: "pH", unit: "", reference: "4.5-8.0" },
-      { name: "Protein / Albumin", unit: "", reference: "Negative" },
-      { name: "Sugar / Glucose", unit: "", reference: "Negative" },
-      { name: "Ketone Bodies", unit: "", reference: "Negative" },
-      { name: "Bile Salt", unit: "", reference: "Negative" },
-      { name: "Bile Pigment", unit: "", reference: "Negative" },
-      { name: "Blood", unit: "", reference: "Negative" },
-
-      { name: "MICROSCOPIC EXAMINATION", heading: true },
-
-      { name: "Pus Cells", unit: "/HPF", reference: "0-5" },
-      { name: "Epithelial Cells", unit: "/HPF", reference: "0-5" },
-      { name: "RBC", unit: "/HPF", reference: "0-2" },
-      { name: "Casts", unit: "/LPF", reference: "Nil" },
-      { name: "Crystals", unit: "", reference: "Nil" },
-      { name: "Bacteria", unit: "", reference: "Nil" },
-      { name: "Yeast Cells", unit: "", reference: "Nil" },
-    ],
-  },
-
-  stool: {
-    name: "STOOL ROUTINE & MICROSCOPY",
-    department: "CLINICAL PATHOLOGY",
-    parameters: [
-      { name: "Colour", unit: "", reference: "Brown" },
-      { name: "Consistency", unit: "", reference: "Formed" },
-      { name: "Mucus", unit: "", reference: "Absent" },
-      { name: "Blood", unit: "", reference: "Absent" },
-      { name: "Pus Cells", unit: "/HPF", reference: "Nil / Few" },
-      { name: "RBC", unit: "/HPF", reference: "Nil" },
-      { name: "Ova", unit: "", reference: "Not Seen" },
-      { name: "Cyst", unit: "", reference: "Not Seen" },
-      { name: "Parasite", unit: "", reference: "Not Seen" },
-    ],
-  },
-
-  pregnancy: {
-    name: "URINE PREGNANCY TEST",
-    department: "CLINICAL PATHOLOGY",
-    parameters: [
-      { name: "Urine Pregnancy Test", unit: "", reference: "Negative" },
-    ],
-  },
-
-  semen: {
-    name: "SEMEN ANALYSIS",
-    department: "CLINICAL PATHOLOGY",
-    parameters: [
-      { name: "Volume", unit: "mL", reference: "≥1.4" },
-      { name: "Colour / Appearance", unit: "", reference: "Grey-opalescent" },
-      { name: "Liquefaction Time", unit: "minutes", reference: "Within 60" },
-      { name: "pH", unit: "", reference: "≥7.2" },
-      { name: "Sperm Concentration", unit: "million/mL", reference: "≥16" },
-      { name: "Total Sperm Number", unit: "million/ejaculate", reference: "≥39" },
-      { name: "Total Motility", unit: "%", reference: "≥42" },
-      { name: "Progressive Motility", unit: "%", reference: "≥30" },
-      { name: "Normal Forms", unit: "%", reference: "≥4" },
-      { name: "Pus Cells", unit: "/HPF", reference: "Few / Nil" },
-    ],
-  },
-};
+];
 
 /* =========================================================
    HELPER FUNCTIONS
-   ========================================================= */
+========================================================= */
 
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "");
+    .replace(/[()]/g, "")
+    .replace(/[./_-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function getMasterTest(testName) {
-  const n = normalizeText(testName);
-
-  if (!n) return null;
-
-  if (
-    n.includes("completebloodcount") ||
-    n === "cbc" ||
-    n.includes("completehaemogram") ||
-    n.includes("completehemogram")
-  )
-    return MASTER_TESTS.cbc;
-
-  if (n === "esr" || n.includes("erythrocytesedimentation"))
-    return MASTER_TESTS.esr;
-
-  if (n.includes("bloodgroup") || n.includes("abogroup"))
-    return MASTER_TESTS.bloodgroup;
-
-  if (n.includes("bleedingtime") || n.includes("clottingtime") || n === "btct")
-    return MASTER_TESTS.btct;
-
-  if (n.includes("ptinr") || n.includes("prothrombintime"))
-    return MASTER_TESTS.ptinr;
-
-  if (n.includes("aptt") || n.includes("activatedpartial"))
-    return MASTER_TESTS.aptt;
-
-  if (
-    n === "lft" ||
-    n.includes("liverfunction") ||
-    n.includes("liverprofile")
-  )
-    return MASTER_TESTS.lft;
-
-  if (
-    n === "kft" ||
-    n === "rft" ||
-    n.includes("kidneyfunction") ||
-    n.includes("renalfunction")
-  )
-    return MASTER_TESTS.kft;
-
-  if (n.includes("lipidprofile") || n === "lipid")
-    return MASTER_TESTS.lipid;
-
-  if (
-    n.includes("ft3") ||
-    n.includes("ft4") ||
-    n.includes("freethyroid")
-  )
-    return MASTER_TESTS.thyroidft3ft4;
-
-  if (
-    n.includes("thyroidprofile") ||
-    n.includes("thyroidfunction") ||
-    n === "tft"
-  )
-    return MASTER_TESTS.thyroid;
-
-  if (n.includes("fasting") || n === "fbs")
-    return MASTER_TESTS.fbs;
-
-  if (
-    n.includes("postprandial") ||
-    n.includes("postmeal") ||
-    n === "ppbs"
-  )
-    return MASTER_TESTS.ppbs;
-
-  if (n.includes("randomblood") || n === "rbs")
-    return MASTER_TESTS.rbs;
-
-  if (n.includes("hba1c") || n.includes("glycated"))
-    return MASTER_TESTS.hba1c;
-
-  if (n.includes("bloodglucose") || n.includes("bloodsugar"))
-    return MASTER_TESTS.glucose;
-
-  if (n.includes("uricacid"))
-    return MASTER_TESTS.uricacid;
-
-  if (n.includes("calcium"))
-    return MASTER_TESTS.calcium;
-
-  if (
-    n.includes("electrolyte") ||
-    (n.includes("sodium") && n.includes("potassium"))
-  )
-    return MASTER_TESTS.electrolytes;
-
-  if (n.includes("ironprofile") || n.includes("ironstud"))
-    return MASTER_TESTS.ironprofile;
-
-  if (n === "crp" || n.includes("creactiveprotein"))
-    return MASTER_TESTS.crp;
-
-  if (
-    n.includes("rafactor") ||
-    n.includes("rheumatoidfactor")
-  )
-    return MASTER_TESTS.rafactor;
-
-  if (n.includes("aso"))
-    return MASTER_TESTS.aso;
-
-  if (n.includes("widal") || n.includes("typhoid"))
-    return MASTER_TESTS.widal;
-
-  if (n.includes("dengue"))
-    return MASTER_TESTS.dengue;
-
-  if (n.includes("malaria"))
-    return MASTER_TESTS.malaria;
-
-  if (n.includes("hbsag") || n.includes("hepatitisbsurface"))
-    return MASTER_TESTS.hbsag;
-
-  if (n === "hiv" || n.includes("hiv1") || n.includes("hiv2"))
-    return MASTER_TESTS.hiv;
-
-  if (n.includes("hcv"))
-    return MASTER_TESTS.hcv;
-
-  if (n.includes("vdrl"))
-    return MASTER_TESTS.vdrl;
-
-  if (
-    n.includes("urineroutine") ||
-    n.includes("urinemicroscopy") ||
-    n.includes("urineexamination") ||
-    n === "urine"
-  )
-    return MASTER_TESTS.urine;
-
-  if (
-    n.includes("stoolroutine") ||
-    n.includes("stoolmicroscopy") ||
-    n.includes("stoolexamination") ||
-    n === "stool"
-  )
-    return MASTER_TESTS.stool;
-
-  if (
-    n.includes("pregnancy") ||
-    n.includes("upt")
-  )
-    return MASTER_TESTS.pregnancy;
-
-  if (n.includes("semen"))
-    return MASTER_TESTS.semen;
-
-  return null;
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-
-  try {
-    return new Date(value).toLocaleString("en-IN");
-  } catch {
-    return String(value);
-  }
-}
-
-function getPatientDetails(report) {
-  const patient = report?.report_data?.patient || {};
-
-  return {
-    id:
-      patient.id ||
-      patient.patientId ||
-      report?.patient_id ||
-      "-",
-
-    name:
-      patient.name ||
-      patient.patientName ||
-      "-",
-
-    age:
-      patient.age ??
-      "-",
-
-    gender:
-      patient.gender ||
-      patient.sex ||
-      "-",
-
-    mobile:
-      patient.mobile ||
-      patient.phone ||
-      "-",
-
-    doctor:
-      patient.doctor ||
-      patient.refDoctor ||
-      patient.referring_doctor ||
-      "-",
-
-    sampleDate:
-      patient.sampleDate ||
-      patient.sample_date ||
-      report?.created_at ||
-      "-",
-  };
-}
-
-function getSelectedTests(report) {
-  const data = report?.report_data || {};
-
-  const possible =
-    data.selectedTests ||
-    data.selected_tests ||
-    data.tests ||
-    data.investigations ||
-    [];
-
-  return Array.isArray(possible) ? possible : [];
-}
-
-function getTestName(test) {
-  if (typeof test === "string") return test;
-
-  return (
-    test?.name ||
-    test?.testName ||
-    test?.test_name ||
-    test?.title ||
-    test?.investigation ||
-    "Investigation"
+function getPatientGender(patient) {
+  const gender = normalizeText(
+    patient?.gender ||
+      patient?.sex ||
+      patient?.patientGender ||
+      ""
   );
-}
-
-function getParameters(test) {
-  if (!test || typeof test === "string") {
-    const master = getMasterTest(test);
-    return master?.parameters || [];
-  }
-
-  const saved =
-    test.tests ||
-    test.parameters ||
-    test.testParameters ||
-    test.test_parameters ||
-    test.items ||
-    [];
-
-  if (Array.isArray(saved) && saved.length > 0) {
-    return saved;
-  }
-
-  const master = getMasterTest(getTestName(test));
-  return master?.parameters || [];
-}
-
-function getDepartment(test) {
-  return (
-    test?.department ||
-    test?.category ||
-    getMasterTest(getTestName(test))?.department ||
-    ""
-  );
-}
-
-function getReference(parameter) {
-  if (!parameter) return "-";
-
-  return (
-    parameter.reference ||
-    parameter.referenceRange ||
-    parameter.reference_range ||
-    parameter.range ||
-    parameter.normalRange ||
-    (
-      parameter.min !== undefined &&
-      parameter.max !== undefined
-        ? `${parameter.min} - ${parameter.max}`
-        : "-"
-    )
-  );
-}
-
-function getUnit(parameter) {
-  return (
-    parameter?.unit ||
-    parameter?.units ||
-    "-"
-  );
-}
-
-function getParameterName(parameter) {
-  return (
-    parameter?.name ||
-    parameter?.parameterName ||
-    parameter?.parameter_name ||
-    parameter?.testName ||
-    parameter?.label ||
-    "-"
-  );
-}
-
-function findValueInObject(obj, possibleKeys) {
-  if (!obj || typeof obj !== "object") return undefined;
-
-  for (const key of possibleKeys) {
-    if (key === undefined || key === null || key === "") continue;
-
-    if (
-      Object.prototype.hasOwnProperty.call(obj, key) &&
-      obj[key] !== undefined &&
-      obj[key] !== null &&
-      obj[key] !== ""
-    ) {
-      return obj[key];
-    }
-  }
-
-  const normalizedKeys = possibleKeys
-    .filter(Boolean)
-    .map((x) => normalizeText(x));
-
-  for (const [key, value] of Object.entries(obj)) {
-    if (
-      value !== undefined &&
-      value !== null &&
-      value !== "" &&
-      normalizedKeys.includes(normalizeText(key))
-    ) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
-
-function getResultValue(report, test, parameter, testIndex, parameterIndex) {
-  const reportData = report?.report_data || {};
-  const results =
-    reportData.results ||
-    reportData.testResults ||
-    reportData.test_results ||
-    {};
-
-  const testName = getTestName(test);
-  const parameterName = getParameterName(parameter);
-
-  const possibleKeys = [
-    parameter?.id,
-    parameter?.parameter_id,
-    parameter?.key,
-
-    `${test?.id}-${parameterName}-${parameterIndex}`,
-    `${test?.id}-${parameter?.id}`,
-    `${testIndex}-${parameterIndex}`,
-
-    parameterName,
-    normalizeText(parameterName),
-
-    `${testName}-${parameterName}`,
-    normalizeText(`${testName}-${parameterName}`),
-  ];
-
-  let value = findValueInObject(results, possibleKeys);
-
-  if (value !== undefined) return value;
-
-  if (test?.results && typeof test.results === "object") {
-    value = findValueInObject(test.results, possibleKeys);
-    if (value !== undefined) return value;
-  }
 
   if (
-    parameter?.result !== undefined &&
-    parameter?.result !== null &&
-    parameter?.result !== ""
+    gender === "male" ||
+    gender === "m" ||
+    gender.startsWith("male ")
   ) {
-    return parameter.result;
+    return "male";
   }
 
   if (
-    parameter?.value !== undefined &&
-    parameter?.value !== null &&
-    parameter?.value !== ""
+    gender === "female" ||
+    gender === "f" ||
+    gender.startsWith("female ")
   ) {
-    return parameter.value;
+    return "female";
   }
 
   return "";
 }
 
-function getTestNames(report) {
-  const tests = getSelectedTests(report);
+function findMasterTest(test) {
+  if (!test) return null;
 
-  if (!tests.length) return "-";
+  const testId = normalizeText(test.id);
+  const testName = normalizeText(
+    test.name ||
+      test.testName ||
+      test.short ||
+      ""
+  );
 
-  return tests
-    .map((test) => getTestName(test))
-    .filter(Boolean)
-    .join(", ");
+  return (
+    MASTER_TESTS.find((master) => {
+      const masterId = normalizeText(master.id);
+      const masterName = normalizeText(master.name);
+      const masterShort = normalizeText(
+        master.short
+      );
+
+      return (
+        (testId && testId === masterId) ||
+        (testName &&
+          (testName === masterName ||
+            testName === masterShort ||
+            masterName.includes(testName) ||
+            testName.includes(masterName)))
+      );
+    }) || null
+  );
 }
 
-function getNumericValue(value) {
-  if (value === null || value === undefined) return null;
+function findMasterParameter(
+  parameterName,
+  test = null
+) {
+  const target = normalizeText(parameterName);
 
-  const cleaned = String(value)
-    .replace(/,/g, "")
-    .match(/-?\d+(\.\d+)?/);
+  if (!target) return null;
 
-  if (!cleaned) return null;
+  const matchesParameter = (parameter) => {
+    const names = [
+      parameter.name,
+      ...(parameter.aliases || []),
+    ].map(normalizeText);
 
-  const number = Number(cleaned[0]);
+    return names.some(
+      (name) =>
+        name === target ||
+        (name.length > 3 &&
+          target.length > 3 &&
+          (name.includes(target) ||
+            target.includes(name)))
+    );
+  };
 
-  return Number.isFinite(number) ? number : null;
+  const masterTest = findMasterTest(test);
+
+  if (masterTest) {
+    const match =
+      masterTest.parameters.find(
+        matchesParameter
+      );
+
+    if (match) return match;
+  }
+
+  for (const group of MASTER_TESTS) {
+    const match =
+      group.parameters.find(
+        matchesParameter
+      );
+
+    if (match) return match;
+  }
+
+  return null;
 }
 
-function getFlag(value, parameter) {
-  const number = getNumericValue(value);
+function getEffectiveParameter(
+  parameter,
+  test
+) {
+  const parameterName =
+    parameter?.name ||
+    parameter?.testName ||
+    parameter?.investigation ||
+    "";
 
-  if (number === null) return "";
+  const master =
+    findMasterParameter(
+      parameterName,
+      test
+    );
 
-  const min =
-    parameter?.min !== undefined
-      ? Number(parameter.min)
-      : null;
+  if (!master) {
+    return {
+      ...parameter,
+      name:
+        parameterName ||
+        "Investigation",
+    };
+  }
 
-  const max =
-    parameter?.max !== undefined
-      ? Number(parameter.max)
-      : null;
+  return {
+    ...master,
+    ...parameter,
 
-  if (min !== null && Number.isFinite(min) && number < min) {
+    name:
+      parameterName ||
+      master.name,
+
+    unit:
+      parameter?.unit ||
+      parameter?.units ||
+      master.unit ||
+      "",
+
+    range:
+      parameter?.range ||
+      master.range,
+
+    maleRange:
+      parameter?.maleRange ||
+      master.maleRange,
+
+    femaleRange:
+      parameter?.femaleRange ||
+      master.femaleRange,
+
+    min:
+      parameter?.min ??
+      master.min,
+
+    max:
+      parameter?.max ??
+      master.max,
+
+    maleMin:
+      parameter?.maleMin ??
+      master.maleMin,
+
+    maleMax:
+      parameter?.maleMax ??
+      master.maleMax,
+
+    femaleMin:
+      parameter?.femaleMin ??
+      master.femaleMin,
+
+    femaleMax:
+      parameter?.femaleMax ??
+      master.femaleMax,
+  };
+}
+
+function getReferenceRange(
+  parameter,
+  patient,
+  test
+) {
+  const p = getEffectiveParameter(
+    parameter,
+    test
+  );
+
+  const gender =
+    getPatientGender(patient);
+
+  if (
+    gender === "male" &&
+    p.maleRange
+  ) {
+    return p.maleRange;
+  }
+
+  if (
+    gender === "female" &&
+    p.femaleRange
+  ) {
+    return p.femaleRange;
+  }
+
+  if (
+    gender === "male" &&
+    p.maleMin !== undefined &&
+    p.maleMax !== undefined
+  ) {
+    return `${p.maleMin} - ${p.maleMax}`;
+  }
+
+  if (
+    gender === "female" &&
+    p.femaleMin !== undefined &&
+    p.femaleMax !== undefined
+  ) {
+    return `${p.femaleMin} - ${p.femaleMax}`;
+  }
+
+  if (p.range) {
+    return p.range;
+  }
+
+  if (
+    p.min !== undefined &&
+    p.max !== undefined
+  ) {
+    return `${p.min} - ${p.max}`;
+  }
+
+  return (
+    p.referenceRange ||
+    p.reference ||
+    "-"
+  );
+}
+
+function getLimits(
+  parameter,
+  patient,
+  test
+) {
+  const p = getEffectiveParameter(
+    parameter,
+    test
+  );
+
+  const gender =
+    getPatientGender(patient);
+
+  if (
+    gender === "male" &&
+    p.maleMin !== undefined &&
+    p.maleMax !== undefined
+  ) {
+    return {
+      min: Number(p.maleMin),
+      max: Number(p.maleMax),
+    };
+  }
+
+  if (
+    gender === "female" &&
+    p.femaleMin !== undefined &&
+    p.femaleMax !== undefined
+  ) {
+    return {
+      min: Number(p.femaleMin),
+      max: Number(p.femaleMax),
+    };
+  }
+
+  if (
+    p.min !== undefined &&
+    p.max !== undefined
+  ) {
+    return {
+      min: Number(p.min),
+      max: Number(p.max),
+    };
+  }
+
+  return {
+    min: null,
+    max: null,
+  };
+}
+
+function getFlag(
+  value,
+  parameter,
+  patient,
+  test
+) {
+  if (
+    value === "" ||
+    value === null ||
+    value === undefined
+  ) {
+    return "";
+  }
+
+  const numericValue = Number(
+    String(value).replace(/,/g, "").trim()
+  );
+
+  if (Number.isNaN(numericValue)) {
+    return "";
+  }
+
+  const { min, max } =
+    getLimits(
+      parameter,
+      patient,
+      test
+    );
+
+  if (
+    min !== null &&
+    !Number.isNaN(min) &&
+    numericValue < min
+  ) {
     return "L";
   }
 
-  if (max !== null && Number.isFinite(max) && number > max) {
+  if (
+    max !== null &&
+    !Number.isNaN(max) &&
+    numericValue > max
+  ) {
     return "H";
   }
 
   return "";
 }
 
+function formatDate(value) {
+  if (!value) return "-";
+
+  try {
+    const date = new Date(value);
+
+    if (
+      Number.isNaN(date.getTime())
+    ) {
+      return value;
+    }
+
+    return date.toLocaleString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
+  } catch {
+    return value;
+  }
+}
+
+function getPatientName(report) {
+  return (
+    report?.report_data?.patient
+      ?.name ||
+    report?.patient_name ||
+    "-"
+  );
+}
+
+function getReportTests(report) {
+  const data =
+    report?.report_data || {};
+
+  if (
+    Array.isArray(data.reportTests) &&
+    data.reportTests.length > 0
+  ) {
+    return data.reportTests;
+  }
+
+  if (
+    Array.isArray(
+      data.selectedTests
+    )
+  ) {
+    return data.selectedTests;
+  }
+
+  return [];
+}
 /* =========================================================
-   MAIN PAGE
-   ========================================================= */
+   REPORT DATA HELPERS
+========================================================= */
+
+function getTestParameters(test) {
+  if (Array.isArray(test?.parameters)) {
+    return test.parameters;
+  }
+
+  if (Array.isArray(test?.tests)) {
+    return test.tests;
+  }
+
+  return [];
+}
+
+function getResultValue(
+  report,
+  test,
+  parameter,
+  index
+) {
+  if (
+    parameter?.result !== undefined &&
+    parameter?.result !== null
+  ) {
+    return parameter.result;
+  }
+
+  if (
+    parameter?.value !== undefined &&
+    parameter?.value !== null
+  ) {
+    return parameter.value;
+  }
+
+  const results =
+    report?.report_data?.results || {};
+
+  const parameterName =
+    parameter?.name ||
+    parameter?.testName ||
+    parameter?.investigation ||
+    "";
+
+  const possibleKeys = [
+    `${test?.id}-${parameterName}-${index}`,
+    `${test?.id}-${parameter?.name}-${index}`,
+  ];
+
+  for (const key of possibleKeys) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        results,
+        key
+      )
+    ) {
+      return results[key];
+    }
+  }
+
+  return "";
+}
+
+function getTestDisplayName(test) {
+  return (
+    test?.name ||
+    test?.testName ||
+    test?.short ||
+    "Laboratory Test"
+  );
+}
+
+function getTestCategory(test) {
+  const master =
+    findMasterTest(test);
+
+  return (
+    test?.category ||
+    master?.category ||
+    ""
+  );
+}
+
+function getParameterDisplayName(
+  parameter,
+  test
+) {
+  const effective =
+    getEffectiveParameter(
+      parameter,
+      test
+    );
+
+  return (
+    effective?.name ||
+    "Investigation"
+  );
+}
+
+function getParameterUnit(
+  parameter,
+  test
+) {
+  const effective =
+    getEffectiveParameter(
+      parameter,
+      test
+    );
+
+  return (
+    effective?.unit ||
+    effective?.units ||
+    "-"
+  );
+}
+
+/* =========================================================
+   MAIN SAVED REPORTS PAGE
+========================================================= */
 
 export default function ReportsPage() {
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [selectedReport, setSelectedReport] = useState(null);
+  const [reports, setReports] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [selectedReport, setSelectedReport] =
+    useState(null);
+
+  const [message, setMessage] =
+    useState("");
 
   useEffect(() => {
     loadReports();
@@ -878,217 +1080,324 @@ export default function ReportsPage() {
   async function loadReports() {
     try {
       setLoading(true);
-      setErrorMessage("");
+      setMessage("");
 
-      const { data, error } = await supabase
-        .from("reports")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } =
+        await supabase
+          .from("reports")
+          .select("*")
+          .order("created_at", {
+            ascending: false,
+          });
 
-      if (error) throw error;
+      if (error) {
+        console.error(
+          "Reports load error:",
+          error
+        );
+
+        setMessage(
+          "Reports load nahi ho paaye: " +
+            error.message
+        );
+
+        return;
+      }
 
       setReports(data || []);
     } catch (error) {
-      console.error("Reports load error:", error);
+      console.error(
+        "Reports load exception:",
+        error
+      );
 
-      setErrorMessage(
-        error?.message ||
-        "Reports load nahi ho paayi."
+      setMessage(
+        "Saved reports load karne me error aaya."
       );
     } finally {
       setLoading(false);
     }
   }
 
+  function viewReport(report) {
+    setSelectedReport(report);
+
+    setTimeout(() => {
+      const element =
+        document.getElementById(
+          "saved-report-preview"
+        );
+
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 100);
+  }
+
+  function closeReport() {
+    setSelectedReport(null);
+  }
+
   async function deleteReport(report) {
-    const confirmed = window.confirm(
-      `Kya aap ${report?.report_no || "is report"} ko delete karna chahte hain?`
-    );
+    const reportNo =
+      report?.report_no ||
+      "this report";
+
+    const confirmed =
+      window.confirm(
+        `${reportNo} delete karna hai? Ye action undo nahi hoga.`
+      );
 
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
-        .from("reports")
-        .delete()
-        .eq("id", report.id);
+      const { error } =
+        await supabase
+          .from("reports")
+          .delete()
+          .eq("id", report.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error(
+          "Delete report error:",
+          error
+        );
 
-      setReports((current) =>
-        current.filter((item) => item.id !== report.id)
-      );
+        alert(
+          "Report delete nahi hua: " +
+            error.message
+        );
 
-      if (selectedReport?.id === report.id) {
+        return;
+      }
+
+      if (
+        selectedReport?.id ===
+        report.id
+      ) {
         setSelectedReport(null);
       }
 
-      alert("Report successfully delete ho gayi.");
-    } catch (error) {
-      console.error("Delete report error:", error);
+      setReports((previous) =>
+        previous.filter(
+          (item) =>
+            item.id !== report.id
+        )
+      );
 
       alert(
-        "Report delete nahi hui: " +
-        (error?.message || "Unknown error")
+        "Report successfully delete ho gaya."
+      );
+    } catch (error) {
+      console.error(
+        "Delete exception:",
+        error
+      );
+
+      alert(
+        "Report delete karne me error aaya."
       );
     }
   }
 
-  function printReport(report) {
+  function printSelectedReport(report) {
     setSelectedReport(report);
 
     setTimeout(() => {
       window.print();
-    }, 400);
+    }, 300);
   }
 
-  const selectedPatient =
+  function printCurrentPreview() {
+    if (!selectedReport) return;
+
+    window.print();
+  }
+
+  const previewData =
+    selectedReport?.report_data ||
+    {};
+
+  const previewPatient =
+    previewData?.patient || {};
+
+  const previewTests =
     selectedReport
-      ? getPatientDetails(selectedReport)
-      : null;
+      ? getReportTests(
+          selectedReport
+        )
+      : [];
+
+  const previewReportDate =
+    previewData?.reportDate ||
+    selectedReport?.created_at ||
+    "";
 
   return (
-    <main style={pageStyle}>
+    <div className="savedReportsPage">
+      {/* ===============================================
+          SAVED REPORTS LIST
+      =============================================== */}
 
-      {/* =========================
-          SCREEN HEADER
-          ========================= */}
+      <section className="savedReportsHeader">
+        <div>
+          <h1>Saved Reports</h1>
 
-      <div className="noPrint">
-        <div style={topBarStyle}>
-          <div>
-            <h1 style={{ margin: 0 }}>
-              Saved Reports
-            </h1>
-
-            <p
-              style={{
-                marginTop: "6px",
-                color: "#666",
-              }}
-            >
-              NIDAN PATHOLOGY LAB
-            </p>
-          </div>
-
-          <button
-            onClick={loadReports}
-            style={buttonStyle}
-          >
-            🔄 Refresh
-          </button>
+          <p>
+            NIDAN PATHOLOGY LAB
+          </p>
         </div>
 
-        {loading && (
-          <div style={messageStyle}>
-            Reports loading...
-          </div>
-        )}
+        <button
+          className="refreshReportsButton"
+          onClick={loadReports}
+          disabled={loading}
+        >
+          ↻{" "}
+          {loading
+            ? "Loading..."
+            : "Refresh"}
+        </button>
+      </section>
 
-        {!loading && errorMessage && (
-          <div style={messageStyle}>
-            <strong>Report load nahi hui.</strong>
-            <div>{errorMessage}</div>
-          </div>
-        )}
+      {message && (
+        <div className="reportMessage">
+          {message}
+        </div>
+      )}
 
-        {!loading &&
-          !errorMessage &&
-          reports.length === 0 && (
-            <div style={messageStyle}>
-              <h3>No Saved Reports</h3>
-              <p>
-                Abhi Supabase me koi saved report
-                nahi mili.
-              </p>
+      <section className="savedReportsCard">
+        {loading ? (
+          <div className="reportsLoading">
+            <div className="loadingCircle">
+              N+
             </div>
-          )}
 
-        {!loading &&
-          !errorMessage &&
-          reports.length > 0 && (
-            <div style={{ overflowX: "auto" }}>
-              <table style={listTableStyle}>
-                <thead>
-                  <tr>
-                    <th style={listThStyle}>
-                      Report No.
-                    </th>
+            <strong>
+              Saved reports loading...
+            </strong>
+          </div>
+        ) : reports.length === 0 ? (
+          <div className="noSavedReports">
+            <div>📄</div>
 
-                    <th style={listThStyle}>
-                      Patient
-                    </th>
+            <h2>
+              No Saved Reports
+            </h2>
 
-                    <th style={listThStyle}>
-                      Tests
-                    </th>
+            <p>
+              Final report save hone ke
+              baad yahan दिखाई देगा.
+            </p>
+          </div>
+        ) : (
+          <div className="savedTableWrapper">
+            <table className="savedReportsTable">
+              <thead>
+                <tr>
+                  <th>Report No.</th>
+                  <th>Patient</th>
+                  <th>Tests</th>
+                  <th>Status</th>
+                  <th>Saved Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
 
-                    <th style={listThStyle}>
-                      Status
-                    </th>
-
-                    <th style={listThStyle}>
-                      Saved Date
-                    </th>
-
-                    <th style={listThStyle}>
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {reports.map((report) => {
-                    const patient =
-                      getPatientDetails(report);
+              <tbody>
+                {reports.map(
+                  (report) => {
+                    const tests =
+                      getReportTests(
+                        report
+                      );
 
                     return (
-                      <tr key={report.id}>
-                        <td style={listTdStyle}>
-                          {report.report_no || "-"}
+                      <tr
+                        key={
+                          report.id ||
+                          report.report_no
+                        }
+                      >
+                        <td>
+                          <strong>
+                            {report.report_no ||
+                              "-"}
+                          </strong>
                         </td>
 
-                        <td style={listTdStyle}>
-                          {patient.name}
+                        <td>
+                          {getPatientName(
+                            report
+                          )}
                         </td>
 
-                        <td style={listTdStyle}>
-                          {getTestNames(report)}
+                        <td>
+                          {tests.length >
+                          0
+                            ? tests
+                                .map(
+                                  (
+                                    test
+                                  ) =>
+                                    test.short ||
+                                    test.name ||
+                                    test.testName
+                                )
+                                .filter(
+                                  Boolean
+                                )
+                                .join(", ")
+                            : "-"}
                         </td>
 
-                        <td style={listTdStyle}>
-                          {report.status || "completed"}
+                        <td>
+                          <span className="completedStatus">
+                            {report.status ||
+                              "completed"}
+                          </span>
                         </td>
 
-                        <td style={listTdStyle}>
-                          {formatDate(report.created_at)}
+                        <td>
+                          {formatDate(
+                            report.created_at
+                          )}
                         </td>
 
-                        <td style={listTdStyle}>
-                          <div style={actionStyle}>
+                        <td>
+                          <div className="savedReportActions">
                             <button
+                              className="viewReportButton"
                               onClick={() =>
-                                setSelectedReport(report)
+                                viewReport(
+                                  report
+                                )
                               }
-                              style={smallButtonStyle}
                             >
                               👁 View
                             </button>
 
                             <button
+                              className="printSavedButton"
                               onClick={() =>
-                                printReport(report)
+                                printSelectedReport(
+                                  report
+                                )
                               }
-                              style={smallButtonStyle}
                             >
                               🖨 Print
                             </button>
 
                             <button
+                              className="deleteSavedButton"
                               onClick={() =>
-                                deleteReport(report)
+                                deleteReport(
+                                  report
+                                )
                               }
-                              style={deleteButtonStyle}
                             >
                               🗑 Delete
                             </button>
@@ -1096,104 +1405,1431 @@ export default function ReportsPage() {
                         </td>
                       </tr>
                     );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-        {/* =========================
-            REPORT PREVIEW
-            ========================= */}
-
-        {selectedReport && selectedPatient && (
-          <div style={previewBoxStyle}>
-            <div style={previewHeaderStyle}>
-              <div>
-                <h2 style={{ margin: 0 }}>
-                  Report Preview
-                </h2>
-
-                <strong>
-                  {selectedReport.report_no || "-"}
-                </strong>
-              </div>
-
-              <button
-                onClick={() =>
-                  setSelectedReport(null)
-                }
-                style={buttonStyle}
-              >
-                ✕ Close
-              </button>
-            </div>
-
-            <ReportContent
-              report={selectedReport}
-              patient={selectedPatient}
-            />
-
-            <div style={previewActionsStyle}>
-              <button
-                onClick={() =>
-                  printReport(selectedReport)
-                }
-                style={buttonStyle}
-              >
-                🖨 Print / Save PDF
-              </button>
-
-              <button
-                onClick={() =>
-                  deleteReport(selectedReport)
-                }
-                style={deleteButtonStyle}
-              >
-                🗑 Delete Report
-              </button>
-            </div>
+                  }
+                )}
+              </tbody>
+            </table>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* =========================
-          PRINT ONLY REPORT
-          ========================= */}
+      {/* ===============================================
+          REPORT PREVIEW
+      =============================================== */}
 
-      {selectedReport && selectedPatient && (
-        <div className="printOnly">
-          <ReportContent
-            report={selectedReport}
-            patient={selectedPatient}
-          />
-        </div>
+      {selectedReport && (
+        <section
+          className="savedReportPreviewSection"
+          id="saved-report-preview"
+        >
+          <div className="previewTopBar">
+            <div>
+              <h2>
+                Report Preview
+              </h2>
+
+              <strong>
+                {selectedReport.report_no ||
+                  "-"}
+              </strong>
+            </div>
+
+            <button
+              className="closePreviewButton"
+              onClick={closeReport}
+            >
+              × Close
+            </button>
+          </div>
+
+          {/* ===========================================
+              PRINTABLE SAVED REPORT
+          =========================================== */}
+
+          <main className="savedPrintableReport">
+            {/* HEADER */}
+
+            <header className="savedLabHeader">
+              <div className="savedLogo">
+                N+
+              </div>
+
+              <div className="savedLabIdentity">
+                <h1>
+                  NIDAN PATHOLOGY LAB
+                </h1>
+
+                <p className="savedTagline">
+                  Accurate • Reliable •
+                  Professional
+                </p>
+
+                <p>
+                  Clinical Pathology &
+                  Diagnostic Laboratory
+                </p>
+              </div>
+
+              <div className="savedHeaderRight">
+                <strong>
+                  LABORATORY REPORT
+                </strong>
+
+                <span>
+                  Report Date:{" "}
+                  {formatDate(
+                    previewReportDate
+                  )}
+                </span>
+              </div>
+            </header>
+
+            <div className="savedAccentLine" />
+
+            {/* LAB DETAILS */}
+
+            <section className="savedLabDetails">
+              <span>
+                📍 Address:
+                ______________________
+              </span>
+
+              <span>
+                ☎ Mobile:
+                ______________
+              </span>
+
+              <span>
+                ✉ Email:
+                ______________
+              </span>
+            </section>
+
+            {/* PATIENT INFO */}
+
+            <section className="savedPatientSection">
+              <div className="savedSectionTitle">
+                PATIENT INFORMATION
+              </div>
+
+              <div className="savedPatientGrid">
+                <div>
+                  <span>
+                    Patient ID
+                  </span>
+
+                  <strong>
+                    {previewPatient.patientId ||
+                      previewPatient.id ||
+                      selectedReport.patient_id ||
+                      "-"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Patient Name
+                  </span>
+
+                  <strong>
+                    {previewPatient.name ||
+                      "-"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Age / Sex
+                  </span>
+
+                  <strong>
+                    {previewPatient.age ||
+                      "-"}{" "}
+                    Years /{" "}
+                    {previewPatient.gender ||
+                      previewPatient.sex ||
+                      "-"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Mobile
+                  </span>
+
+                  <strong>
+                    {previewPatient.mobile ||
+                      "-"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Ref. Doctor
+                  </span>
+
+                  <strong>
+                    {previewPatient.doctor ||
+                      previewPatient.refDoctor ||
+                      "-"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>
+                    Sample Date
+                  </span>
+
+                  <strong>
+                    {previewPatient.sampleDate ||
+                      formatDate(
+                        selectedReport.created_at
+                      )}
+                  </strong>
+                </div>
+              </div>
+            </section>
+
+            {/* ===========================================
+                TEST RESULTS
+            =========================================== */}
+
+            <section className="savedInvestigationReport">
+              {previewTests.length ===
+              0 ? (
+                <div className="savedReportEmpty">
+                  No investigation data
+                  available.
+                </div>
+              ) : (
+                previewTests.map(
+                  (test, testIndex) => {
+                    const parameters =
+                      getTestParameters(
+                        test
+                      );
+
+                    const category =
+                      getTestCategory(
+                        test
+                      );
+
+                    return (
+                      <div
+                        className="savedTestSection"
+                        key={
+                          test.id ||
+                          `${getTestDisplayName(
+                            test
+                          )}-${testIndex}`
+                        }
+                      >
+                        {category && (
+                          <div className="savedCategory">
+                            {category}
+                          </div>
+                        )}
+
+                        <div className="savedTestHeading">
+                          {getTestDisplayName(
+                            test
+                          )}
+                        </div>
+
+                        <table className="savedFinalReportTable">
+                          <thead>
+                            <tr>
+                              <th>
+                                INVESTIGATION
+                              </th>
+
+                              <th>
+                                RESULT
+                              </th>
+
+                              <th>
+                                UNIT
+                              </th>
+
+                              <th>
+                                REFERENCE
+                                RANGE
+                              </th>
+
+                              <th>
+                                FLAG
+                              </th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {parameters.map(
+                              (
+                                parameter,
+                                index
+                              ) => {
+                                const effective =
+                                  getEffectiveParameter(
+                                    parameter,
+                                    test
+                                  );
+
+                                const value =
+                                  getResultValue(
+                                    selectedReport,
+                                    test,
+                                    parameter,
+                                    index
+                                  );
+
+                                const flag =
+                                  getFlag(
+                                    value,
+                                    effective,
+                                    previewPatient,
+                                    test
+                                  );
+
+                                const reference =
+                                  getReferenceRange(
+                                    effective,
+                                    previewPatient,
+                                    test
+                                  );
+
+                                const unit =
+                                  getParameterUnit(
+                                    effective,
+                                    test
+                                  );
+
+                                return (
+                                  <tr
+                                    key={`${test.id}-${index}-${getParameterDisplayName(
+                                      effective,
+                                      test
+                                    )}`}
+                                  >
+                                    <td>
+                                      {getParameterDisplayName(
+                                        effective,
+                                        test
+                                      )}
+                                    </td>
+
+                                    <td
+                                      className={
+                                        flag
+                                          ? "savedAbnormalResult"
+                                          : "savedNormalResult"
+                                      }
+                                    >
+                                      {value !==
+                                        "" &&
+                                      value !==
+                                        null &&
+                                      value !==
+                                        undefined
+                                        ? value
+                                        : "-"}
+                                    </td>
+
+                                    <td>
+                                      {unit}
+                                    </td>
+
+                                    <td>
+                                      {reference}
+                                    </td>
+
+                                    <td>
+                                      {flag && (
+                                        <span
+                                          className={
+                                            flag ===
+                                            "H"
+                                              ? "savedFlag savedFlagHigh"
+                                              : "savedFlag savedFlagLow"
+                                          }
+                                        >
+                                          {
+                                            flag
+                                          }
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  }
+                )
+              )}
+            </section>
+
+            {/* REMARKS */}
+
+            <section className="savedRemarks">
+              <strong>
+                Remarks:
+              </strong>
+
+              <div className="savedRemarksLine">
+                ______________________________________
+              </div>
+            </section>
+
+            {/* SIGNATURE */}
+
+            <section className="savedSignatureSection">
+              <div className="savedSignatureBox">
+                <div className="savedSignatureSpace" />
+
+                <strong>
+                  Lab Technician
+                </strong>
+
+                <span>
+                  NIDAN Pathology Lab
+                </span>
+              </div>
+
+              <div className="savedSignatureBox">
+                <div className="savedSignatureSpace" />
+
+                <strong>
+                  Authorized Signatory
+                </strong>
+
+                <span>
+                  Signature & Seal
+                </span>
+              </div>
+            </section>
+
+            {/* NOTE */}
+
+            <section className="savedNotes">
+              <strong>
+                Note:
+              </strong>
+
+              <p>
+                Reference intervals may
+                vary according to
+                laboratory method, age,
+                sex and clinical
+                circumstances.
+                Laboratory results
+                should be interpreted
+                with relevant clinical
+                findings.
+              </p>
+            </section>
+
+            {/* FOOTER */}
+
+            <footer className="savedReportFooter">
+              <span>
+                NIDAN PATHOLOGY LAB
+              </span>
+
+              <strong>
+                *** END OF REPORT ***
+              </strong>
+
+              <span>
+                Computer Generated
+                Report
+              </span>
+            </footer>
+          </main>
+
+          {/* PREVIEW ACTIONS */}
+
+          <div className="previewBottomActions">
+            <button
+              className="previewPrintButton"
+              onClick={
+                printCurrentPreview
+              }
+            >
+              🖨 Print / Save PDF
+            </button>
+
+            <button
+              className="previewDeleteButton"
+              onClick={() =>
+                deleteReport(
+                  selectedReport
+                )
+              }
+            >
+              🗑 Delete Report
+            </button>
+          </div>
+        </section>
       )}
 
+      {/* PART 3 CSS YAHAN SE CONTINUE HOGA */}
       <style jsx global>{`
-        .printOnly {
-          display: none;
+        /* =================================================
+           SAVED REPORTS PAGE
+        ================================================= */
+
+        * {
+          box-sizing: border-box;
         }
 
-        @media print {
-          .noPrint {
-            display: none !important;
+        body {
+          margin: 0;
+        }
+
+        .savedReportsPage {
+          min-height: 100vh;
+          background: #f5f7fb;
+          padding: 28px;
+          color: #172033;
+          font-family: Arial, Helvetica, sans-serif;
+        }
+
+        /* =================================================
+           TOP HEADER
+        ================================================= */
+
+        .savedReportsHeader {
+          max-width: 1400px;
+          margin: 0 auto 22px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+        }
+
+        .savedReportsHeader h1 {
+          margin: 0;
+          font-size: 30px;
+          font-weight: 800;
+          color: #172033;
+        }
+
+        .savedReportsHeader p {
+          margin: 6px 0 0;
+          color: #697386;
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+        }
+
+        .refreshReportsButton {
+          border: 1px solid #d6dce8;
+          background: #ffffff;
+          color: #172033;
+          border-radius: 9px;
+          padding: 11px 17px;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: 0.2s;
+        }
+
+        .refreshReportsButton:hover {
+          background: #f0f4fa;
+        }
+
+        .refreshReportsButton:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        /* =================================================
+           MESSAGE
+        ================================================= */
+
+        .reportMessage {
+          max-width: 1400px;
+          margin: 0 auto 18px;
+          background: #fff7e6;
+          border: 1px solid #ffd591;
+          border-radius: 10px;
+          padding: 14px 16px;
+          color: #8a5700;
+          font-size: 14px;
+        }
+
+        /* =================================================
+           REPORT LIST CARD
+        ================================================= */
+
+        .savedReportsCard {
+          max-width: 1400px;
+          margin: 0 auto;
+          background: #ffffff;
+          border: 1px solid #e2e7f0;
+          border-radius: 14px;
+          overflow: hidden;
+          box-shadow: 0 4px 20px rgba(28, 39, 60, 0.05);
+        }
+
+        .savedTableWrapper {
+          width: 100%;
+          overflow-x: auto;
+        }
+
+        .savedReportsTable {
+          width: 100%;
+          min-width: 950px;
+          border-collapse: collapse;
+        }
+
+        .savedReportsTable thead {
+          background: #f7f9fc;
+        }
+
+        .savedReportsTable th {
+          padding: 15px 16px;
+          text-align: left;
+          font-size: 12px;
+          font-weight: 800;
+          color: #596579;
+          letter-spacing: 0.4px;
+          border-bottom: 1px solid #e3e8f0;
+          white-space: nowrap;
+        }
+
+        .savedReportsTable td {
+          padding: 16px;
+          border-bottom: 1px solid #edf0f5;
+          font-size: 14px;
+          color: #273246;
+          vertical-align: middle;
+        }
+
+        .savedReportsTable tbody tr:hover {
+          background: #fafcff;
+        }
+
+        .savedReportsTable tbody tr:last-child td {
+          border-bottom: none;
+        }
+
+        .completedStatus {
+          display: inline-block;
+          background: #e9f9ef;
+          color: #14783b;
+          padding: 6px 10px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: capitalize;
+        }
+
+        /* =================================================
+           ACTION BUTTONS
+        ================================================= */
+
+        .savedReportActions {
+          display: flex;
+          gap: 7px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .savedReportActions button {
+          border-radius: 7px;
+          padding: 7px 10px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          background: #ffffff;
+          white-space: nowrap;
+        }
+
+        .viewReportButton {
+          border: 1px solid #b9c8e7;
+          color: #244c96;
+        }
+
+        .printSavedButton {
+          border: 1px solid #a8d7bd;
+          color: #137340;
+        }
+
+        .deleteSavedButton {
+          border: 1px solid #efb6b6;
+          color: #c33131;
+        }
+
+        .viewReportButton:hover {
+          background: #eef4ff;
+        }
+
+        .printSavedButton:hover {
+          background: #edf9f2;
+        }
+
+        .deleteSavedButton:hover {
+          background: #fff1f1;
+        }
+
+        /* =================================================
+           LOADING / EMPTY
+        ================================================= */
+
+        .reportsLoading,
+        .noSavedReports {
+          min-height: 300px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          padding: 30px;
+          color: #697386;
+        }
+
+        .loadingCircle {
+          width: 58px;
+          height: 58px;
+          border-radius: 50%;
+          background: #1f5fae;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 18px;
+          margin-bottom: 15px;
+        }
+
+        .noSavedReports > div {
+          font-size: 42px;
+          margin-bottom: 8px;
+        }
+
+        .noSavedReports h2 {
+          margin: 5px 0;
+          color: #273246;
+        }
+
+        .noSavedReports p {
+          margin: 4px 0;
+        }
+
+        /* =================================================
+           PREVIEW SECTION
+        ================================================= */
+
+        .savedReportPreviewSection {
+          max-width: 1100px;
+          margin: 35px auto 0;
+          background: #ffffff;
+          border: 1px solid #e0e5ed;
+          border-radius: 14px;
+          padding: 20px;
+          box-shadow: 0 5px 25px rgba(20, 30, 50, 0.08);
+        }
+
+        .previewTopBar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+          padding-bottom: 18px;
+          margin-bottom: 18px;
+          border-bottom: 1px solid #e5e9f0;
+        }
+
+        .previewTopBar h2 {
+          margin: 0 0 5px;
+          font-size: 22px;
+        }
+
+        .previewTopBar strong {
+          color: #647087;
+          font-size: 13px;
+        }
+
+        .closePreviewButton {
+          border: 1px solid #d5dbe6;
+          background: #ffffff;
+          padding: 9px 14px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 700;
+        }
+
+        /* =================================================
+           PRINTABLE REPORT PAPER
+        ================================================= */
+
+        .savedPrintableReport {
+          width: 100%;
+          max-width: 900px;
+          margin: 0 auto;
+          background: #ffffff;
+          color: #111111;
+          padding: 25px 30px;
+          border: 1px solid #dce1e8;
+          font-family: Arial, Helvetica, sans-serif;
+        }
+
+        /* =================================================
+           LAB HEADER
+        ================================================= */
+
+        .savedLabHeader {
+          display: grid;
+          grid-template-columns: 80px 1fr 190px;
+          gap: 18px;
+          align-items: center;
+        }
+
+        .savedLogo {
+          width: 65px;
+          height: 65px;
+          border-radius: 12px;
+          background: #145da0;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 25px;
+          font-weight: 900;
+        }
+
+        .savedLabIdentity h1 {
+          margin: 0;
+          font-size: 27px;
+          line-height: 1.1;
+          color: #124f8f;
+          font-weight: 900;
+        }
+
+        .savedLabIdentity p {
+          margin: 4px 0 0;
+          font-size: 12px;
+          color: #3f4856;
+        }
+
+        .savedLabIdentity .savedTagline {
+          font-weight: 700;
+          color: #1671b8;
+          margin-top: 6px;
+        }
+
+        .savedHeaderRight {
+          text-align: right;
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+        }
+
+        .savedHeaderRight strong {
+          font-size: 13px;
+          color: #124f8f;
+        }
+
+        .savedHeaderRight span {
+          font-size: 11px;
+          color: #555;
+        }
+
+        .savedAccentLine {
+          height: 3px;
+          margin: 15px 0 10px;
+          background: #145da0;
+        }
+
+        /* =================================================
+           LAB CONTACT DETAILS
+        ================================================= */
+
+        .savedLabDetails {
+          display: flex;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 8px 20px;
+          font-size: 10px;
+          color: #454545;
+          padding: 5px 0 12px;
+          border-bottom: 1px solid #d5d5d5;
+        }
+
+        /* =================================================
+           PATIENT INFORMATION
+        ================================================= */
+
+        .savedPatientSection {
+          margin-top: 15px;
+          border: 1px solid #ccd5df;
+        }
+
+        .savedSectionTitle {
+          background: #eef5fb;
+          color: #124f8f;
+          font-size: 12px;
+          font-weight: 900;
+          padding: 8px 10px;
+          letter-spacing: 0.5px;
+          border-bottom: 1px solid #ccd5df;
+        }
+
+        .savedPatientGrid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+        }
+
+        .savedPatientGrid > div {
+          min-height: 55px;
+          padding: 9px 11px;
+          border-right: 1px solid #e1e5ea;
+          border-bottom: 1px solid #e1e5ea;
+        }
+
+        .savedPatientGrid > div:nth-child(3n) {
+          border-right: none;
+        }
+
+        .savedPatientGrid > div:nth-last-child(-n + 3) {
+          border-bottom: none;
+        }
+
+        .savedPatientGrid span {
+          display: block;
+          font-size: 9px;
+          font-weight: 700;
+          color: #717b89;
+          text-transform: uppercase;
+          margin-bottom: 5px;
+        }
+
+        .savedPatientGrid strong {
+          display: block;
+          font-size: 12px;
+          color: #111;
+          word-break: break-word;
+        }
+
+        /* =================================================
+           INVESTIGATION REPORT
+        ================================================= */
+
+        .savedInvestigationReport {
+          margin-top: 18px;
+        }
+
+        .savedTestSection {
+          margin-bottom: 22px;
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        .savedCategory {
+          text-align: center;
+          font-size: 10px;
+          font-weight: 800;
+          color: #6a7480;
+          margin-bottom: 4px;
+          letter-spacing: 0.7px;
+        }
+
+        .savedTestHeading {
+          text-align: center;
+          background: #eef5fb;
+          border: 1px solid #cbd6e2;
+          border-bottom: none;
+          padding: 8px 10px;
+          font-size: 13px;
+          font-weight: 900;
+          color: #124f8f;
+          text-transform: uppercase;
+        }
+
+        .savedFinalReportTable {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+          font-size: 11px;
+        }
+
+        .savedFinalReportTable th {
+          background: #f5f7fa;
+          border: 1px solid #cdd4dd;
+          padding: 7px 6px;
+          font-size: 9px;
+          font-weight: 900;
+          text-align: center;
+        }
+
+        .savedFinalReportTable th:first-child {
+          width: 29%;
+          text-align: left;
+        }
+
+        .savedFinalReportTable th:nth-child(2) {
+          width: 14%;
+        }
+
+        .savedFinalReportTable th:nth-child(3) {
+          width: 15%;
+        }
+
+        .savedFinalReportTable th:nth-child(4) {
+          width: 30%;
+        }
+
+        .savedFinalReportTable th:nth-child(5) {
+          width: 12%;
+        }
+
+        .savedFinalReportTable td {
+          border: 1px solid #d6dbe2;
+          padding: 7px 6px;
+          vertical-align: middle;
+          text-align: center;
+          word-break: break-word;
+        }
+
+        .savedFinalReportTable td:first-child {
+          text-align: left;
+          font-weight: 600;
+        }
+
+        .savedNormalResult {
+          font-weight: 800;
+          color: #111;
+        }
+
+        .savedAbnormalResult {
+          font-weight: 900;
+          color: #c51f1f;
+        }
+
+        .savedFlag {
+          display: inline-flex;
+          width: 24px;
+          height: 24px;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .savedFlagHigh {
+          background: #ffe4e4;
+          color: #bd1f1f;
+        }
+
+        .savedFlagLow {
+          background: #fff0d8;
+          color: #a35d00;
+        }
+
+        .savedReportEmpty {
+          padding: 25px;
+          text-align: center;
+          border: 1px dashed #bbc3cd;
+          color: #6b7480;
+        }
+
+        /* =================================================
+           REMARKS
+        ================================================= */
+
+        .savedRemarks {
+          margin-top: 18px;
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          font-size: 11px;
+        }
+
+        .savedRemarksLine {
+          flex: 1;
+          border-bottom: 1px solid #888;
+          color: transparent;
+        }
+
+        /* =================================================
+           SIGNATURE
+        ================================================= */
+
+        .savedSignatureSection {
+          display: flex;
+          justify-content: space-between;
+          gap: 40px;
+          margin-top: 45px;
+        }
+
+        .savedSignatureBox {
+          width: 210px;
+          text-align: center;
+          font-size: 11px;
+        }
+
+        .savedSignatureSpace {
+          height: 40px;
+          border-bottom: 1px solid #555;
+          margin-bottom: 7px;
+        }
+
+        .savedSignatureBox strong {
+          display: block;
+          margin-bottom: 3px;
+        }
+
+        .savedSignatureBox span {
+          color: #626262;
+          font-size: 10px;
+        }
+
+        /* =================================================
+           NOTES
+        ================================================= */
+
+        .savedNotes {
+          margin-top: 25px;
+          border-top: 1px solid #aaa;
+          padding-top: 9px;
+          font-size: 9px;
+          line-height: 1.45;
+          color: #4e4e4e;
+        }
+
+        .savedNotes strong {
+          color: #222;
+        }
+
+        .savedNotes p {
+          display: inline;
+          margin: 0 0 0 4px;
+        }
+
+        /* =================================================
+           REPORT FOOTER
+        ================================================= */
+
+        .savedReportFooter {
+          border-top: 1px solid #aaa;
+          margin-top: 16px;
+          padding-top: 9px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          font-size: 8px;
+          color: #5e5e5e;
+        }
+
+        .savedReportFooter strong {
+          color: #222;
+        }
+
+        /* =================================================
+           PREVIEW BOTTOM BUTTONS
+        ================================================= */
+
+        .previewBottomActions {
+          max-width: 900px;
+          margin: 18px auto 0;
+          display: flex;
+          gap: 10px;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+        }
+
+        .previewPrintButton,
+        .previewDeleteButton {
+          padding: 10px 16px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .previewPrintButton {
+          background: #145da0;
+          color: white;
+          border: 1px solid #145da0;
+        }
+
+        .previewDeleteButton {
+          background: white;
+          color: #c52c2c;
+          border: 1px solid #e3a8a8;
+        }
+
+        /* =================================================
+           TABLET
+        ================================================= */
+
+        @media (max-width: 900px) {
+          .savedReportsPage {
+            padding: 18px 12px;
           }
 
-          .printOnly {
-            display: block !important;
+          .savedPrintableReport {
+            padding: 20px 16px;
+          }
+
+          .savedLabHeader {
+            grid-template-columns: 65px 1fr;
+          }
+
+          .savedHeaderRight {
+            grid-column: 1 / -1;
+            text-align: left;
+            flex-direction: row;
+            justify-content: space-between;
+            border-top: 1px solid #ddd;
+            padding-top: 8px;
+          }
+
+          .savedPatientGrid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .savedPatientGrid > div {
+            border-right: 1px solid #e1e5ea !important;
+            border-bottom: 1px solid #e1e5ea !important;
+          }
+
+          .savedPatientGrid > div:nth-child(2n) {
+            border-right: none !important;
+          }
+
+          .savedPatientGrid > div:nth-last-child(-n + 2) {
+            border-bottom: none !important;
+          }
+        }
+
+        /* =================================================
+           MOBILE
+        ================================================= */
+
+        @media (max-width: 600px) {
+          .savedReportsPage {
+            padding: 14px 8px;
+          }
+
+          .savedReportsHeader {
+            align-items: flex-start;
+          }
+
+          .savedReportsHeader h1 {
+            font-size: 24px;
+          }
+
+          .refreshReportsButton {
+            padding: 9px 11px;
+          }
+
+          .savedReportPreviewSection {
+            padding: 8px;
+            border-radius: 9px;
+          }
+
+          .previewTopBar {
+            padding: 8px 4px 14px;
+          }
+
+          .savedPrintableReport {
+            padding: 14px 8px;
+            border: none;
+          }
+
+          .savedLabHeader {
+            grid-template-columns: 52px 1fr;
+            gap: 10px;
+          }
+
+          .savedLogo {
+            width: 48px;
+            height: 48px;
+            font-size: 19px;
+            border-radius: 8px;
+          }
+
+          .savedLabIdentity h1 {
+            font-size: 19px;
+          }
+
+          .savedLabIdentity p {
+            font-size: 9px;
+          }
+
+          .savedHeaderRight {
+            font-size: 9px;
+          }
+
+          .savedHeaderRight strong {
+            font-size: 10px;
+          }
+
+          .savedHeaderRight span {
+            font-size: 9px;
+          }
+
+          .savedLabDetails {
+            font-size: 8px;
+          }
+
+          .savedPatientGrid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .savedPatientGrid > div {
+            padding: 7px;
+            min-height: 48px;
+          }
+
+          .savedPatientGrid span {
+            font-size: 7px;
+          }
+
+          .savedPatientGrid strong {
+            font-size: 9px;
+          }
+
+          .savedTestHeading {
+            font-size: 10px;
+            padding: 6px;
+          }
+
+          .savedCategory {
+            font-size: 8px;
+          }
+
+          .savedFinalReportTable {
+            font-size: 8px;
+          }
+
+          .savedFinalReportTable th {
+            padding: 5px 2px;
+            font-size: 6.5px;
+          }
+
+          .savedFinalReportTable td {
+            padding: 5px 2px;
+          }
+
+          .savedFlag {
+            width: 18px;
+            height: 18px;
+            font-size: 8px;
+          }
+
+          .savedSignatureSection {
+            gap: 25px;
+            margin-top: 35px;
+          }
+
+          .savedSignatureBox {
+            width: 45%;
+            font-size: 8px;
+          }
+
+          .savedSignatureBox span {
+            font-size: 7px;
+          }
+
+          .savedNotes {
+            font-size: 7px;
+          }
+
+          .savedReportFooter {
+            font-size: 6px;
+          }
+
+          .previewBottomActions {
+            justify-content: stretch;
+          }
+
+          .previewPrintButton,
+          .previewDeleteButton {
+            flex: 1;
+          }
+        }
+
+        /* =================================================
+           PRINT / SAVE PDF
+        ================================================= */
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 7mm;
           }
 
           html,
           body {
-            background: white !important;
             margin: 0 !important;
             padding: 0 !important;
+            background: white !important;
           }
 
-          @page {
-            size: A4;
-            margin: 8mm;
+          body * {
+            visibility: hidden !important;
+          }
+
+          .savedReportPreviewSection,
+          .savedReportPreviewSection * {
+            visibility: visible !important;
+          }
+
+          .savedReportPreviewSection {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: white !important;
+          }
+
+          .previewTopBar,
+          .previewBottomActions {
+            display: none !important;
+          }
+
+          .savedPrintableReport {
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: white !important;
+          }
+
+          .savedTestSection {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .savedFinalReportTable {
+            break-inside: auto;
+          }
+
+          .savedFinalReportTable tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .savedSignatureSection,
+          .savedNotes,
+          .savedReportFooter {
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
 
           * {
@@ -1202,577 +2838,6 @@ export default function ReportsPage() {
           }
         }
       `}</style>
-    </main>
-  );
-}
-
-/* =========================================================
-   REPORT CONTENT
-   ========================================================= */
-
-function ReportContent({ report, patient }) {
-  const selectedTests = getSelectedTests(report);
-
-  return (
-    <div style={reportPaperStyle}>
-
-      {/* =========================
-          LAB HEADER
-          ========================= */}
-
-      <div style={labHeaderStyle}>
-        <h1 style={labNameStyle}>
-          NIDAN PATHOLOGY LAB
-        </h1>
-
-        <div style={subtitleStyle}>
-          Fully Computerised Clinical Pathology
-          & Diagnostic Laboratory
-        </div>
-
-        <div style={reportTitleStyle}>
-          LABORATORY REPORT
-        </div>
-      </div>
-
-      {/* =========================
-          PATIENT INFORMATION
-          ========================= */}
-
-      <table style={patientTableStyle}>
-        <tbody>
-          <tr>
-            <td style={patientCellStyle}>
-              <strong>Report No:</strong>{" "}
-              {report.report_no || "-"}
-            </td>
-
-            <td style={patientCellStyle}>
-              <strong>Patient ID:</strong>{" "}
-              {patient.id}
-            </td>
-          </tr>
-
-          <tr>
-            <td style={patientCellStyle}>
-              <strong>Patient Name:</strong>{" "}
-              {patient.name}
-            </td>
-
-            <td style={patientCellStyle}>
-              <strong>Age / Sex:</strong>{" "}
-              {patient.age} / {patient.gender}
-            </td>
-          </tr>
-
-          <tr>
-            <td style={patientCellStyle}>
-              <strong>Mobile:</strong>{" "}
-              {patient.mobile}
-            </td>
-
-            <td style={patientCellStyle}>
-              <strong>Ref. Doctor:</strong>{" "}
-              {patient.doctor}
-            </td>
-          </tr>
-
-          <tr>
-            <td style={patientCellStyle}>
-              <strong>Sample Date:</strong>{" "}
-              {formatDate(patient.sampleDate)}
-            </td>
-
-            <td style={patientCellStyle}>
-              <strong>Report Date:</strong>{" "}
-              {formatDate(report.created_at)}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* =========================
-          TEST RESULTS
-          ========================= */}
-
-      <div style={{ marginTop: "18px" }}>
-        {selectedTests.length === 0 ? (
-          <div style={messageStyle}>
-            No investigations found in saved
-            report.
-          </div>
-        ) : (
-          selectedTests.map((test, testIndex) => {
-            const testName = getTestName(test);
-            const master = getMasterTest(testName);
-
-            const parameters =
-              getParameters(test);
-
-            const displayName =
-              master?.name ||
-              testName ||
-              "INVESTIGATION";
-
-            const department =
-              getDepartment(test);
-
-            return (
-              <section
-                key={
-                  test?.id ||
-                  `${testName}-${testIndex}`
-                }
-                style={testSectionStyle}
-              >
-                {department && (
-                  <div style={departmentStyle}>
-                    {department}
-                  </div>
-                )}
-
-                <h2 style={testTitleStyle}>
-                  {displayName}
-                </h2>
-
-                {parameters.length === 0 ? (
-                  <div style={messageStyle}>
-                    Is test ke parameters saved nahi
-                    mile.
-                  </div>
-                ) : (
-                  <table style={resultTableStyle}>
-                    <thead>
-                      <tr>
-                        <th style={investigationThStyle}>
-                          INVESTIGATION
-                        </th>
-
-                        <th style={flagThStyle}>
-                          FLAG
-                        </th>
-
-                        <th style={resultThStyle}>
-                          RESULT
-                        </th>
-
-                        <th style={unitThStyle}>
-                          UNIT
-                        </th>
-
-                        <th style={referenceThStyle}>
-                          REFERENCE RANGE
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {parameters.map(
-                        (parameter, parameterIndex) => {
-                          if (parameter?.heading) {
-                            return (
-                              <tr
-                                key={`heading-${parameterIndex}`}
-                              >
-                                <td
-                                  colSpan={5}
-                                  style={groupHeadingStyle}
-                                >
-                                  {parameter.name}
-                                </td>
-                              </tr>
-                            );
-                          }
-
-                          const value =
-                            getResultValue(
-                              report,
-                              test,
-                              parameter,
-                              testIndex,
-                              parameterIndex
-                            );
-
-                          const flag =
-                            getFlag(
-                              value,
-                              parameter
-                            );
-
-                          return (
-                            <tr
-                              key={
-                                parameter?.id ||
-                                `${getParameterName(
-                                  parameter
-                                )}-${parameterIndex}`
-                              }
-                            >
-                              <td
-                                style={
-                                  investigationTdStyle
-                                }
-                              >
-                                {getParameterName(
-                                  parameter
-                                )}
-                              </td>
-
-                              <td
-                                style={{
-                                  ...flagTdStyle,
-                                  fontWeight: flag
-                                    ? "700"
-                                    : "400",
-                                }}
-                              >
-                                {flag}
-                              </td>
-
-                              <td
-                                style={
-                                  resultTdStyle
-                                }
-                              >
-                                <strong>
-                                  {value !== ""
-                                    ? String(value)
-                                    : "-"}
-                                </strong>
-                              </td>
-
-                              <td
-                                style={
-                                  normalTdStyle
-                                }
-                              >
-                                {getUnit(
-                                  parameter
-                                )}
-                              </td>
-
-                              <td
-                                style={
-                                  normalTdStyle
-                                }
-                              >
-                                {getReference(
-                                  parameter
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        }
-                      )}
-                    </tbody>
-                  </table>
-                )}
-              </section>
-            );
-          })
-        )}
-      </div>
-
-      {/* =========================
-          NOTE
-          ========================= */}
-
-      <div style={noteStyle}>
-        <strong>Note:</strong>{" "}
-        Reference intervals may vary according
-        to age, sex, methodology and laboratory
-        standards. Results should be interpreted
-        with clinical findings.
-      </div>
-
-      {/* =========================
-          SIGNATURE
-          ========================= */}
-
-      <div style={signatureStyle}>
-        <div>
-          <strong>Lab Technician</strong>
-          <br />
-          <span>NIDAN Pathology Lab</span>
-        </div>
-
-        <div style={{ textAlign: "right" }}>
-          <strong>Authorized Signatory</strong>
-          <br />
-          <span>Signature & Seal</span>
-        </div>
-      </div>
-
-      <div style={footerStyle}>
-        Computer Generated Laboratory Report
-      </div>
     </div>
   );
 }
-
-/* =========================================================
-   STYLES
-   ========================================================= */
-
-const pageStyle = {
-  maxWidth: "1200px",
-  margin: "0 auto",
-  padding: "24px 16px",
-  fontFamily:
-    "Arial, Helvetica, sans-serif",
-};
-
-const topBarStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  flexWrap: "wrap",
-  marginBottom: "24px",
-};
-
-const buttonStyle = {
-  padding: "10px 16px",
-  cursor: "pointer",
-  borderRadius: "8px",
-  border: "1px solid #888",
-  background: "#fff",
-  fontSize: "14px",
-};
-
-const smallButtonStyle = {
-  padding: "7px 10px",
-  cursor: "pointer",
-  borderRadius: "6px",
-  border: "1px solid #888",
-  background: "#fff",
-  whiteSpace: "nowrap",
-};
-
-const deleteButtonStyle = {
-  padding: "7px 10px",
-  cursor: "pointer",
-  borderRadius: "6px",
-  border: "1px solid #b33",
-  background: "#fff",
-  whiteSpace: "nowrap",
-};
-
-const messageStyle = {
-  padding: "16px",
-  border: "1px solid #ddd",
-  borderRadius: "8px",
-  margin: "10px 0",
-};
-
-const listTableStyle = {
-  width: "100%",
-  minWidth: "900px",
-  borderCollapse: "collapse",
-};
-
-const listThStyle = {
-  textAlign: "left",
-  padding: "10px",
-  borderBottom: "2px solid #ddd",
-  background: "#f5f5f5",
-};
-
-const listTdStyle = {
-  padding: "10px",
-  borderBottom: "1px solid #ddd",
-  verticalAlign: "top",
-};
-
-const actionStyle = {
-  display: "flex",
-  gap: "6px",
-  flexWrap: "wrap",
-};
-
-const previewBoxStyle = {
-  marginTop: "30px",
-  border: "1px solid #ddd",
-  borderRadius: "12px",
-  padding: "20px",
-};
-
-const previewHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "10px",
-  flexWrap: "wrap",
-  marginBottom: "18px",
-};
-
-const previewActionsStyle = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-  marginTop: "20px",
-};
-
-const reportPaperStyle = {
-  maxWidth: "850px",
-  margin: "0 auto",
-  background: "#fff",
-  color: "#111",
-  padding: "26px",
-  boxSizing: "border-box",
-};
-
-const labHeaderStyle = {
-  textAlign: "center",
-  borderBottom: "2px solid #222",
-  paddingBottom: "12px",
-  marginBottom: "14px",
-};
-
-const labNameStyle = {
-  margin: "0 0 5px",
-  fontSize: "28px",
-  fontWeight: "800",
-};
-
-const subtitleStyle = {
-  fontSize: "14px",
-  marginBottom: "8px",
-};
-
-const reportTitleStyle = {
-  fontSize: "14px",
-  fontWeight: "700",
-  letterSpacing: "1px",
-};
-
-const patientTableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: "13px",
-};
-
-const patientCellStyle = {
-  width: "50%",
-  padding: "7px 8px",
-  borderBottom: "1px solid #ddd",
-  verticalAlign: "top",
-};
-
-const testSectionStyle = {
-  marginBottom: "24px",
-  pageBreakInside: "avoid",
-};
-
-const departmentStyle = {
-  textAlign: "center",
-  fontWeight: "700",
-  fontSize: "13px",
-  marginBottom: "2px",
-};
-
-const testTitleStyle = {
-  textAlign: "center",
-  fontSize: "16px",
-  margin: "0 0 8px",
-  paddingBottom: "5px",
-  borderBottom: "1px solid #333",
-};
-
-const resultTableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: "12px",
-};
-
-const commonTh = {
-  padding: "7px 5px",
-  borderTop: "1px solid #333",
-  borderBottom: "1px solid #333",
-  background: "#f3f3f3",
-  fontWeight: "700",
-};
-
-const investigationThStyle = {
-  ...commonTh,
-  textAlign: "left",
-  width: "36%",
-};
-
-const flagThStyle = {
-  ...commonTh,
-  textAlign: "center",
-  width: "7%",
-};
-
-const resultThStyle = {
-  ...commonTh,
-  textAlign: "center",
-  width: "15%",
-};
-
-const unitThStyle = {
-  ...commonTh,
-  textAlign: "center",
-  width: "15%",
-};
-
-const referenceThStyle = {
-  ...commonTh,
-  textAlign: "center",
-  width: "27%",
-};
-
-const investigationTdStyle = {
-  padding: "6px 5px",
-  borderBottom: "1px solid #ddd",
-  textAlign: "left",
-};
-
-const flagTdStyle = {
-  padding: "6px 4px",
-  borderBottom: "1px solid #ddd",
-  textAlign: "center",
-};
-
-const resultTdStyle = {
-  padding: "6px 5px",
-  borderBottom: "1px solid #ddd",
-  textAlign: "center",
-};
-
-const normalTdStyle = {
-  padding: "6px 5px",
-  borderBottom: "1px solid #ddd",
-  textAlign: "center",
-};
-
-const groupHeadingStyle = {
-  padding: "7px 5px 4px",
-  fontWeight: "700",
-  borderBottom: "1px solid #ddd",
-  textAlign: "left",
-};
-
-const noteStyle = {
-  marginTop: "20px",
-  paddingTop: "10px",
-  borderTop: "1px solid #aaa",
-  fontSize: "11px",
-  lineHeight: "1.5",
-};
-
-const signatureStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "30px",
-  marginTop: "55px",
-  fontSize: "12px",
-};
-
-const footerStyle = {
-  borderTop: "1px solid #aaa",
-  marginTop: "30px",
-  paddingTop: "10px",
-  textAlign: "center",
-  fontSize: "11px",
-};
