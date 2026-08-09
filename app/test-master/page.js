@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import import { supabase } from "../../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 const CATEGORIES = [
   "Hematology",
