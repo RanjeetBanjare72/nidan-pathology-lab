@@ -2,877 +2,776 @@
 
 import { useEffect, useState } from "react";
 
-const KEY = "nidanLabSettings";
-
-const defaultSettings = {
-  labName: "NIDAN PATHOLOGY LAB",
-  tagline: "Complete Diagnostic Laboratory",
-  address: "",
-  city: "",
-  mobile: "",
-  phone: "",
-  email: "",
-  website: "",
-
-  pathologistName: "",
-  pathologistQualification: "",
-  pathologistRegNo: "",
-
-  patientPrefix: "NPL",
-  reportPrefix: "NPL-RPT",
-  billPrefix: "NPL-BILL",
-
-  currency: "₹",
-  gstEnabled: false,
-  gstNumber: "",
-  gstPercent: 0,
-
-  reportHeader: true,
-  reportFooter: true,
-  showLogo: true,
-  showReferenceRange: true,
-  showFlag: true,
-  showMethod: true,
-
-  reportFooterText:
-    "This report is electronically generated.",
-
-  autoSaveResults: true,
-  autoGeneratePatientId: true,
-  autoGenerateReportNo: true,
-
-  dateFormat: "DD-MM-YYYY",
-  timeFormat: "12 Hour",
-
-  theme: "Light",
-};
-
 export default function SettingsPage() {
-
-  const [settings, setSettings] =
-    useState(defaultSettings);
-
-  const [saved, setSaved] =
-    useState(false);
+  const [settings, setSettings] = useState({
+    labName: "NIDAN PATHOLOGY LAB",
+    labAddress: "",
+    phone: "",
+    email: "",
+    registrationNo: "",
+    doctorName: "",
+    reportHeader: true,
+    showLogo: true,
+    showReferenceRange: true,
+    showFlag: true,
+    autoSave: true,
+  });
 
   useEffect(() => {
-
     try {
-      const data = JSON.parse(
-        localStorage.getItem(KEY) || "{}"
+      const saved = JSON.parse(
+        localStorage.getItem("nidanLabSettings") || "{}"
       );
 
-      setSettings({
-        ...defaultSettings,
-        ...data,
-      });
-
-    } catch {}
-
+      setSettings((prev) => ({
+        ...prev,
+        ...saved,
+      }));
+    } catch (error) {
+      console.error("Settings load error:", error);
+    }
   }, []);
 
-  function update(field, value) {
+  function updateSetting(key, value) {
     setSettings((prev) => ({
       ...prev,
-      [field]: value,
+      [key]: value,
     }));
   }
 
   function saveSettings() {
-
     localStorage.setItem(
-      KEY,
+      "nidanLabSettings",
       JSON.stringify(settings)
     );
 
-    setSaved(true);
-
-    setTimeout(
-      () => setSaved(false),
-      2500
-    );
+    alert("✓ Settings saved successfully");
   }
 
   function resetSettings() {
+    const confirmReset = window.confirm(
+      "Kya aap Settings ko default par reset karna chahte hain?"
+    );
 
-    if (
-      !confirm(
-        "Settings default par reset karein?"
-      )
-    ) {
-      return;
-    }
+    if (!confirmReset) return;
+
+    const defaultSettings = {
+      labName: "NIDAN PATHOLOGY LAB",
+      labAddress: "",
+      phone: "",
+      email: "",
+      registrationNo: "",
+      doctorName: "",
+      reportHeader: true,
+      showLogo: true,
+      showReferenceRange: true,
+      showFlag: true,
+      autoSave: true,
+    };
 
     setSettings(defaultSettings);
 
     localStorage.setItem(
-      KEY,
+      "nidanLabSettings",
       JSON.stringify(defaultSettings)
     );
-  }
 
-  function backupData() {
-
-    const backup = {
-      version: 1,
-      createdAt:
-        new Date().toISOString(),
-
-      settings,
-
-      tests: JSON.parse(
-        localStorage.getItem(
-          "nidanTestMaster"
-        ) || "[]"
-      ),
-
-      doctors: JSON.parse(
-        localStorage.getItem(
-          "nidanDoctors"
-        ) || "[]"
-      ),
-
-      patients: JSON.parse(
-        localStorage.getItem(
-          "nidanPatients"
-        ) || "[]"
-      ),
-    };
-
-    const blob = new Blob(
-      [JSON.stringify(backup, null, 2)],
-      {
-        type: "application/json",
-      }
-    );
-
-    const url =
-      URL.createObjectURL(blob);
-
-    const a =
-      document.createElement("a");
-
-    a.href = url;
-
-    a.download =
-      `nidan-backup-${Date.now()}.json`;
-
-    a.click();
-
-    URL.revokeObjectURL(url);
-  }
-
-  function clearAllData() {
-
-    const confirmText =
-      prompt(
-        "All data delete karne ke liye DELETE type karein."
-      );
-
-    if (confirmText !== "DELETE") {
-      return;
-    }
-
-    localStorage.clear();
-
-    alert(
-      "Local data clear ho gaya."
-    );
-
-    location.reload();
+    alert("Settings reset ho gayi.");
   }
 
   return (
     <div className="settingsPage">
 
-      <header className="settingsHeader">
-
+      <div className="settingsHeader">
         <div>
+          <div className="settingsSmallTitle">
+            LABORATORY SETTINGS
+          </div>
+
           <h1>Settings</h1>
 
           <p>
-            NIDAN Pathology Lab system
-            configuration
+            NIDAN Pathology Lab ki laboratory
+            configuration manage karein.
           </p>
         </div>
 
-        <div className="headerActions">
-
-          <button
-            onClick={resetSettings}
-          >
-            Reset
-          </button>
-
-          <button
-            className="saveBtn"
-            onClick={saveSettings}
-          >
-            Save Settings
-          </button>
-
+        <div className="settingsStatus">
+          <span></span>
+          System Active
         </div>
+      </div>
 
-      </header>
-
-      {saved && (
-        <div className="success">
-          ✓ Settings saved successfully
-        </div>
-      )}
-
-      {/* LAB */}
+      {/* LAB INFORMATION */}
 
       <section className="settingsCard">
+        <div className="cardTitle">
+          <div className="cardIcon">🏥</div>
 
-        <h2>🏥 Laboratory Information</h2>
-
-        <div className="grid">
-
-          <Field
-            label="Laboratory Name"
-            value={settings.labName}
-            onChange={(v) =>
-              update("labName", v)
-            }
-          />
-
-          <Field
-            label="Tagline"
-            value={settings.tagline}
-            onChange={(v) =>
-              update("tagline", v)
-            }
-          />
-
-          <Field
-            label="Mobile"
-            value={settings.mobile}
-            onChange={(v) =>
-              update("mobile", v)
-            }
-          />
-
-          <Field
-            label="Phone"
-            value={settings.phone}
-            onChange={(v) =>
-              update("phone", v)
-            }
-          />
-
-          <Field
-            label="Email"
-            value={settings.email}
-            onChange={(v) =>
-              update("email", v)
-            }
-          />
-
-          <Field
-            label="Website"
-            value={settings.website}
-            onChange={(v) =>
-              update("website", v)
-            }
-          />
-
-          <Field
-            label="City"
-            value={settings.city}
-            onChange={(v) =>
-              update("city", v)
-            }
-          />
-
-          <Field
-            label="Address"
-            value={settings.address}
-            onChange={(v) =>
-              update("address", v)
-            }
-            full
-          />
-
+          <div>
+            <h2>Laboratory Information</h2>
+            <p>
+              Lab ki basic information yahan set karein.
+            </p>
+          </div>
         </div>
 
-      </section>
+        <div className="settingsGrid">
 
-      {/* PATHOLOGIST */}
+          <div className="field">
+            <label>Laboratory Name</label>
 
-      <section className="settingsCard">
-
-        <h2>👨‍⚕️ Pathologist Information</h2>
-
-        <div className="grid">
-
-          <Field
-            label="Pathologist Name"
-            value={
-              settings.pathologistName
-            }
-            onChange={(v) =>
-              update(
-                "pathologistName",
-                v
-              )
-            }
-          />
-
-          <Field
-            label="Qualification"
-            value={
-              settings.pathologistQualification
-            }
-            onChange={(v) =>
-              update(
-                "pathologistQualification",
-                v
-              )
-            }
-          />
-
-          <Field
-            label="Registration Number"
-            value={
-              settings.pathologistRegNo
-            }
-            onChange={(v) =>
-              update(
-                "pathologistRegNo",
-                v
-              )
-            }
-          />
-
-        </div>
-
-      </section>
-
-      {/* NUMBERING */}
-
-      <section className="settingsCard">
-
-        <h2>🔢 Numbering</h2>
-
-        <div className="grid">
-
-          <Field
-            label="Patient ID Prefix"
-            value={
-              settings.patientPrefix
-            }
-            onChange={(v) =>
-              update(
-                "patientPrefix",
-                v
-              )
-            }
-          />
-
-          <Field
-            label="Report Prefix"
-            value={
-              settings.reportPrefix
-            }
-            onChange={(v) =>
-              update(
-                "reportPrefix",
-                v
-              )
-            }
-          />
-
-          <Field
-            label="Bill Prefix"
-            value={
-              settings.billPrefix
-            }
-            onChange={(v) =>
-              update(
-                "billPrefix",
-                v
-              )
-            }
-          />
-
-        </div>
-
-      </section>
-
-      {/* BILLING */}
-
-      <section className="settingsCard">
-
-        <h2>💰 Billing & GST</h2>
-
-        <div className="grid">
-
-          <Field
-            label="Currency"
-            value={settings.currency}
-            onChange={(v) =>
-              update("currency", v)
-            }
-          />
-
-          <Field
-            label="GST Number"
-            value={settings.gstNumber}
-            onChange={(v) =>
-              update("gstNumber", v)
-            }
-          />
-
-          <Field
-            label="GST %"
-            type="number"
-            value={settings.gstPercent}
-            onChange={(v) =>
-              update(
-                "gstPercent",
-                Number(v)
-              )
-            }
-          />
-
-        </div>
-
-        <Toggle
-          label="Enable GST"
-          checked={settings.gstEnabled}
-          onChange={(v) =>
-            update("gstEnabled", v)
-          }
-        />
-
-      </section>
-
-      {/* REPORT */}
-
-      <section className="settingsCard">
-
-        <h2>📄 Report Settings</h2>
-
-        <Toggle
-          label="Show Lab Header"
-          checked={
-            settings.reportHeader
-          }
-          onChange={(v) =>
-            update("reportHeader", v)
-          }
-        />
-
-        <Toggle
-          label="Show Lab Logo"
-          checked={
-            settings.showLogo
-          }
-          onChange={(v) =>
-            update("showLogo", v)
-          }
-        />
-
-        <Toggle
-          label="Show Reference Range"
-          checked={
-            settings.showReferenceRange
-          }
-          onChange={(v) =>
-            update(
-              "showReferenceRange",
-              v
-            )
-          }
-        />
-
-        <Toggle
-          label="Show HIGH / LOW Flag"
-          checked={
-            settings.showFlag
-          }
-          onChange={(v) =>
-            update("showFlag", v)
-          }
-        />
-
-        <Toggle
-          label="Show Test Method"
-          checked={
-            settings.showMethod
-          }
-          onChange={(v) =>
-            update("showMethod", v)
-          }
-        />
-
-        <Toggle
-          label="Show Report Footer"
-          checked={
-            settings.reportFooter
-          }
-          onChange={(v) =>
-            update("reportFooter", v)
-          }
-        />
-
-        <Field
-          label="Report Footer Text"
-          value={
-            settings.reportFooterText
-          }
-          onChange={(v) =>
-            update(
-              "reportFooterText",
-              v
-            )
-          }
-          full
-        />
-
-      </section>
-
-      {/* SYSTEM */}
-
-      <section className="settingsCard">
-
-        <h2>⚙ System Settings</h2>
-
-        <Toggle
-          label="Auto Save Results"
-          checked={
-            settings.autoSaveResults
-          }
-          onChange={(v) =>
-            update(
-              "autoSaveResults",
-              v
-            )
-          }
-        />
-
-        <Toggle
-          label="Auto Generate Patient ID"
-          checked={
-            settings.autoGeneratePatientId
-          }
-          onChange={(v) =>
-            update(
-              "autoGeneratePatientId",
-              v
-            )
-          }
-        />
-
-        <Toggle
-          label="Auto Generate Report Number"
-          checked={
-            settings.autoGenerateReportNo
-          }
-          onChange={(v) =>
-            update(
-              "autoGenerateReportNo",
-              v
-            )
-          }
-        />
-
-        <div className="grid">
-
-          <label>
-            Date Format
-
-            <select
-              value={settings.dateFormat}
+            <input
+              type="text"
+              value={settings.labName}
               onChange={(e) =>
-                update(
-                  "dateFormat",
+                updateSetting(
+                  "labName",
                   e.target.value
                 )
               }
-            >
-              <option>
-                DD-MM-YYYY
-              </option>
+              placeholder="NIDAN PATHOLOGY LAB"
+            />
+          </div>
 
-              <option>
-                DD/MM/YYYY
-              </option>
+          <div className="field">
+            <label>Registration Number</label>
 
-              <option>
-                YYYY-MM-DD
-              </option>
-            </select>
-          </label>
-
-          <label>
-            Time Format
-
-            <select
-              value={settings.timeFormat}
+            <input
+              type="text"
+              value={settings.registrationNo}
               onChange={(e) =>
-                update(
-                  "timeFormat",
+                updateSetting(
+                  "registrationNo",
                   e.target.value
                 )
               }
-            >
-              <option>12 Hour</option>
-              <option>24 Hour</option>
-            </select>
-          </label>
+              placeholder="Lab registration number"
+            />
+          </div>
+
+          <div className="field full">
+            <label>Laboratory Address</label>
+
+            <textarea
+              value={settings.labAddress}
+              onChange={(e) =>
+                updateSetting(
+                  "labAddress",
+                  e.target.value
+                )
+              }
+              placeholder="Complete laboratory address"
+              rows={3}
+            />
+          </div>
+
+          <div className="field">
+            <label>Mobile / Phone</label>
+
+            <input
+              type="tel"
+              value={settings.phone}
+              onChange={(e) =>
+                updateSetting(
+                  "phone",
+                  e.target.value
+                )
+              }
+              placeholder="Mobile number"
+            />
+          </div>
+
+          <div className="field">
+            <label>Email</label>
+
+            <input
+              type="email"
+              value={settings.email}
+              onChange={(e) =>
+                updateSetting(
+                  "email",
+                  e.target.value
+                )
+              }
+              placeholder="Lab email"
+            />
+          </div>
+
+          <div className="field">
+            <label>Medical / Reporting Doctor</label>
+
+            <input
+              type="text"
+              value={settings.doctorName}
+              onChange={(e) =>
+                updateSetting(
+                  "doctorName",
+                  e.target.value
+                )
+              }
+              placeholder="Doctor name"
+            />
+          </div>
 
         </div>
-
       </section>
 
-      {/* BACKUP */}
+      {/* REPORT SETTINGS */}
 
-      <section className="settingsCard dangerCard">
+      <section className="settingsCard">
 
-        <h2>💾 Backup & Data</h2>
+        <div className="cardTitle">
+          <div className="cardIcon">📄</div>
 
-        <p>
-          Important laboratory data ka
-          regular backup rakhein.
-        </p>
+          <div>
+            <h2>Report Settings</h2>
 
-        <div className="backupActions">
-
-          <button
-            onClick={backupData}
-          >
-            ⬇ Download Backup
-          </button>
-
-          <button
-            className="danger"
-            onClick={clearAllData}
-          >
-            Delete All Local Data
-          </button>
-
+            <p>
+              Laboratory report ke display options.
+            </p>
+          </div>
         </div>
 
+        <div className="settingOptions">
+
+          <SettingToggle
+            title="Report Header"
+            description="Report ke top par laboratory header show karein."
+            checked={settings.reportHeader}
+            onChange={(value) =>
+              updateSetting(
+                "reportHeader",
+                value
+              )
+            }
+          />
+
+          <SettingToggle
+            title="Show Laboratory Logo"
+            description="Final report me lab logo display karein."
+            checked={settings.showLogo}
+            onChange={(value) =>
+              updateSetting(
+                "showLogo",
+                value
+              )
+            }
+          />
+
+          <SettingToggle
+            title="Show Reference Range"
+            description="Report me reference range display karein."
+            checked={settings.showReferenceRange}
+            onChange={(value) =>
+              updateSetting(
+                "showReferenceRange",
+                value
+              )
+            }
+          />
+
+          <SettingToggle
+            title="Show Result Flag"
+            description="LOW / HIGH / NORMAL flag show karein."
+            checked={settings.showFlag}
+            onChange={(value) =>
+              updateSetting(
+                "showFlag",
+                value
+              )
+            }
+          />
+
+          <SettingToggle
+            title="Auto Save Results"
+            description="Result entry ke dauran data automatically save karein."
+            checked={settings.autoSave}
+            onChange={(value) =>
+              updateSetting(
+                "autoSave",
+                value
+              )
+            }
+          />
+
+        </div>
       </section>
 
-      <style jsx global>{`
+      {/* SYSTEM SETTINGS */}
 
-        * {
-          box-sizing:border-box;
-        }
+      <section className="settingsCard">
 
-        body {
-          margin:0;
-          background:#f5f8fb;
-          font-family:Arial,sans-serif;
-        }
+        <div className="cardTitle">
+          <div className="cardIcon">⚙️</div>
 
-        .settingsPage {
-          max-width:1100px;
-          margin:auto;
-          padding:20px;
-        }
+          <div>
+            <h2>System Settings</h2>
 
-        .settingsHeader {
-          background:white;
-          border-radius:14px;
-          padding:20px;
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-          gap:15px;
-          margin-bottom:15px;
-        }
+            <p>
+              Laboratory software ke general controls.
+            </p>
+          </div>
+        </div>
 
-        .settingsHeader h1 {
-          margin:0;
-        }
+        <div className="systemOptions">
 
-        .settingsHeader p {
-          color:#718096;
-        }
+          <div className="systemItem">
+            <div>
+              <strong>Test Master</strong>
+              <small>
+                Laboratory tests, parameters,
+                units aur reference ranges manage karein.
+              </small>
+            </div>
 
-        .headerActions {
-          display:flex;
-          gap:8px;
-        }
+            <a href="/tests">
+              Open →
+            </a>
+          </div>
 
-        .headerActions button {
-          padding:10px 14px;
-          border-radius:8px;
-          border:1px solid #d8e0e7;
-          background:white;
-          cursor:pointer;
-        }
+          <div className="systemItem">
+            <div>
+              <strong>Doctors</strong>
+              <small>
+                Referring doctors add aur manage karein.
+              </small>
+            </div>
 
-        .headerActions .saveBtn {
-          background:#0f9d9a;
-          color:white;
-          border:0;
-        }
+            <a href="/doctors">
+              Open →
+            </a>
+          </div>
 
-        .success {
-          padding:12px;
-          background:#dcfce7;
-          color:#15803d;
-          border-radius:10px;
-          margin-bottom:15px;
-          font-weight:bold;
-        }
+          <div className="systemItem">
+            <div>
+              <strong>Patients</strong>
+              <small>
+                Registered patients manage karein.
+              </small>
+            </div>
 
-        .settingsCard {
-          background:white;
-          border:1px solid #e1e7eb;
-          border-radius:14px;
-          padding:20px;
-          margin-bottom:15px;
-        }
+            <a href="/patients">
+              Open →
+            </a>
+          </div>
 
-        .settingsCard h2 {
-          margin-top:0;
-          font-size:17px;
-          border-bottom:1px solid #edf0f2;
-          padding-bottom:12px;
-        }
+          <div className="systemItem">
+            <div>
+              <strong>Reports</strong>
+              <small>
+                Final laboratory reports dekhein aur print karein.
+              </small>
+            </div>
 
-        .grid {
-          display:grid;
-          grid-template-columns:
-            repeat(2,1fr);
-          gap:14px;
-        }
+            <a href="/reports">
+              Open →
+            </a>
+          </div>
 
-        .grid label {
-          font-size:12px;
-          font-weight:bold;
-          color:#475569;
-        }
+        </div>
+      </section>
 
-        .grid input,
-        .grid select {
-          display:block;
-          width:100%;
-          margin-top:5px;
-          padding:10px;
-          border:1px solid #d8e0e7;
-          border-radius:8px;
-        }
+      {/* ACTIONS */}
 
-        .full {
-          grid-column:span 2;
-        }
+      <div className="settingsActions">
 
-        .toggle {
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-          padding:12px 0;
-          border-bottom:1px solid #f0f2f4;
-          font-size:13px;
-        }
+        <button
+          className="resetBtn"
+          onClick={resetSettings}
+        >
+          Reset Settings
+        </button>
 
-        .toggle input {
-          width:18px;
-          height:18px;
-        }
+        <button
+          className="saveBtn"
+          onClick={saveSettings}
+        >
+          Save Settings
+        </button>
 
-        .backupActions {
-          display:flex;
-          gap:10px;
-        }
-
-        .backupActions button {
-          border:0;
-          padding:11px 15px;
-          border-radius:8px;
-          background:#e0f2fe;
-          color:#0369a1;
-          cursor:pointer;
-        }
-
-        .backupActions .danger {
-          background:#fee2e2;
-          color:#b91c1c;
-        }
-
-        @media(max-width:600px) {
-
-          .settingsPage {
-            padding:10px;
-          }
-
-          .settingsHeader {
-            align-items:flex-start;
-            flex-direction:column;
-          }
-
-          .headerActions {
-            width:100%;
-          }
-
-          .headerActions button {
-            flex:1;
-          }
-
-          .grid {
-            grid-template-columns:1fr;
-          }
-
-          .full {
-            grid-column:auto;
-          }
-
-          .backupActions {
-            flex-direction:column;
-          }
-        }
-
-      `}</style>
+      </div>
 
     </div>
   );
 }
 
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  full = false,
-}) {
-  return (
-    <label className={full ? "full" : ""}>
-      {label}
 
-      <input
-        type={type}
-        value={value ?? ""}
-        onChange={(e) =>
-          onChange(e.target.value)
-        }
-      />
-    </label>
-  );
-}
+/* =========================================================
+   TOGGLE COMPONENT
+   ========================================================= */
 
-function Toggle({
-  label,
+function SettingToggle({
+  title,
+  description,
   checked,
   onChange,
 }) {
   return (
-    <div className="toggle">
-      <span>{label}</span>
+    <div className="toggleItem">
 
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) =>
-          onChange(e.target.checked)
+      <div>
+        <strong>{title}</strong>
+
+        <small>{description}</small>
+      </div>
+
+      <button
+        type="button"
+        className={
+          checked
+            ? "toggle active"
+            : "toggle"
         }
-      />
+        onClick={() =>
+          onChange(!checked)
+        }
+        aria-label={title}
+      >
+        <span></span>
+      </button>
+
     </div>
   );
+}
+
+
+/* =========================================================
+   CSS
+   ========================================================= */
+
+const style = `
+  * {
+    box-sizing: border-box;
+  }
+
+  .settingsPage {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px;
+    color: #172033;
+  }
+
+  .settingsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 22px;
+  }
+
+  .settingsSmallTitle {
+    color: #0f9d9a;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+
+  .settingsHeader h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.2;
+  }
+
+  .settingsHeader p {
+    margin: 7px 0 0;
+    color: #718096;
+    font-size: 14px;
+  }
+
+  .settingsStatus {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 13px;
+    background: #ecfdf5;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    color: #047857;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .settingsStatus span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+  }
+
+  .settingsCard {
+    background: #ffffff;
+    border: 1px solid #e3e8ed;
+    border-radius: 16px;
+    padding: 22px;
+    margin-bottom: 18px;
+    box-shadow: 0 3px 12px rgba(15,23,42,.04);
+  }
+
+  .cardTitle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid #edf1f4;
+  }
+
+  .cardIcon {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e9f8f7;
+    border-radius: 11px;
+    font-size: 20px;
+  }
+
+  .cardTitle h2 {
+    margin: 0;
+    font-size: 17px;
+  }
+
+  .cardTitle p {
+    margin: 4px 0 0;
+    color: #718096;
+    font-size: 12px;
+  }
+
+  .settingsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .field {
+    min-width: 0;
+  }
+
+  .field.full {
+    grid-column: span 2;
+  }
+
+  .field label {
+    display: block;
+    margin-bottom: 7px;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .field input,
+  .field textarea {
+    width: 100%;
+    border: 1px solid #d5dde4;
+    border-radius: 9px;
+    padding: 11px 12px;
+    background: #fff;
+    color: #172033;
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+  }
+
+  .field textarea {
+    resize: vertical;
+  }
+
+  .field input:focus,
+  .field textarea:focus {
+    border-color: #0f9d9a;
+    box-shadow: 0 0 0 3px rgba(15,157,154,.10);
+  }
+
+  .settingOptions {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .toggleItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 15px 0;
+    border-bottom: 1px solid #edf1f4;
+  }
+
+  .toggleItem:last-child {
+    border-bottom: 0;
+  }
+
+  .toggleItem strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .toggleItem small {
+    display: block;
+    color: #718096;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .toggle {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 27px;
+    border: 0;
+    border-radius: 30px;
+    background: #cbd5e1;
+    padding: 3px;
+    cursor: pointer;
+    transition: .2s;
+  }
+
+  .toggle span {
+    display: block;
+    width: 21px;
+    height: 21px;
+    background: #fff;
+    border-radius: 50%;
+    transition: .2s;
+  }
+
+  .toggle.active {
+    background: #0f9d9a;
+  }
+
+  .toggle.active span {
+    transform: translateX(21px);
+  }
+
+  .systemOptions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .systemItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background: #f8fafc;
+    border: 1px solid #e8edf1;
+    border-radius: 11px;
+  }
+
+  .systemItem strong {
+    display: block;
+    font-size: 13px;
+  }
+
+  .systemItem small {
+    display: block;
+    margin-top: 4px;
+    color: #718096;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .systemItem a {
+    flex: 0 0 auto;
+    color: #087f7d;
+    font-size: 12px;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .settingsActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-bottom: 30px;
+  }
+
+  .resetBtn,
+  .saveBtn {
+    min-height: 44px;
+    padding: 0 20px;
+    border-radius: 9px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .resetBtn {
+    background: #fff;
+    border: 1px solid #d5dde4;
+    color: #475569;
+  }
+
+  .saveBtn {
+    background: #0f9d9a;
+    border: 1px solid #0f9d9a;
+    color: #fff;
+  }
+
+  @media (max-width: 700px) {
+
+    .settingsPage {
+      padding: 14px 10px;
+    }
+
+    .settingsHeader {
+      flex-direction: column;
+    }
+
+    .settingsHeader h1 {
+      font-size: 24px;
+    }
+
+    .settingsCard {
+      padding: 15px;
+      border-radius: 13px;
+    }
+
+    .settingsGrid {
+      grid-template-columns: 1fr;
+    }
+
+    .field.full {
+      grid-column: span 1;
+    }
+
+    .systemOptions {
+      grid-template-columns: 1fr;
+    }
+
+    .settingsActions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .resetBtn,
+    .saveBtn {
+      width: 100%;
+      padding: 0 10px;
+    }
+
+  }
+
+  @media (max-width: 420px) {
+
+    .settingsActions {
+      grid-template-columns: 1fr;
+    }
+
+    .toggleItem small {
+      max-width: 230px;
+    }
+
+  }
+`;
+
+if (typeof document !== "undefined") {
+  const styleTag = document.createElement("style");
+  styleTag.innerHTML = style;
+  document.head.appendChild(styleTag);
 }
