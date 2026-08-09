@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 /* =========================================================
    NIDAN PATHOLOGY LAB
    RESULT ENTRY PAGE
-   MOBILE + DESKTOP RESPONSIVE VERSION
+   DESKTOP + TABLET + MOBILE RESPONSIVE
    ========================================================= */
 
 export default function ResultsPage() {
@@ -37,10 +37,16 @@ export default function ResultsPage() {
       );
 
       setPatient(patientData);
-      setSelectedTests(testData);
-      setResults(resultData);
+      setSelectedTests(
+        Array.isArray(testData) ? testData : []
+      );
+      setResults(
+        resultData && typeof resultData === "object"
+          ? resultData
+          : {}
+      );
 
-      if (testData.length > 0) {
+      if (Array.isArray(testData) && testData.length > 0) {
         setActiveTest(testData[0].id);
       }
     } catch (error) {
@@ -54,7 +60,8 @@ export default function ResultsPage() {
 
   const currentTest = useMemo(() => {
     return selectedTests.find(
-      (test) => String(test.id) === String(activeTest)
+      (test) =>
+        String(test.id) === String(activeTest)
     );
   }, [selectedTests, activeTest]);
 
@@ -120,7 +127,8 @@ export default function ResultsPage() {
      ========================================================= */
 
   function getDefaultReference(parameterName) {
-    const name = normalizeParameterName(parameterName);
+    const name =
+      normalizeParameterName(parameterName);
 
     const gender = getPatientGender();
     const age = getPatientAge();
@@ -339,22 +347,21 @@ export default function ResultsPage() {
 
     if (
       name === "esr" ||
-      name.includes("erythrocyte sedimentation")
+      name.includes(
+        "erythrocyte sedimentation"
+      )
     ) {
-      if (gender === "female") {
-        return {
-          min: 0,
-          max: 20,
-          unit: "mm/hr",
-          range: "0 - 20",
-        };
-      }
-
       return {
         min: 0,
-        max: 15,
+        max:
+          gender === "female"
+            ? 20
+            : 15,
         unit: "mm/hr",
-        range: "0 - 15",
+        range:
+          gender === "female"
+            ? "0 - 20"
+            : "0 - 15",
       };
     }
 
@@ -524,7 +531,9 @@ export default function ResultsPage() {
     }
 
     if (
-      name.includes("alkaline phosphatase") ||
+      name.includes(
+        "alkaline phosphatase"
+      ) ||
       name === "alp"
     ) {
       return {
@@ -564,7 +573,9 @@ export default function ResultsPage() {
 
     /* ================= LIPID ================= */
 
-    if (name.includes("total cholesterol")) {
+    if (
+      name.includes("total cholesterol")
+    ) {
       return {
         min: 0,
         max: 200,
@@ -573,7 +584,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name.includes("triglyceride")) {
+    if (
+      name.includes("triglyceride")
+    ) {
       return {
         min: 0,
         max: 150,
@@ -660,26 +673,30 @@ export default function ResultsPage() {
      ========================================================= */
 
   function resolveParameter(parameter) {
-    const defaultData = getDefaultReference(
-      parameter.name ||
-        parameter.testName ||
-        parameter.investigation ||
-        ""
-    );
+    const parameterName =
+      parameter?.name ||
+      parameter?.testName ||
+      parameter?.investigation ||
+      "";
 
-    let min = parameter.min;
-    let max = parameter.max;
+    const defaultData =
+      getDefaultReference(
+        parameterName
+      );
+
+    let min = parameter?.min;
+    let max = parameter?.max;
 
     let unit =
-      parameter.unit ||
-      parameter.units ||
+      parameter?.unit ||
+      parameter?.units ||
       defaultData?.unit ||
       "";
 
     let range =
-      parameter.range ||
-      parameter.reference ||
-      parameter.referenceRange ||
+      parameter?.range ||
+      parameter?.reference ||
+      parameter?.referenceRange ||
       "";
 
     if (
@@ -750,9 +767,9 @@ export default function ResultsPage() {
     index
   ) {
     const name =
-      parameter.name ||
-      parameter.testName ||
-      parameter.investigation ||
+      parameter?.name ||
+      parameter?.testName ||
+      parameter?.investigation ||
       `parameter-${index}`;
 
     return `${testId}-${name}-${index}`;
@@ -815,7 +832,9 @@ export default function ResultsPage() {
       resolved.max !== "";
 
     if (hasMin) {
-      const min = Number(resolved.min);
+      const min = Number(
+        resolved.min
+      );
 
       if (
         !Number.isNaN(min) &&
@@ -826,7 +845,9 @@ export default function ResultsPage() {
     }
 
     if (hasMax) {
-      const max = Number(resolved.max);
+      const max = Number(
+        resolved.max
+      );
 
       if (
         !Number.isNaN(max) &&
@@ -849,15 +870,16 @@ export default function ResultsPage() {
 
   function getOptions(parameter) {
     if (
-      Array.isArray(parameter.options) &&
+      Array.isArray(parameter?.options) &&
       parameter.options.length > 0
     ) {
       return parameter.options;
     }
 
-    const name = normalizeParameterName(
-      parameter.name || ""
-    );
+    const name =
+      normalizeParameterName(
+        parameter?.name || ""
+      );
 
     if (
       name.includes("hiv") ||
@@ -937,7 +959,9 @@ export default function ResultsPage() {
         error
       );
 
-      alert("Results save nahi ho paye.");
+      alert(
+        "Results save nahi ho paye."
+      );
 
       return false;
     }
@@ -965,7 +989,8 @@ export default function ResultsPage() {
               index
             );
 
-          const value = results[key];
+          const value =
+            results[key];
 
           if (
             value === undefined ||
@@ -979,8 +1004,9 @@ export default function ResultsPage() {
                 "Test",
 
               parameter:
-                parameter.name ||
-                parameter.testName ||
+                parameter?.name ||
+                parameter?.testName ||
+                parameter?.investigation ||
                 "Parameter",
             });
           }
@@ -996,7 +1022,9 @@ export default function ResultsPage() {
      ========================================================= */
 
   function continueReport() {
-    if (selectedTests.length === 0) {
+    if (
+      selectedTests.length === 0
+    ) {
       alert(
         "Koi test selected nahi hai."
       );
@@ -1165,15 +1193,16 @@ export default function ResultsPage() {
 
   return (
     <>
-      <div className="labApp resultPageApp">
+      <div className="resultPageApp">
 
-        {/* =================================================
+        {/* =====================================================
             SIDEBAR
-            ================================================= */}
+        ===================================================== */}
 
-        <aside className="sidebar">
-          <div className="brand">
-            <div className="brandLogo">
+        <aside className="resultSidebar">
+
+          <div className="resultBrand">
+            <div className="resultBrandLogo">
               N+
             </div>
 
@@ -1183,12 +1212,12 @@ export default function ResultsPage() {
             </div>
           </div>
 
-          <div className="menuLabel">
+          <div className="resultMenuLabel">
             MAIN MENU
           </div>
 
           <button
-            className="menu"
+            className="resultMenu"
             onClick={() =>
               router.push("/")
             }
@@ -1198,11 +1227,9 @@ export default function ResultsPage() {
           </button>
 
           <button
-            className="menu"
+            className="resultMenu"
             onClick={() =>
-              router.push(
-                "/patients"
-              )
+              router.push("/patients")
             }
           >
             <span>♙</span>
@@ -1210,7 +1237,7 @@ export default function ResultsPage() {
           </button>
 
           <button
-            className="menu"
+            className="resultMenu"
             onClick={() =>
               router.push("/tests")
             }
@@ -1220,42 +1247,42 @@ export default function ResultsPage() {
           </button>
 
           <button
-            className="menu"
+            className="resultMenu"
             onClick={() =>
-              router.push(
-                "/billing"
-              )
+              router.push("/billing")
             }
           >
             <span>₹</span>
             Billing
           </button>
 
-          <button className="menu active">
+          <button className="resultMenu resultMenuActive">
             <span>✎</span>
             Result Entry
           </button>
 
           <button
-            className="menu"
+            className="resultMenu"
             onClick={() =>
-              router.push(
-                "/reports"
-              )
+              router.push("/reports")
             }
           >
             <span>▤</span>
             Reports
           </button>
+
         </aside>
 
-        {/* =================================================
-            MAIN
-            ================================================= */}
+        {/* =====================================================
+            MAIN AREA
+        ===================================================== */}
 
-        <main className="mainArea">
+        <main className="resultMain">
 
-          <header className="topbar">
+          {/* TOP BAR */}
+
+          <header className="resultTopbar">
+
             <div>
               <h3>Result Entry</h3>
 
@@ -1265,19 +1292,25 @@ export default function ResultsPage() {
               </p>
             </div>
 
-            <div className="topRight">
-              <span className="statusDot" />
+            <div className="resultSystemStatus">
+              <span />
               NIDAN Lab System
             </div>
+
           </header>
 
-          <div className="content">
+          {/* CONTENT */}
 
-            {/* PAGE HEADING */}
+          <div className="resultContent">
 
-            <div className="pageHeading">
+            {/* =================================================
+                PAGE HEADING
+            ================================================= */}
+
+            <div className="resultPageHeading">
+
               <div>
-                <div className="smallTitle">
+                <div className="resultSmallTitle">
                   STEP 4 OF 5
                 </div>
 
@@ -1286,84 +1319,78 @@ export default function ResultsPage() {
                 </h1>
 
                 <p>
-                  Selected tests ke
-                  results enter karein.
+                  Selected tests ke results
+                  enter karein.
                 </p>
               </div>
 
               <button
-                className="backBtn"
+                className="resultBackButton"
                 onClick={() =>
-                  router.push(
-                    "/billing"
-                  )
+                  router.push("/billing")
                 }
               >
                 ← Back to Billing
               </button>
+
             </div>
 
-            {/* STEPS */}
+            {/* =================================================
+                STEPS
+            ================================================= */}
 
-            <div className="steps">
-              <div className="step">
+            <div className="resultSteps">
+
+              <div className="resultStep">
                 <span>✓</span>
                 <div>
                   Patient
-                  <small>
-                    Registered
-                  </small>
+                  <small>Registered</small>
                 </div>
               </div>
 
-              <div className="step">
+              <div className="resultStep">
                 <span>✓</span>
                 <div>
                   Tests
-                  <small>
-                    Selected
-                  </small>
+                  <small>Selected</small>
                 </div>
               </div>
 
-              <div className="step">
+              <div className="resultStep">
                 <span>✓</span>
                 <div>
                   Billing
-                  <small>
-                    Completed
-                  </small>
+                  <small>Completed</small>
                 </div>
               </div>
 
-              <div className="step activeStep">
+              <div className="resultStep resultStepActive">
                 <span>4</span>
                 <div>
                   Results
-                  <small>
-                    Enter Results
-                  </small>
+                  <small>Enter Results</small>
                 </div>
               </div>
 
-              <div className="step">
+              <div className="resultStep">
                 <span>5</span>
                 <div>
                   Report
-                  <small>
-                    Print / PDF
-                  </small>
+                  <small>Print / PDF</small>
                 </div>
               </div>
+
             </div>
 
-            {/* PATIENT CARD */}
+            {/* =================================================
+                PATIENT CARD
+            ================================================= */}
 
             <div className="resultPatientCard">
+
               <div>
-                <small>
-                  PATIENT ID
-                </small>
+                <small>PATIENT ID</small>
 
                 <strong>
                   {patient.patientId ||
@@ -1373,25 +1400,18 @@ export default function ResultsPage() {
               </div>
 
               <div>
-                <small>
-                  PATIENT NAME
-                </small>
+                <small>PATIENT NAME</small>
 
                 <strong>
-                  {patient.name ||
-                    "-"}
+                  {patient.name || "-"}
                 </strong>
               </div>
 
               <div>
-                <small>
-                  AGE / SEX
-                </small>
+                <small>AGE / SEX</small>
 
                 <strong>
-                  {patient.age ||
-                    "-"}{" "}
-                  /{" "}
+                  {patient.age || "-"} /{" "}
                   {patient.gender ||
                     patient.sex ||
                     "-"}
@@ -1399,9 +1419,7 @@ export default function ResultsPage() {
               </div>
 
               <div>
-                <small>
-                  REF. DOCTOR
-                </small>
+                <small>REF. DOCTOR</small>
 
                 <strong>
                   {patient.doctor ||
@@ -1409,59 +1427,66 @@ export default function ResultsPage() {
                     "-"}
                 </strong>
               </div>
+
             </div>
 
-            {/* PROGRESS */}
+            {/* =================================================
+                PROGRESS
+            ================================================= */}
 
             <div className="resultProgressCard">
-              <div className="progressTop">
+
+              <div className="resultProgressTop">
+
                 <div>
                   <strong>
                     Result Progress
                   </strong>
 
                   <small>
-                    {completedResults}{" "}
-                    of{" "}
+                    {completedResults} of{" "}
                     {totalParameters}{" "}
                     parameters entered
                   </small>
                 </div>
 
-                <strong className="progressNumber">
+                <strong className="resultProgressNumber">
                   {progress}%
                 </strong>
+
               </div>
 
-              <div className="progressTrack">
+              <div className="resultProgressTrack">
                 <div
-                  className="progressFill"
+                  className="resultProgressFill"
                   style={{
                     width: `${progress}%`,
                   }}
                 />
               </div>
+
             </div>
 
             {/* SAVE MESSAGE */}
 
             {savedMessage && (
-              <div className="savedMessage">
+              <div className="resultSavedMessage">
                 {savedMessage}
               </div>
             )}
 
             {/* =================================================
-                SELECTED TESTS
-                MOBILE FRIENDLY
-                ================================================= */}
+                MOBILE SELECTED TESTS
+            ================================================= */}
 
-            <div className="selectedTestsMobile">
-              <div className="mobileSectionTitle">
+            <div className="mobileSelectedTests">
+
+              <div className="mobileSelectedTitle">
                 Selected Tests
               </div>
 
               <div className="mobileTestScroller">
+
                 {selectedTests.map(
                   (test, index) => {
                     const parameters =
@@ -1469,17 +1494,16 @@ export default function ResultsPage() {
                       test.parameters ||
                       [];
 
+                    const active =
+                      String(activeTest) ===
+                      String(test.id);
+
                     return (
                       <button
                         key={test.id}
                         className={
-                          String(
-                            activeTest
-                          ) ===
-                          String(
-                            test.id
-                          )
-                            ? "mobileTestButton active"
+                          active
+                            ? "mobileTestButton mobileTestActive"
                             : "mobileTestButton"
                         }
                         onClick={() =>
@@ -1488,6 +1512,7 @@ export default function ResultsPage() {
                           )
                         }
                       >
+
                         <span>
                           {index + 1}
                         </span>
@@ -1498,28 +1523,32 @@ export default function ResultsPage() {
                         </strong>
 
                         <small>
-                          {
-                            parameters.length
-                          }{" "}
+                          {parameters.length}{" "}
                           parameters
                         </small>
+
                       </button>
                     );
                   }
                 )}
+
               </div>
+
             </div>
 
             {/* =================================================
-                WORKSPACE
-                ================================================= */}
+                MAIN WORKSPACE
+            ================================================= */}
 
             <div className="resultWorkspace">
 
-              {/* DESKTOP TEST NAV */}
+              {/* =================================================
+                  DESKTOP TEST NAV
+              ================================================= */}
 
-              <aside className="testResultNav">
-                <div className="resultNavHeading">
+              <aside className="desktopTestNav">
+
+                <div className="desktopTestNavTitle">
                   Selected Tests
                 </div>
 
@@ -1534,25 +1563,27 @@ export default function ResultsPage() {
                       test,
                       index
                     ) => {
+
                       const parameters =
                         test.tests ||
                         test.parameters ||
                         [];
 
+                      const active =
+                        String(
+                          activeTest
+                        ) ===
+                        String(
+                          test.id
+                        );
+
                       return (
                         <button
-                          key={
-                            test.id
-                          }
+                          key={test.id}
                           className={
-                            String(
-                              activeTest
-                            ) ===
-                            String(
-                              test.id
-                            )
-                              ? "resultTestButton activeResultTest"
-                              : "resultTestButton"
+                            active
+                              ? "desktopTestButton desktopTestButtonActive"
+                              : "desktopTestButton"
                           }
                           onClick={() =>
                             setActiveTest(
@@ -1560,9 +1591,9 @@ export default function ResultsPage() {
                             )
                           }
                         >
-                          <span className="testNumber">
-                            {index +
-                              1}
+
+                          <span className="desktopTestNumber">
+                            {index + 1}
                           </span>
 
                           <div>
@@ -1578,20 +1609,28 @@ export default function ResultsPage() {
                               parameters
                             </small>
                           </div>
+
                         </button>
                       );
                     }
                   )
                 )}
+
               </aside>
 
-              {/* RESULT CARD */}
+              {/* =================================================
+                  RESULT ENTRY CARD
+              ================================================= */}
 
               <section className="resultEntryCard">
 
                 {!currentTest ? (
+
                   <div className="emptyResultPage">
-                    <div>🧪</div>
+
+                    <div className="emptyIcon">
+                      🧪
+                    </div>
 
                     <h2>
                       No Test Selected
@@ -1604,23 +1643,29 @@ export default function ResultsPage() {
                     </p>
 
                     <button
-                      className="continueBtn"
+                      className="resultContinueButton"
                       onClick={() =>
-                        router.push(
-                          "/tests"
-                        )
+                        router.push("/tests")
                       }
                     >
                       Select Tests
                     </button>
+
                   </div>
+
                 ) : (
+
                   <>
-                    {/* TEST HEADER */}
+
+                    {/* =================================================
+                        TEST HEADER
+                    ================================================= */}
 
                     <div className="resultCardHeader">
+
                       <div>
-                        <div className="smallTitle">
+
+                        <div className="resultSmallTitle">
                           INVESTIGATION
                         </div>
 
@@ -1631,55 +1676,66 @@ export default function ResultsPage() {
 
                         <p>
                           Enter patient
-                          laboratory
-                          results.
+                          laboratory results.
                         </p>
+
                       </div>
 
                       <div className="parameterBadge">
-                        {
-                          currentParameters.length
-                        }{" "}
+                        {currentParameters.length}{" "}
                         Parameters
                       </div>
+
                     </div>
 
                     {/* =================================================
                         DESKTOP TABLE
-                        ================================================= */}
+                    ================================================= */}
 
-                    <div className="resultTableWrapper desktopResultTable">
+                    <div className="desktopResultTable">
+
                       <table className="resultTable">
+
+                        <colgroup>
+                          <col className="investigationColumn" />
+                          <col className="resultColumn" />
+                          <col className="unitColumn" />
+                          <col className="referenceColumn" />
+                          <col className="flagColumn" />
+                        </colgroup>
+
                         <thead>
                           <tr>
                             <th>
-                              Investigation
+                              INVESTIGATION
                             </th>
 
                             <th>
-                              Result
+                              RESULT
                             </th>
 
                             <th>
-                              Unit
+                              UNIT
                             </th>
 
                             <th>
-                              Reference Range
+                              REFERENCE RANGE
                             </th>
 
                             <th>
-                              Flag
+                              FLAG
                             </th>
                           </tr>
                         </thead>
 
                         <tbody>
+
                           {currentParameters.map(
                             (
                               parameter,
                               index
                             ) => {
+
                               const key =
                                 getParameterKey(
                                   currentTest.id,
@@ -1708,46 +1764,40 @@ export default function ResultsPage() {
                                 );
 
                               const parameterName =
-                                parameter.name ||
-                                parameter.testName ||
-                                parameter.investigation ||
+                                parameter?.name ||
+                                parameter?.testName ||
+                                parameter?.investigation ||
                                 "Investigation";
 
                               return (
                                 <tr
-                                  key={
-                                    key
-                                  }
+                                  key={key}
                                 >
-                                  <td>
+
+                                  <td className="investigationCell">
                                     <strong>
-                                      {
-                                        parameterName
-                                      }
+                                      {parameterName}
                                     </strong>
                                   </td>
 
-                                  <td>
+                                  <td className="resultCell">
+
                                     {options.length >
                                     0 ? (
+
                                       <select
                                         className="resultInput"
-                                        value={
-                                          value
-                                        }
-                                        onChange={(
-                                          e
-                                        ) =>
+                                        value={value}
+                                        onChange={(e) =>
                                           updateResult(
                                             currentTest.id,
                                             parameter,
                                             index,
-                                            e
-                                              .target
-                                              .value
+                                            e.target.value
                                           )
                                         }
                                       >
+
                                         <option value="">
                                           Select
                                         </option>
@@ -1764,14 +1814,15 @@ export default function ResultsPage() {
                                                 option
                                               }
                                             >
-                                              {
-                                                option
-                                              }
+                                              {option}
                                             </option>
                                           )
                                         )}
+
                                       </select>
+
                                     ) : (
+
                                       <input
                                         className="resultInput"
                                         type="text"
@@ -1784,40 +1835,33 @@ export default function ResultsPage() {
                                             : "text"
                                         }
                                         placeholder="Enter result"
-                                        value={
-                                          value
-                                        }
-                                        onChange={(
-                                          e
-                                        ) =>
+                                        value={value}
+                                        onChange={(e) =>
                                           updateResult(
                                             currentTest.id,
                                             parameter,
                                             index,
-                                            e
-                                              .target
-                                              .value
+                                            e.target.value
                                           )
                                         }
                                       />
+
                                     )}
+
                                   </td>
 
-                                  <td>
-                                    {
-                                      resolved.unit ||
-                                      "-"
-                                    }
+                                  <td className="unitCell">
+                                    {resolved.unit ||
+                                      "-"}
                                   </td>
 
-                                  <td>
-                                    {
-                                      resolved.range ||
-                                      "-"
-                                    }
+                                  <td className="referenceCell">
+                                    {resolved.range ||
+                                      "-"}
                                   </td>
 
-                                  <td>
+                                  <td className="flagCell">
+
                                     {flag && (
                                       <span
                                         className={`resultFlag ${
@@ -1830,23 +1874,26 @@ export default function ResultsPage() {
                                             : "flagNormal"
                                         }`}
                                       >
-                                        {
-                                          flag
-                                        }
+                                        {flag}
                                       </span>
                                     )}
+
                                   </td>
+
                                 </tr>
                               );
                             }
                           )}
+
                         </tbody>
+
                       </table>
+
                     </div>
 
                     {/* =================================================
                         MOBILE PARAMETER CARDS
-                        ================================================= */}
+                    ================================================= */}
 
                     <div className="mobileParameterList">
 
@@ -1855,6 +1902,7 @@ export default function ResultsPage() {
                           parameter,
                           index
                         ) => {
+
                           const key =
                             getParameterKey(
                               currentTest.id,
@@ -1883,61 +1931,51 @@ export default function ResultsPage() {
                             );
 
                           const parameterName =
-                            parameter.name ||
-                            parameter.testName ||
-                            parameter.investigation ||
+                            parameter?.name ||
+                            parameter?.testName ||
+                            parameter?.investigation ||
                             "Investigation";
 
                           return (
                             <div
                               className="mobileParameterCard"
-                              key={
-                                key
-                              }
+                              key={key}
                             >
 
-                              {/* PARAMETER NAME */}
-
                               <div className="mobileParameterName">
+
                                 <span>
-                                  {index +
-                                    1}
+                                  {index + 1}
                                 </span>
 
                                 <strong>
-                                  {
-                                    parameterName
-                                  }
+                                  {parameterName}
                                 </strong>
+
                               </div>
 
-                              {/* RESULT */}
-
                               <div className="mobileField">
+
                                 <label>
                                   Result
                                 </label>
 
                                 {options.length >
                                 0 ? (
+
                                   <select
                                     className="mobileResultInput"
-                                    value={
-                                      value
-                                    }
-                                    onChange={(
-                                      e
-                                    ) =>
+                                    value={value}
+                                    onChange={(e) =>
                                       updateResult(
                                         currentTest.id,
                                         parameter,
                                         index,
-                                        e
-                                          .target
-                                          .value
+                                        e.target.value
                                       )
                                     }
                                   >
+
                                     <option value="">
                                       Select result
                                     </option>
@@ -1954,14 +1992,15 @@ export default function ResultsPage() {
                                             option
                                           }
                                         >
-                                          {
-                                            option
-                                          }
+                                          {option}
                                         </option>
                                       )
                                     )}
+
                                   </select>
+
                                 ) : (
+
                                   <input
                                     className="mobileResultInput"
                                     type="text"
@@ -1974,26 +2013,20 @@ export default function ResultsPage() {
                                         : "text"
                                     }
                                     placeholder="Enter result"
-                                    value={
-                                      value
-                                    }
-                                    onChange={(
-                                      e
-                                    ) =>
+                                    value={value}
+                                    onChange={(e) =>
                                       updateResult(
                                         currentTest.id,
                                         parameter,
                                         index,
-                                        e
-                                          .target
-                                          .value
+                                        e.target.value
                                       )
                                     }
                                   />
-                                )}
-                              </div>
 
-                              {/* UNIT + RANGE */}
+                                )}
+
+                              </div>
 
                               <div className="mobileInfoGrid">
 
@@ -2003,10 +2036,8 @@ export default function ResultsPage() {
                                   </small>
 
                                   <strong>
-                                    {
-                                      resolved.unit ||
-                                      "-"
-                                    }
+                                    {resolved.unit ||
+                                      "-"}
                                   </strong>
                                 </div>
 
@@ -2016,10 +2047,8 @@ export default function ResultsPage() {
                                   </small>
 
                                   <strong>
-                                    {
-                                      resolved.range ||
-                                      "-"
-                                    }
+                                    {resolved.range ||
+                                      "-"}
                                   </strong>
                                 </div>
 
@@ -2041,9 +2070,7 @@ export default function ResultsPage() {
                                             : "flagNormal"
                                         }`}
                                       >
-                                        {
-                                          flag
-                                        }
+                                        {flag}
                                       </span>
                                     ) : (
                                       "-"
@@ -2060,12 +2087,14 @@ export default function ResultsPage() {
 
                     </div>
 
-                    {/* FOOTER */}
+                    {/* =================================================
+                        RESULT FOOTER
+                    ================================================= */}
 
                     <div className="resultFooter">
 
                       <button
-                        className="secondaryResultBtn"
+                        className="secondaryResultButton"
                         onClick={
                           previousTest
                         }
@@ -2087,18 +2116,16 @@ export default function ResultsPage() {
                       <div className="resultFooterRight">
 
                         <button
-                          className="saveResultBtn"
+                          className="saveResultButton"
                           onClick={() =>
-                            saveResults(
-                              true
-                            )
+                            saveResults(true)
                           }
                         >
                           Save Results
                         </button>
 
                         <button
-                          className="nextResultBtn"
+                          className="nextResultButton"
                           onClick={
                             nextTest
                           }
@@ -2119,16 +2146,22 @@ export default function ResultsPage() {
                         </button>
 
                       </div>
+
                     </div>
+
                   </>
                 )}
 
               </section>
+
             </div>
 
-            {/* BOTTOM */}
+            {/* =================================================
+                BOTTOM ACTION
+            ================================================= */}
 
             <div className="resultBottomActions">
+
               <div>
                 <strong>
                   Results ready?
@@ -2141,564 +2174,2021 @@ export default function ResultsPage() {
               </div>
 
               <button
-                className="generateReportBtn"
+                className="generateReportButton"
                 onClick={
                   continueReport
                 }
               >
                 Generate Final Report →
               </button>
+
             </div>
 
           </div>
+
         </main>
+
       </div>
 
       {/* =========================================================
-          RESPONSIVE CSS
+          COMPLETE PAGE CSS
           ========================================================= */}
 
       <style jsx global>{`
+
+        /* =====================================================
+           GLOBAL RESET
+        ===================================================== */
 
         * {
           box-sizing: border-box;
         }
 
+        html,
         body {
           margin: 0;
+          padding: 0;
+          width: 100%;
+          min-width: 0;
           overflow-x: hidden;
         }
 
-        /* ==========================================
-           MAIN RESULT WORKSPACE
-           ========================================== */
-
-        .resultWorkspace {
-          width: 100%;
-          min-width: 0;
-          display: grid;
-          grid-template-columns: 220px minmax(0, 1fr);
-          gap: 18px;
-          align-items: start;
+        body {
+          background: #f1f5f9;
+          color: #172033;
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
         }
 
-        .resultEntryCard {
-          min-width: 0;
+        button,
+        input,
+        select {
+          font-family: inherit;
+        }
+
+        button {
+          cursor: pointer;
+        }
+
+        /* =====================================================
+           IMPORTANT DESKTOP PAGE GRID
+           
+           THIS IS THE MAIN FIX
+        ===================================================== */
+
+        .resultPageApp {
           width: 100%;
+          min-height: 100vh;
+          min-width: 0;
+
+          display: grid;
+
+          /*
+             Desktop:
+             Sidebar = 230px
+             Main = remaining complete width
+          */
+
+          grid-template-columns:
+            230px
+            minmax(0, 1fr);
+
+          background: #f1f5f9;
+          overflow-x: hidden;
+        }
+
+        /* =====================================================
+           SIDEBAR
+        ===================================================== */
+
+        .resultSidebar {
+          width: 230px;
+          min-width: 230px;
+          min-height: 100vh;
+
+          position: sticky;
+          top: 0;
+
+          align-self: start;
+
+          padding: 18px 12px;
+
+          background: #092437;
+          color: #ffffff;
+
+          overflow-y: auto;
+          z-index: 20;
+        }
+
+        .resultBrand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          padding: 2px 6px 22px;
+        }
+
+        .resultBrandLogo {
+          width: 40px;
+          height: 40px;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          border-radius: 10px;
+
+          background: #10a6a3;
+          color: #ffffff;
+
+          font-size: 17px;
+          font-weight: 900;
+        }
+
+        .resultBrand h2 {
+          margin: 0;
+
+          font-size: 15px;
+          line-height: 1;
+
+          color: #ffffff;
+        }
+
+        .resultBrand p {
+          margin: 4px 0 0;
+
+          font-size: 7px;
+          letter-spacing: 0.6px;
+
+          color: #94a8b6;
+        }
+
+        .resultMenuLabel {
+          margin: 4px 8px 10px;
+
+          font-size: 8px;
+          font-weight: 800;
+
+          letter-spacing: 1.5px;
+
+          color: #78909f;
+        }
+
+        .resultMenu {
+          width: 100%;
+          min-height: 42px;
+
+          display: flex;
+          align-items: center;
+
+          gap: 10px;
+
+          margin-bottom: 4px;
+          padding: 10px 11px;
+
+          border: 0;
+          border-radius: 7px;
+
+          background: transparent;
+          color: #cbd5df;
+
+          font-size: 12px;
+          font-weight: 600;
+
+          text-align: left;
+        }
+
+        .resultMenu span {
+          width: 20px;
+
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+
+          font-size: 14px;
+        }
+
+        .resultMenu:hover {
+          background: rgba(255,255,255,.06);
+          color: #ffffff;
+        }
+
+        .resultMenuActive {
+          background: #12465e !important;
+          color: #ffffff !important;
+
+          box-shadow:
+            inset 3px 0 0 #10a6a3;
+        }
+
+        /* =====================================================
+           MAIN AREA
+           
+           IMPORTANT:
+           width:auto + min-width:0 prevents narrow desktop
+           ===================================================== */
+
+        .resultMain {
+          width: auto !important;
+          min-width: 0 !important;
+          max-width: none !important;
+
+          margin: 0 !important;
+          padding: 0 !important;
+
+          overflow-x: hidden;
+        }
+
+        /* =====================================================
+           TOP BAR
+        ===================================================== */
+
+        .resultTopbar {
+          width: 100%;
+          min-height: 72px;
+
+          padding: 13px 24px;
+
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          gap: 20px;
+
+          background: #ffffff;
+
+          border-bottom:
+            1px solid #e2e8f0;
+
+          box-shadow:
+            0 1px 4px rgba(15,23,42,.03);
+        }
+
+        .resultTopbar h3 {
+          margin: 0;
+
+          color: #172033;
+
+          font-size: 15px;
+          line-height: 1.2;
+        }
+
+        .resultTopbar p {
+          margin: 3px 0 0;
+
+          color: #64748b;
+
+          font-size: 9px;
+        }
+
+        .resultSystemStatus {
+          display: flex;
+          align-items: center;
+
+          gap: 7px;
+
+          color: #64748b;
+
+          font-size: 10px;
+          font-weight: 600;
+
+          white-space: nowrap;
+        }
+
+        .resultSystemStatus span {
+          width: 7px;
+          height: 7px;
+
+          border-radius: 50%;
+
+          background: #16a36a;
+        }
+
+        /* =====================================================
+           CONTENT
+        ===================================================== */
+
+        .resultContent {
+          width: 100%;
+          min-width: 0;
+
+          max-width: none;
+
+          padding:
+            22px 26px
+            40px;
+
+          margin: 0;
+        }
+
+        /* =====================================================
+           PAGE HEADING
+        ===================================================== */
+
+        .resultPageHeading {
+          width: 100%;
+          min-width: 0;
+
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+
+          gap: 20px;
+
+          margin-bottom: 16px;
+        }
+
+        .resultSmallTitle {
+          color: #0d8e8b;
+
+          font-size: 9px;
+          font-weight: 900;
+
+          letter-spacing: 1.4px;
+        }
+
+        .resultPageHeading h1 {
+          margin: 4px 0 3px;
+
+          color: #172033;
+
+          font-size: 23px;
+          line-height: 1.2;
+        }
+
+        .resultPageHeading p {
+          margin: 0;
+
+          color: #64748b;
+
+          font-size: 11px;
+        }
+
+        .resultBackButton {
+          flex: 0 0 auto;
+
+          min-height: 38px;
+
+          padding: 8px 14px;
+
+          border:
+            1px solid #dbe3ea;
+
+          border-radius: 7px;
+
+          background: #ffffff;
+          color: #334155;
+
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .resultBackButton:hover {
+          background: #f8fafc;
+        }
+
+        /* =====================================================
+           STEPS
+        ===================================================== */
+
+        .resultSteps {
+          width: 100%;
+          min-width: 0;
+
+          display: grid;
+
+          grid-template-columns:
+            repeat(5, minmax(0, 1fr));
+
+          margin-bottom: 14px;
+
+          padding: 10px 12px;
+
+          background: #ffffff;
+
+          border:
+            1px solid #e2e8f0;
+
+          border-radius: 9px;
+
           overflow: hidden;
         }
 
-        .resultTableWrapper {
-          width: 100%;
-          max-width: 100%;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
+        .resultStep {
+          min-width: 0;
+
+          display: flex;
+          align-items: center;
+
+          gap: 7px;
+
+          color: #94a3b8;
+
+          font-size: 9px;
+          font-weight: 700;
         }
 
-        .resultTable {
-          width: 100%;
-          min-width: 760px;
-          border-collapse: collapse;
-          table-layout: fixed;
+        .resultStep span {
+          width: 25px;
+          height: 25px;
+
+          flex: 0 0 auto;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          border-radius: 50%;
+
+          background: #f1f5f9;
+
+          color: #94a3b8;
+
+          font-size: 10px;
+          font-weight: 900;
         }
 
-        .resultTable th,
-        .resultTable td {
-          padding: 12px 10px;
-          vertical-align: middle;
-          word-break: break-word;
+        .resultStep small {
+          display: block;
+
+          margin-top: 2px;
+
+          color: #a0acb8;
+
+          font-size: 7px;
+          font-weight: 500;
         }
 
-        .resultTable th:nth-child(1),
-        .resultTable td:nth-child(1) {
-          width: 27%;
+        .resultStepActive {
+          color: #0d8e8b;
         }
 
-        .resultTable th:nth-child(2),
-        .resultTable td:nth-child(2) {
-          width: 21%;
+        .resultStepActive span {
+          background: #0d9e9a;
+          color: #ffffff;
         }
 
-        .resultTable th:nth-child(3),
-        .resultTable td:nth-child(3) {
-          width: 15%;
+        .resultStepActive small {
+          color: #0d9e9a;
         }
 
-        .resultTable th:nth-child(4),
-        .resultTable td:nth-child(4) {
-          width: 24%;
-        }
-
-        .resultTable th:nth-child(5),
-        .resultTable td:nth-child(5) {
-          width: 13%;
-        }
-
-        .resultInput {
-          width: 100%;
-          min-width: 120px;
-          min-height: 42px;
-          padding: 9px 10px;
-          border: 1px solid #d6dde5;
-          border-radius: 8px;
-          background: #ffffff;
-          font-size: 14px;
-          outline: none;
-        }
-
-        .resultInput:focus {
-          border-color: #0f9d9a;
-          box-shadow: 0 0 0 3px rgba(15,157,154,.10);
-        }
-
-        /* ==========================================
+        /* =====================================================
            PATIENT CARD
-           ========================================== */
+        ===================================================== */
 
         .resultPatientCard {
           width: 100%;
           min-width: 0;
+
+          display: grid;
+
+          grid-template-columns:
+            1.2fr
+            1.7fr
+            1fr
+            1.5fr;
+
+          margin-bottom: 12px;
+
+          background: #ffffff;
+
+          border:
+            1px solid #e2e8f0;
+
+          border-radius: 9px;
+
+          overflow: hidden;
         }
+
+        .resultPatientCard > div {
+          min-width: 0;
+
+          padding: 11px 13px;
+
+          border-right:
+            1px solid #e2e8f0;
+        }
+
+        .resultPatientCard > div:last-child {
+          border-right: 0;
+        }
+
+        .resultPatientCard small {
+          display: block;
+
+          margin-bottom: 4px;
+
+          color: #7b8795;
+
+          font-size: 7px;
+          font-weight: 800;
+
+          letter-spacing: .3px;
+        }
+
+        .resultPatientCard strong {
+          display: block;
+
+          color: #172033;
+
+          font-size: 10px;
+
+          word-break: break-word;
+        }
+
+        /* =====================================================
+           PROGRESS
+        ===================================================== */
 
         .resultProgressCard {
           width: 100%;
+
+          margin-bottom: 14px;
+
+          padding: 12px 14px;
+
+          background: #ffffff;
+
+          border:
+            1px solid #e2e8f0;
+
+          border-radius: 9px;
         }
 
-        .progressTop {
+        .resultProgressTop {
           display: flex;
+
           align-items: center;
           justify-content: space-between;
-          gap: 15px;
+
+          gap: 20px;
         }
 
-        .savedMessage {
+        .resultProgressTop strong {
+          display: block;
+
+          color: #172033;
+
+          font-size: 11px;
+        }
+
+        .resultProgressTop small {
+          display: block;
+
+          margin-top: 3px;
+
+          color: #64748b;
+
+          font-size: 8px;
+        }
+
+        .resultProgressNumber {
+          color: #0d8e8b !important;
+
+          font-size: 16px !important;
+        }
+
+        .resultProgressTrack {
+          width: 100%;
+          height: 6px;
+
+          margin-top: 9px;
+
+          border-radius: 20px;
+
+          background: #e9eef2;
+
+          overflow: hidden;
+        }
+
+        .resultProgressFill {
+          height: 100%;
+
+          border-radius: inherit;
+
+          background: #0d9e9a;
+
+          transition:
+            width .25s ease;
+        }
+
+        /* =====================================================
+           SAVE MESSAGE
+        ===================================================== */
+
+        .resultSavedMessage {
+          width: 100%;
+
           margin-bottom: 14px;
-          padding: 12px 16px;
+
+          padding: 10px 14px;
+
+          border:
+            1px solid #a7f3d0;
+
+          border-radius: 8px;
+
           background: #ecfdf5;
-          border: 1px solid #a7f3d0;
-          border-radius: 10px;
+
           color: #047857;
-          font-weight: 600;
+
+          font-size: 11px;
+          font-weight: 700;
         }
 
-        /* ==========================================
+        /* =====================================================
            MOBILE SELECTED TESTS
-           ========================================== */
+        ===================================================== */
 
-        .selectedTestsMobile {
+        .mobileSelectedTests {
           display: none;
         }
 
-        /* ==========================================
+        /* =====================================================
+           WORKSPACE
+           
+           DESKTOP:
+           200px test nav
+           + remaining full width result card
+        ===================================================== */
+
+        .resultWorkspace {
+          width: 100%;
+          min-width: 0;
+
+          display: grid;
+
+          grid-template-columns:
+            200px
+            minmax(0, 1fr);
+
+          gap: 14px;
+
+          align-items: start;
+        }
+
+        /* =====================================================
+           DESKTOP TEST NAV
+        ===================================================== */
+
+        .desktopTestNav {
+          width: 200px;
+          min-width: 200px;
+
+          padding: 9px;
+
+          background: #ffffff;
+
+          border:
+            1px solid #e2e8f0;
+
+          border-radius: 9px;
+
+          overflow: hidden;
+        }
+
+        .desktopTestNavTitle {
+          padding: 6px 7px 10px;
+
+          color: #334155;
+
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .desktopTestButton {
+          width: 100%;
+          min-height: 55px;
+
+          display: flex;
+          align-items: center;
+
+          gap: 8px;
+
+          margin-bottom: 5px;
+          padding: 8px;
+
+          border:
+            1px solid transparent;
+
+          border-radius: 7px;
+
+          background: #ffffff;
+          color: #334155;
+
+          text-align: left;
+        }
+
+        .desktopTestButton:hover {
+          background: #f8fafc;
+
+          border-color:
+            #dce7ea;
+        }
+
+        .desktopTestButtonActive {
+          background: #eaf9f8 !important;
+
+          border-color:
+            #0d9e9a !important;
+
+          box-shadow:
+            inset 3px 0 0 #0d9e9a;
+        }
+
+        .desktopTestNumber {
+          width: 24px;
+          height: 24px;
+
+          flex: 0 0 auto;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          border-radius: 50%;
+
+          background: #edf5f5;
+
+          color: #087f7d;
+
+          font-size: 10px;
+          font-weight: 900;
+        }
+
+        .desktopTestButtonActive
+        .desktopTestNumber {
+          background: #d8f2f0;
+        }
+
+        .desktopTestButton strong {
+          display: block;
+
+          color: #172033;
+
+          font-size: 10px;
+
+          line-height: 1.2;
+
+          word-break: break-word;
+        }
+
+        .desktopTestButton small {
+          display: block;
+
+          margin-top: 3px;
+
+          color: #7b8795;
+
+          font-size: 7px;
+        }
+
+        .noSelectedTests {
+          padding: 15px 8px;
+
+          color: #94a3b8;
+
+          font-size: 9px;
+
+          text-align: center;
+        }
+
+        /* =====================================================
+           RESULT ENTRY CARD
+        ===================================================== */
+
+        .resultEntryCard {
+          width: 100%;
+          min-width: 0;
+          max-width: none;
+
+          background: #ffffff;
+
+          border:
+            1px solid #e2e8f0;
+
+          border-radius: 9px;
+
+          overflow: hidden;
+        }
+
+        /* =====================================================
+           RESULT CARD HEADER
+        ===================================================== */
+
+        .resultCardHeader {
+          width: 100%;
+          min-width: 0;
+
+          display: flex;
+
+          align-items: center;
+          justify-content: space-between;
+
+          gap: 18px;
+
+          padding: 16px 18px;
+
+          border-bottom:
+            1px solid #e2e8f0;
+        }
+
+        .resultCardHeader > div:first-child {
+          min-width: 0;
+        }
+
+        .resultCardHeader h2 {
+          margin: 3px 0 3px;
+
+          color: #172033;
+
+          font-size: 19px;
+          line-height: 1.2;
+
+          word-break: break-word;
+        }
+
+        .resultCardHeader p {
+          margin: 0;
+
+          color: #94a0ad;
+
+          font-size: 9px;
+        }
+
+        .parameterBadge {
+          flex: 0 0 auto;
+
+          padding: 8px 10px;
+
+          border-radius: 20px;
+
+          background: #e7f8f7;
+
+          color: #087f7d;
+
+          font-size: 8px;
+          font-weight: 800;
+
+          white-space: nowrap;
+        }
+
+        /* =====================================================
+           DESKTOP TABLE
+           
+           IMPORTANT:
+           Table has NO fixed 760px minimum.
+           It fills the complete desktop card.
+        ===================================================== */
+
+        .desktopResultTable {
+          display: block;
+
+          width: 100%;
+          min-width: 0;
+
+          overflow-x: visible;
+        }
+
+        .resultTable {
+          width: 100%;
+          min-width: 0;
+
+          table-layout: fixed;
+
+          border-collapse: collapse;
+        }
+
+        .resultTable col.investigationColumn {
+          width: 32%;
+        }
+
+        .resultTable col.resultColumn {
+          width: 23%;
+        }
+
+        .resultTable col.unitColumn {
+          width: 12%;
+        }
+
+        .resultTable col.referenceColumn {
+          width: 23%;
+        }
+
+        .resultTable col.flagColumn {
+          width: 10%;
+        }
+
+        .resultTable th {
+          height: 34px;
+
+          padding: 8px 10px;
+
+          border:
+            1px solid #e1e7ec;
+
+          background: #f3f6f8;
+
+          color: #526170;
+
+          font-size: 8px;
+          font-weight: 900;
+
+          text-align: left;
+
+          letter-spacing: .2px;
+        }
+
+        .resultTable td {
+          min-width: 0;
+
+          padding: 8px 10px;
+
+          border:
+            1px solid #e5e9ed;
+
+          color: #172033;
+
+          font-size: 9px;
+
+          vertical-align: middle;
+
+          word-break: break-word;
+        }
+
+        .resultTable tbody tr:hover {
+          background: #fbfdfd;
+        }
+
+        .investigationCell strong {
+          display: block;
+
+          color: #172033;
+
+          font-size: 9px;
+
+          line-height: 1.35;
+        }
+
+        .resultCell {
+          min-width: 0;
+        }
+
+        .unitCell {
+          color: #475569 !important;
+
+          font-size: 8.5px !important;
+
+          white-space: normal;
+        }
+
+        .referenceCell {
+          color: #475569 !important;
+
+          font-size: 8.5px !important;
+        }
+
+        .flagCell {
+          text-align: center;
+
+          white-space: nowrap;
+        }
+
+        /* =====================================================
+           RESULT INPUT
+        ===================================================== */
+
+        .resultInput {
+          display: block;
+
+          width: 100%;
+          min-width: 0;
+
+          height: 38px;
+
+          padding:
+            7px 10px;
+
+          border:
+            1px solid #d3dce3;
+
+          border-radius: 7px;
+
+          background: #ffffff;
+
+          color: #172033;
+
+          font-size: 12px;
+
+          outline: none;
+
+          transition:
+            border-color .15s ease,
+            box-shadow .15s ease;
+        }
+
+        .resultInput::placeholder {
+          color: #a1aab4;
+        }
+
+        .resultInput:focus {
+          border-color: #0d9e9a;
+
+          box-shadow:
+            0 0 0 3px
+            rgba(13,158,154,.10);
+        }
+
+        /* =====================================================
+           FLAGS
+        ===================================================== */
+
+        .resultFlag {
+          display: inline-flex;
+
+          align-items: center;
+          justify-content: center;
+
+          min-width: 44px;
+          min-height: 20px;
+
+          padding: 2px 6px;
+
+          border-radius: 5px;
+
+          font-size: 7px;
+          font-weight: 900;
+
+          letter-spacing: .2px;
+        }
+
+        .flagHigh {
+          background: #fee2e2;
+          color: #b91c1c;
+        }
+
+        .flagLow {
+          background: #dbeafe;
+          color: #1d4ed8;
+        }
+
+        .flagNormal {
+          background: #dcfce7;
+          color: #15803d;
+        }
+
+        /* =====================================================
            MOBILE PARAMETER LIST
-           ========================================== */
+        ===================================================== */
 
         .mobileParameterList {
           display: none;
         }
 
-        /* ==========================================
-           MOBILE
-           ========================================== */
+        /* =====================================================
+           FOOTER BUTTONS
+        ===================================================== */
+
+        .resultFooter {
+          width: 100%;
+
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          gap: 12px;
+
+          padding: 12px 14px;
+
+          border-top:
+            1px solid #e2e8f0;
+
+          background: #ffffff;
+        }
+
+        .secondaryResultButton,
+        .saveResultButton,
+        .nextResultButton {
+          min-height: 38px;
+
+          padding:
+            8px 13px;
+
+          border-radius: 7px;
+
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .secondaryResultButton {
+          border:
+            1px solid #dbe3ea;
+
+          background: #ffffff;
+          color: #64748b;
+        }
+
+        .secondaryResultButton:disabled {
+          opacity: .45;
+
+          cursor: not-allowed;
+        }
+
+        .resultFooterRight {
+          display: flex;
+
+          align-items: center;
+
+          gap: 8px;
+        }
+
+        .saveResultButton {
+          border:
+            1px solid #0d9e9a;
+
+          background: #ffffff;
+          color: #087f7d;
+        }
+
+        .saveResultButton:hover {
+          background: #effcfb;
+        }
+
+        .nextResultButton {
+          border:
+            1px solid #172033;
+
+          background: #172033;
+          color: #ffffff;
+        }
+
+        .nextResultButton:hover {
+          background: #263247;
+        }
+
+        /* =====================================================
+           EMPTY PAGE
+        ===================================================== */
+
+        .emptyResultPage {
+          padding: 50px 20px;
+
+          text-align: center;
+        }
+
+        .emptyIcon {
+          font-size: 35px;
+        }
+
+        .emptyResultPage h2 {
+          margin: 10px 0 5px;
+
+          color: #172033;
+
+          font-size: 18px;
+        }
+
+        .emptyResultPage p {
+          margin: 0 0 15px;
+
+          color: #64748b;
+
+          font-size: 10px;
+        }
+
+        .resultContinueButton {
+          min-height: 40px;
+
+          padding:
+            8px 15px;
+
+          border: 0;
+
+          border-radius: 7px;
+
+          background: #0d9e9a;
+          color: #ffffff;
+
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        /* =====================================================
+           BOTTOM ACTION
+        ===================================================== */
+
+        .resultBottomActions {
+          width: 100%;
+
+          display: flex;
+
+          align-items: center;
+          justify-content: space-between;
+
+          gap: 20px;
+
+          margin-top: 16px;
+          padding: 15px 17px;
+
+          background: #ffffff;
+
+          border:
+            1px solid #e2e8f0;
+
+          border-radius: 9px;
+        }
+
+        .resultBottomActions strong {
+          color: #172033;
+
+          font-size: 11px;
+        }
+
+        .resultBottomActions p {
+          margin: 3px 0 0;
+
+          color: #64748b;
+
+          font-size: 8px;
+        }
+
+        .generateReportButton {
+          flex: 0 0 auto;
+
+          min-height: 40px;
+
+          padding:
+            8px 15px;
+
+          border: 0;
+
+          border-radius: 7px;
+
+          background: #087f7d;
+          color: #ffffff;
+
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .generateReportButton:hover {
+          background: #076f6d;
+        }
+
+        /* =====================================================
+           LARGE DESKTOP
+        ===================================================== */
+
+        @media (min-width: 1200px) {
+
+          .resultContent {
+            padding-left: 30px;
+            padding-right: 30px;
+          }
+
+          .resultWorkspace {
+            grid-template-columns:
+              215px
+              minmax(0, 1fr);
+
+            gap: 16px;
+          }
+
+          .desktopTestNav {
+            width: 215px;
+            min-width: 215px;
+          }
+
+          .resultCardHeader {
+            padding:
+              18px 20px;
+          }
+
+          .resultTable th {
+            padding:
+              9px 12px;
+          }
+
+          .resultTable td {
+            padding:
+              9px 12px;
+          }
+
+          .resultInput {
+            height: 40px;
+          }
+        }
+
+        /* =====================================================
+           TABLET
+        ===================================================== */
+
+        @media (max-width: 1000px) and (min-width: 901px) {
+
+          .resultPageApp {
+            grid-template-columns:
+              190px
+              minmax(0, 1fr);
+          }
+
+          .resultSidebar {
+            width: 190px;
+            min-width: 190px;
+          }
+
+          .resultContent {
+            padding:
+              18px 16px 30px;
+          }
+
+          .resultWorkspace {
+            grid-template-columns:
+              170px
+              minmax(0, 1fr);
+
+            gap: 10px;
+          }
+
+          .desktopTestNav {
+            width: 170px;
+            min-width: 170px;
+          }
+
+          .desktopTestButton {
+            padding: 7px;
+          }
+
+          .resultTable th,
+          .resultTable td {
+            padding:
+              7px 6px;
+          }
+
+          .resultTable th {
+            font-size: 7px;
+          }
+
+          .resultTable td {
+            font-size: 8px;
+          }
+
+          .resultInput {
+            height: 36px;
+
+            padding:
+              6px 7px;
+
+            font-size: 11px;
+          }
+        }
+
+        /* =====================================================
+           MOBILE <= 900px
+        ===================================================== */
 
         @media (max-width: 900px) {
 
-          .resultWorkspace {
-            grid-template-columns: 1fr;
+          html,
+          body {
+            width: 100%;
+            min-width: 0;
           }
 
-          .testResultNav {
+          .resultPageApp {
+            display: block !important;
+
+            width: 100% !important;
+            min-width: 0 !important;
+
+            min-height: 100vh;
+          }
+
+          /* Hide desktop sidebar */
+
+          .resultSidebar {
             display: none !important;
           }
 
-          .selectedTestsMobile {
-            display: block;
-            width: 100%;
-            margin-bottom: 14px;
-            padding: 14px;
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
+          /* Main */
+
+          .resultMain {
+            display: block !important;
+
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+
+            margin: 0 !important;
+            padding: 0 !important;
           }
 
-          .mobileSectionTitle {
+          .resultTopbar {
+            width: 100%;
+
+            min-height: 60px;
+
+            padding:
+              11px 13px;
+          }
+
+          .resultTopbar h3 {
             font-size: 14px;
-            font-weight: 800;
+          }
+
+          .resultTopbar p {
+            font-size: 8px;
+          }
+
+          .resultSystemStatus {
+            font-size: 8px;
+          }
+
+          .resultContent {
+            width: 100% !important;
+            max-width: none !important;
+
+            padding:
+              13px 12px 25px;
+          }
+
+          /* Heading */
+
+          .resultPageHeading {
+            flex-direction: column;
+
+            gap: 9px;
+
+            margin-bottom: 12px;
+          }
+
+          .resultPageHeading h1 {
+            font-size: 22px;
+          }
+
+          .resultPageHeading p {
+            font-size: 10px;
+          }
+
+          .resultBackButton {
+            width: 100%;
+
+            min-height: 40px;
+          }
+
+          /* Steps */
+
+          .resultSteps {
+            display: flex;
+
+            width: 100%;
+
+            overflow-x: auto;
+
+            gap: 7px;
+
+            padding:
+              8px;
+
+            margin-bottom: 12px;
+
+            -webkit-overflow-scrolling: touch;
+
+            scrollbar-width: none;
+          }
+
+          .resultSteps::-webkit-scrollbar {
+            display: none;
+          }
+
+          .resultStep {
+            flex: 0 0 105px;
+
+            min-width: 105px;
+
+            padding: 4px;
+          }
+
+          /* Patient */
+
+          .resultPatientCard {
+            grid-template-columns:
+              1fr 1fr;
+
+            gap: 0;
+
+            border-radius: 10px;
+          }
+
+          .resultPatientCard > div {
+            min-width: 0;
+
+            border-right:
+              1px solid #e2e8f0;
+
+            border-bottom:
+              1px solid #e2e8f0;
+
+            padding:
+              9px 10px;
+          }
+
+          .resultPatientCard > div:nth-child(2n) {
+            border-right: 0;
+          }
+
+          .resultPatientCard > div:nth-last-child(-n + 2) {
+            border-bottom: 0;
+          }
+
+          /* Workspace */
+
+          .resultWorkspace {
+            display: block !important;
+
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+
+          .desktopTestNav {
+            display: none !important;
+          }
+
+          /* Mobile selected tests */
+
+          .mobileSelectedTests {
+            display: block;
+
+            width: 100%;
+
+            margin-bottom: 12px;
+            padding: 12px;
+
+            background: #ffffff;
+
+            border:
+              1px solid #e2e8f0;
+
+            border-radius: 12px;
+          }
+
+          .mobileSelectedTitle {
+            margin-bottom: 9px;
+
             color: #172033;
-            margin-bottom: 10px;
+
+            font-size: 13px;
+            font-weight: 900;
           }
 
           .mobileTestScroller {
             display: flex;
-            gap: 10px;
+
+            gap: 9px;
+
             overflow-x: auto;
-            padding-bottom: 4px;
+
+            padding-bottom: 2px;
+
             -webkit-overflow-scrolling: touch;
+
+            scrollbar-width: none;
+          }
+
+          .mobileTestScroller::-webkit-scrollbar {
+            display: none;
           }
 
           .mobileTestButton {
             flex: 0 0 auto;
+
             min-width: 125px;
-            padding: 10px 12px;
-            border: 1px solid #dce4e8;
-            background: #ffffff;
-            border-radius: 10px;
-            text-align: left;
+
+            padding:
+              9px 10px;
+
             display: flex;
             flex-direction: column;
+
             gap: 3px;
+
+            border:
+              1px solid #dce4e8;
+
+            border-radius: 10px;
+
+            background: #ffffff;
+
+            text-align: left;
           }
 
           .mobileTestButton span {
-            width: 24px;
-            height: 24px;
+            width: 25px;
+            height: 25px;
+
             display: flex;
             align-items: center;
             justify-content: center;
+
             border-radius: 50%;
-            background: #edf4f4;
+
+            background: #edf7f6;
+
             color: #087f7d;
-            font-weight: 800;
-            font-size: 12px;
+
+            font-size: 11px;
+            font-weight: 900;
           }
 
           .mobileTestButton strong {
+            color: #172033;
+
             font-size: 13px;
-            color: #182233;
           }
 
           .mobileTestButton small {
             color: #718096;
-            font-size: 11px;
+
+            font-size: 10px;
           }
 
-          .mobileTestButton.active {
-            border-color: #0f9d9a;
-            background: #effcfb;
+          .mobileTestActive {
+            border-color:
+              #0d9e9a !important;
+
+            background:
+              #effcfb !important;
           }
 
-          /* Hide desktop table on mobile */
+          /* Result Card */
+
+          .resultEntryCard {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+
+            border-radius: 12px;
+          }
+
+          .resultCardHeader {
+            align-items: flex-start;
+
+            padding:
+              14px;
+
+            gap: 10px;
+          }
+
+          .resultCardHeader h2 {
+            font-size: 20px;
+
+            line-height: 1.25;
+          }
+
+          .resultCardHeader p {
+            font-size: 9px;
+          }
+
+          /* Hide desktop table */
 
           .desktopResultTable {
             display: none !important;
           }
 
-          /* Show parameter cards */
+          /* Mobile cards */
 
           .mobileParameterList {
             display: block;
+
             width: 100%;
-            padding: 12px;
+
+            padding:
+              10px 9px;
           }
 
           .mobileParameterCard {
             width: 100%;
-            padding: 14px;
-            margin-bottom: 12px;
-            border: 1px solid #e1e7eb;
+
+            margin-bottom: 11px;
+
+            padding:
+              13px 11px;
+
+            border:
+              1px solid #e1e7eb;
+
             border-radius: 12px;
+
             background: #ffffff;
-            box-shadow: 0 2px 8px rgba(15,23,42,.04);
+
+            box-shadow:
+              0 2px 8px
+              rgba(15,23,42,.04);
           }
 
           .mobileParameterName {
             display: flex;
+
             align-items: center;
-            gap: 9px;
-            margin-bottom: 13px;
+
+            gap: 8px;
+
+            margin-bottom: 12px;
           }
 
           .mobileParameterName span {
-            flex: 0 0 auto;
             width: 28px;
             height: 28px;
+
+            flex: 0 0 auto;
+
             display: flex;
             align-items: center;
             justify-content: center;
+
             border-radius: 50%;
+
             background: #e9f8f7;
+
             color: #087f7d;
-            font-size: 12px;
-            font-weight: 800;
+
+            font-size: 11px;
+            font-weight: 900;
           }
 
           .mobileParameterName strong {
             color: #172033;
+
             font-size: 14px;
-            line-height: 1.35;
+
+            line-height: 1.3;
           }
 
           .mobileField {
             width: 100%;
-            margin-bottom: 12px;
+
+            margin-bottom: 11px;
           }
 
           .mobileField label {
             display: block;
+
             margin-bottom: 6px;
-            font-size: 12px;
-            font-weight: 700;
+
             color: #64748b;
+
+            font-size: 11px;
+            font-weight: 800;
           }
 
           .mobileResultInput {
             width: 100%;
+
             height: 46px;
-            padding: 10px 12px;
-            border: 1px solid #cfd8df;
+
+            padding:
+              9px 11px;
+
+            border:
+              1px solid #cfd8df;
+
             border-radius: 9px;
+
             background: #ffffff;
-            color: #111827;
+
+            color: #172033;
+
             font-size: 15px;
+
             outline: none;
           }
 
           .mobileResultInput:focus {
-            border-color: #0f9d9a;
-            box-shadow: 0 0 0 3px rgba(15,157,154,.10);
+            border-color:
+              #0d9e9a;
+
+            box-shadow:
+              0 0 0 3px
+              rgba(13,158,154,.10);
           }
 
           .mobileInfoGrid {
-            display: grid;
-            grid-template-columns: 1fr 1.5fr 0.8fr;
-            gap: 8px;
             width: 100%;
+
+            display: grid;
+
+            grid-template-columns:
+              1fr 1.4fr;
+
+            gap: 7px;
           }
 
           .mobileInfoGrid > div {
             min-width: 0;
-            padding: 9px;
-            background: #f8fafc;
+
+            padding:
+              9px;
+
             border-radius: 8px;
+
+            background: #f8fafc;
+          }
+
+          .mobileInfoGrid > div:last-child {
+            grid-column:
+              1 / -1;
           }
 
           .mobileInfoGrid small {
             display: block;
+
             margin-bottom: 4px;
+
             color: #64748b;
-            font-size: 10px;
-            font-weight: 700;
+
+            font-size: 9px;
+            font-weight: 800;
           }
 
           .mobileInfoGrid strong {
             display: block;
+
             color: #172033;
-            font-size: 12px;
+
+            font-size: 11px;
+
             line-height: 1.3;
+
             word-break: break-word;
           }
 
-          /* ======================================
-             RESULT FOOTER
-             ====================================== */
+          /* Footer */
 
           .resultFooter {
-            display: flex;
             flex-direction: column;
-            gap: 10px;
-            padding: 12px;
+
+            align-items: stretch;
+
+            padding:
+              11px;
+          }
+
+          .secondaryResultButton {
+            width: 100%;
           }
 
           .resultFooterRight {
+            width: 100%;
+
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
+
+            grid-template-columns:
+              1fr 1fr;
+
+            gap: 7px;
+          }
+
+          .saveResultButton,
+          .nextResultButton {
             width: 100%;
           }
 
-          .secondaryResultBtn,
-          .saveResultBtn,
-          .nextResultBtn {
-            min-height: 44px;
-            width: 100%;
-          }
+          /* Bottom */
 
           .resultBottomActions {
-            display: flex;
             flex-direction: column;
-            gap: 12px;
+
+            align-items: stretch;
+
+            gap: 11px;
+
+            margin-top: 12px;
+
+            padding:
+              13px;
           }
 
-          .generateReportBtn {
+          .generateReportButton {
             width: 100%;
-            min-height: 46px;
           }
 
         }
 
-        /* ==========================================
-           SMALL MOBILE
-           ========================================== */
+        /* =====================================================
+           SMALL MOBILE <= 600
+        ===================================================== */
 
         @media (max-width: 600px) {
 
-          .resultPageApp {
-            width: 100%;
-            overflow-x: hidden;
+          .resultContent {
+            padding:
+              10px 9px 22px;
           }
 
-          .mainArea {
-            width: 100%;
-            min-width: 0;
+          .resultTopbar {
+            padding:
+              10px;
           }
 
-          .content {
-            width: 100%;
-            max-width: 100%;
-            padding-left: 10px !important;
-            padding-right: 10px !important;
-          }
-
-          .topbar {
-            width: 100%;
-          }
-
-          .pageHeading {
-            width: 100%;
-          }
-
-          .pageHeading h1 {
-            font-size: 24px !important;
-            line-height: 1.15;
-          }
-
-          .pageHeading p {
-            font-size: 12px;
-          }
-
-          .backBtn {
-            width: 100%;
-            margin-top: 8px;
-          }
-
-          /* Steps become horizontal scroll */
-
-          .steps {
-            width: 100%;
-            overflow-x: auto;
-            display: flex !important;
-            gap: 8px;
-            padding-bottom: 5px;
-          }
-
-          .step {
-            flex: 0 0 105px;
-            min-width: 105px;
-          }
-
-          /* Patient information */
-
-          .resultPatientCard {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
-            gap: 8px !important;
-          }
-
-          .resultPatientCard > div {
-            min-width: 0;
-            padding: 10px !important;
-          }
-
-          .resultPatientCard strong {
-            font-size: 12px !important;
-            word-break: break-word;
-          }
-
-          .resultPatientCard small {
-            font-size: 9px !important;
-          }
-
-          /* Progress */
-
-          .progressTop {
+          .resultTopbar {
             align-items: flex-start;
           }
 
-          .progressNumber {
-            font-size: 20px;
+          .resultSystemStatus {
+            display: none;
           }
 
-          /* Result card */
-
-          .resultEntryCard {
-            width: 100%;
-            max-width: 100%;
+          .resultPageHeading h1 {
+            font-size: 23px;
           }
 
-          .resultCardHeader {
-            padding: 14px !important;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            align-items: flex-start !important;
+          .resultPatientCard {
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+          .resultPatientCard strong {
+            font-size: 11px;
+          }
+
+          .resultPatientCard small {
+            font-size: 8px;
+          }
+
+          .resultProgressCard {
+            padding:
+              11px;
+          }
+
+          .resultProgressTop strong {
+            font-size: 10px;
+          }
+
+          .resultProgressTop small {
+            font-size: 7px;
+          }
+
+          .resultProgressNumber {
+            font-size: 16px !important;
           }
 
           .resultCardHeader h2 {
-            font-size: 20px !important;
-            line-height: 1.25;
-            word-break: break-word;
+            font-size: 19px;
           }
-
-          .parameterBadge {
-            align-self: flex-start;
-          }
-
-          /* Parameter cards */
 
           .mobileParameterList {
-            padding: 10px 8px;
+            padding:
+              9px 7px;
           }
 
           .mobileParameterCard {
-            padding: 13px 11px;
+            padding:
+              12px 10px;
           }
 
           .mobileInfoGrid {
-            grid-template-columns: 1fr 1.25fr;
+            grid-template-columns:
+              1fr 1.25fr;
           }
-
-          .mobileInfoGrid > div:last-child {
-            grid-column: span 2;
-          }
-
-          .mobileInfoGrid strong {
-            font-size: 12px;
-          }
-
-          /* Buttons */
 
           .resultFooterRight {
-            grid-template-columns: 1fr;
-          }
-
-          .secondaryResultBtn,
-          .saveResultBtn,
-          .nextResultBtn {
-            font-size: 13px;
+            grid-template-columns:
+              1fr;
           }
 
           .resultBottomActions {
-            padding: 14px !important;
-          }
-
-          .resultBottomActions strong {
-            font-size: 14px;
-          }
-
-          .resultBottomActions p {
-            font-size: 11px;
+            padding:
+              12px;
           }
 
         }
 
-        /* ==========================================
-           VERY SMALL PHONES
-           ========================================== */
+        /* =====================================================
+           VERY SMALL PHONE <= 380
+        ===================================================== */
 
         @media (max-width: 380px) {
 
+          .resultContent {
+            padding-left: 7px;
+            padding-right: 7px;
+          }
+
           .resultPatientCard {
-            grid-template-columns: 1fr !important;
+            grid-template-columns:
+              1fr;
+          }
+
+          .resultPatientCard > div,
+          .resultPatientCard > div:nth-child(2n) {
+            border-right: 0;
+            border-bottom:
+              1px solid #e2e8f0;
+          }
+
+          .resultPatientCard > div:last-child {
+            border-bottom: 0;
           }
 
           .mobileTestButton {
@@ -2711,55 +4201,95 @@ export default function ResultsPage() {
 
           .mobileResultInput {
             height: 44px;
+
             font-size: 14px;
           }
 
         }
-        /* ==========================================
-   MOBILE FULL WIDTH FIX
-   ========================================== */
 
-@media (max-width: 900px) {
+        /* =====================================================
+           DESKTOP SAFETY OVERRIDES
+           
+           These rules intentionally override common global
+           .labApp / .mainArea / .content CSS from other pages.
+           
+           This is the important Desktop Mode fix.
+        ===================================================== */
 
-  .resultPageApp {
-    display: block !important;
-    width: 100% !important;
-  }
+        @media (min-width: 901px) {
 
-  .resultPageApp .sidebar {
-    display: none !important;
-  }
+          .resultPageApp {
+            display: grid !important;
 
-  .resultPageApp .mainArea {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-  }
+            width: 100vw !important;
+            min-width: 0 !important;
 
-  .resultPageApp .content {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
+            grid-template-columns:
+              230px
+              minmax(0, 1fr) !important;
 
-  .resultWorkspace {
-    display: block !important;
-    width: 100% !important;
-  }
+            margin: 0 !important;
+            padding: 0 !important;
+          }
 
-  .resultEntryCard {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
+          .resultPageApp .resultSidebar {
+            width: 230px !important;
+            min-width: 230px !important;
 
-  .mobileParameterList {
-    width: 100% !important;
-  }
+            grid-column: 1 !important;
+          }
 
-  .mobileParameterCard {
-    width: 100% !important;
-  }
+          .resultPageApp .resultMain {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
 
-}
+            grid-column: 2 !important;
+
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          .resultPageApp .resultContent {
+            width: 100% !important;
+            max-width: none !important;
+            min-width: 0 !important;
+
+            margin: 0 !important;
+          }
+
+          .resultPageApp .resultWorkspace {
+            width: 100% !important;
+            min-width: 0 !important;
+
+            grid-template-columns:
+              200px
+              minmax(0, 1fr) !important;
+          }
+
+          .resultPageApp .resultEntryCard {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+          }
+
+          .resultPageApp .desktopResultTable {
+            width: 100% !important;
+            min-width: 0 !important;
+
+            overflow-x: visible !important;
+          }
+
+          .resultPageApp .resultTable {
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+
+          .resultPageApp .resultInput {
+            min-width: 0 !important;
+          }
+
+        }
 
       `}</style>
     </>
