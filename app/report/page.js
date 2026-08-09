@@ -2040,7 +2040,801 @@ export default function ReportPage() {
           }
 
         }
+        </main>
 
+        {/* =================================================
+            REPORT RESPONSIVE + PRINT CSS
+            ================================================= */}
+
+        <style jsx global>{`
+
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            margin: 0;
+            background: #f1f5f9;
+            color: #172033;
+            overflow-x: hidden;
+          }
+
+          /* ==========================================
+             MAIN REPORT PAGE
+             ========================================== */
+
+          .finalReportPage {
+            width: 100%;
+            min-height: 100vh;
+            background: #f1f5f9;
+            padding-bottom: 40px;
+          }
+
+          /* ==========================================
+             SCREEN TOOLBAR
+             ========================================== */
+
+          .reportScreenToolbar {
+            width: 100%;
+            min-height: 76px;
+            padding: 14px 22px;
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+          }
+
+          .reportScreenToolbar > div:first-child {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            min-width: 0;
+          }
+
+          .reportScreenToolbar strong {
+            font-size: 18px;
+            color: #172033;
+          }
+
+          .reportScreenToolbar small {
+            color: #64748b;
+            font-size: 12px;
+          }
+
+          .reportToolbarButtons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
+          .reportToolbarButtons button {
+            min-height: 40px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid #dbe3ea;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+
+          .reportBackButton {
+            background: #ffffff;
+            color: #334155;
+          }
+
+          .reportPrintButton {
+            background: #087f7d;
+            border-color: #087f7d !important;
+            color: #ffffff;
+          }
+
+          .reportNewButton {
+            background: #ffffff;
+            color: #dc2626;
+          }
+
+          .reportToolbarButtons button:hover {
+            opacity: 0.9;
+          }
+
+          /* ==========================================
+             A4 REPORT
+             ========================================== */
+
+          .printableReport {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 24px auto;
+            padding: 16mm 14mm;
+            background: #ffffff;
+            box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
+            overflow: hidden;
+          }
+
+          /* ==========================================
+             REPORT HEADER
+             ========================================== */
+
+          .labReportHeader {
+            display: grid;
+            grid-template-columns: 60px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 14px;
+          }
+
+          .reportLogo {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            background: #087f7d;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 900;
+          }
+
+          .reportLabIdentity {
+            min-width: 0;
+          }
+
+          .reportLabIdentity h1 {
+            margin: 0;
+            font-size: 23px;
+            line-height: 1.15;
+            color: #087f7d;
+            letter-spacing: 0.3px;
+          }
+
+          .reportLabIdentity p {
+            margin: 3px 0 0;
+            font-size: 10px;
+            color: #475569;
+          }
+
+          .reportLabIdentity .reportTagline {
+            font-size: 11px;
+            font-weight: 700;
+            color: #334155;
+          }
+
+          .reportHeaderRight {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 3px;
+            text-align: right;
+          }
+
+          .reportHeaderRight strong {
+            font-size: 11px;
+            color: #087f7d;
+          }
+
+          .reportHeaderRight span {
+            font-size: 9px;
+            color: #64748b;
+          }
+
+          .reportAccentLine {
+            height: 3px;
+            width: 100%;
+            margin: 10px 0 8px;
+            background: #087f7d;
+            border-radius: 3px;
+          }
+
+          /* ==========================================
+             LAB DETAILS
+             ========================================== */
+
+          .reportLabDetails {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 7px 0 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 8.5px;
+            color: #64748b;
+          }
+
+          .reportLabDetails span {
+            min-width: 0;
+          }
+
+          /* ==========================================
+             SECTION TITLE
+             ========================================== */
+
+          .reportSectionTitle {
+            padding: 7px 9px;
+            margin-bottom: 8px;
+            background: #f0fdfa;
+            border-left: 3px solid #087f7d;
+            color: #087f7d;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+          }
+
+          /* ==========================================
+             PATIENT SECTION
+             ========================================== */
+
+          .reportPatientSection {
+            margin-top: 12px;
+          }
+
+          .reportPatientGrid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border: 1px solid #dbe3ea;
+            border-radius: 6px;
+            overflow: hidden;
+          }
+
+          .reportPatientGrid > div {
+            min-width: 0;
+            padding: 7px 9px;
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+          }
+
+          .reportPatientGrid > div:nth-child(3n) {
+            border-right: 0;
+          }
+
+          .reportPatientGrid > div:nth-last-child(-n + 3) {
+            border-bottom: 0;
+          }
+
+          .reportPatientGrid span {
+            display: block;
+            margin-bottom: 3px;
+            font-size: 8px;
+            color: #64748b;
+            font-weight: 600;
+          }
+
+          .reportPatientGrid strong {
+            display: block;
+            font-size: 9.5px;
+            color: #172033;
+            word-break: break-word;
+          }
+
+          /* ==========================================
+             INVESTIGATION
+             ========================================== */
+
+          .investigationReport {
+            margin-top: 14px;
+          }
+
+          .reportTestSection {
+            margin-bottom: 14px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+
+          .reportTestHeading {
+            padding: 6px 8px;
+            background: #f8fafc;
+            border: 1px solid #dbe3ea;
+            border-bottom: 0;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 800;
+            color: #172033;
+            text-transform: uppercase;
+          }
+
+          .finalReportTable {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+
+          .finalReportTable th {
+            padding: 6px 5px;
+            background: #eef2f7;
+            border: 1px solid #cfd8df;
+            font-size: 8px;
+            font-weight: 800;
+            color: #334155;
+            text-align: center;
+          }
+
+          .finalReportTable td {
+            padding: 6px 5px;
+            border: 1px solid #dbe3ea;
+            font-size: 8.5px;
+            color: #172033;
+            word-break: break-word;
+            vertical-align: middle;
+          }
+
+          .finalReportTable th:nth-child(1),
+          .finalReportTable td:nth-child(1) {
+            width: 30%;
+          }
+
+          .finalReportTable th:nth-child(2),
+          .finalReportTable td:nth-child(2) {
+            width: 17%;
+            text-align: center;
+          }
+
+          .finalReportTable th:nth-child(3),
+          .finalReportTable td:nth-child(3) {
+            width: 15%;
+            text-align: center;
+          }
+
+          .finalReportTable th:nth-child(4),
+          .finalReportTable td:nth-child(4) {
+            width: 26%;
+            text-align: center;
+          }
+
+          .finalReportTable th:nth-child(5),
+          .finalReportTable td:nth-child(5) {
+            width: 12%;
+            text-align: center;
+          }
+
+          .normalResult {
+            font-weight: 600;
+          }
+
+          .abnormalResult {
+            font-weight: 800;
+            color: #dc2626 !important;
+          }
+
+          .reportFlag {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            min-height: 18px;
+            padding: 2px 5px;
+            border-radius: 4px;
+            background: #fee2e2;
+            color: #dc2626;
+            font-size: 8px;
+            font-weight: 900;
+          }
+
+          /* ==========================================
+             EMPTY
+             ========================================== */
+
+          .reportEmpty {
+            padding: 30px;
+            text-align: center;
+            color: #64748b;
+            border: 1px dashed #cbd5e1;
+          }
+
+          /* ==========================================
+             REMARKS
+             ========================================== */
+
+          .reportRemarks {
+            margin-top: 16px;
+            font-size: 9px;
+            color: #334155;
+          }
+
+          .remarksLine {
+            margin-top: 7px;
+            min-height: 22px;
+            border-bottom: 1px solid #94a3b8;
+          }
+
+          /* ==========================================
+             SIGNATURE
+             ========================================== */
+
+          .reportSignatureSection {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            margin-top: 28px;
+          }
+
+          .reportSignatureBox {
+            text-align: center;
+            font-size: 9px;
+            color: #334155;
+          }
+
+          .signatureSpace {
+            height: 35px;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #64748b;
+          }
+
+          .reportSignatureBox strong,
+          .reportSignatureBox span {
+            display: block;
+          }
+
+          .reportSignatureBox span {
+            margin-top: 2px;
+            color: #64748b;
+            font-size: 8px;
+          }
+
+          /* ==========================================
+             NOTES
+             ========================================== */
+
+          .reportNotes {
+            margin-top: 18px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 8px;
+            color: #64748b;
+            line-height: 1.5;
+          }
+
+          .reportNotes p {
+            margin: 3px 0 0;
+          }
+
+          /* ==========================================
+             FOOTER
+             ========================================== */
+
+          .reportFooter {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 18px;
+            padding-top: 8px;
+            border-top: 1px solid #dbe3ea;
+            font-size: 7.5px;
+            color: #64748b;
+          }
+
+          .reportFooter strong {
+            color: #087f7d;
+          }
+
+          /* ==========================================
+             TABLET
+             ========================================== */
+
+          @media (max-width: 900px) {
+
+            .reportScreenToolbar {
+              position: static;
+              padding: 12px;
+              align-items: flex-start;
+            }
+
+            .reportToolbarButtons {
+              justify-content: flex-end;
+            }
+
+            .printableReport {
+              width: calc(100% - 24px);
+              min-height: auto;
+              margin: 12px auto;
+              padding: 20px;
+            }
+
+          }
+
+          /* ==========================================
+             MOBILE
+             ========================================== */
+
+          @media (max-width: 600px) {
+
+            .finalReportPage {
+              padding-bottom: 20px;
+            }
+
+            .reportScreenToolbar {
+              display: block;
+              width: 100%;
+            }
+
+            .reportScreenToolbar > div:first-child {
+              margin-bottom: 10px;
+            }
+
+            .reportScreenToolbar strong {
+              font-size: 16px;
+            }
+
+            .reportToolbarButtons {
+              display: grid;
+              grid-template-columns: 1fr;
+              width: 100%;
+              gap: 7px;
+            }
+
+            .reportToolbarButtons button {
+              width: 100%;
+              min-height: 44px;
+            }
+
+            .printableReport {
+              width: calc(100% - 16px);
+              margin: 8px auto;
+              padding: 14px 10px;
+              box-shadow: 0 4px 15px rgba(15, 23, 42, 0.10);
+            }
+
+            .labReportHeader {
+              grid-template-columns: 42px minmax(0, 1fr);
+              gap: 9px;
+            }
+
+            .reportLogo {
+              width: 40px;
+              height: 40px;
+              font-size: 18px;
+              border-radius: 9px;
+            }
+
+            .reportLabIdentity h1 {
+              font-size: 16px;
+            }
+
+            .reportLabIdentity p {
+              font-size: 7px;
+            }
+
+            .reportLabIdentity .reportTagline {
+              font-size: 8px;
+            }
+
+            .reportHeaderRight {
+              grid-column: 1 / -1;
+              align-items: flex-start;
+              text-align: left;
+              padding-top: 5px;
+              border-top: 1px solid #e2e8f0;
+            }
+
+            .reportHeaderRight strong {
+              font-size: 9px;
+            }
+
+            .reportHeaderRight span {
+              font-size: 8px;
+            }
+
+            .reportLabDetails {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 4px;
+              font-size: 7.5px;
+            }
+
+            .reportSectionTitle {
+              font-size: 9px;
+            }
+
+            .reportPatientGrid {
+              grid-template-columns: 1fr 1fr;
+            }
+
+            .reportPatientGrid > div {
+              border-right: 1px solid #e2e8f0 !important;
+              border-bottom: 1px solid #e2e8f0 !important;
+            }
+
+            .reportPatientGrid > div:nth-child(2n) {
+              border-right: 0 !important;
+            }
+
+            .reportPatientGrid > div:nth-last-child(-n + 2) {
+              border-bottom: 0 !important;
+            }
+
+            .reportPatientGrid span {
+              font-size: 7px;
+            }
+
+            .reportPatientGrid strong {
+              font-size: 8px;
+            }
+
+            .reportTestHeading {
+              font-size: 9px;
+            }
+
+            .finalReportTable {
+              min-width: 0;
+            }
+
+            .finalReportTable th,
+            .finalReportTable td {
+              padding: 5px 3px;
+              font-size: 7px;
+            }
+
+            .finalReportTable th:nth-child(1),
+            .finalReportTable td:nth-child(1) {
+              width: 29%;
+            }
+
+            .finalReportTable th:nth-child(2),
+            .finalReportTable td:nth-child(2) {
+              width: 17%;
+            }
+
+            .finalReportTable th:nth-child(3),
+            .finalReportTable td:nth-child(3) {
+              width: 14%;
+            }
+
+            .finalReportTable th:nth-child(4),
+            .finalReportTable td:nth-child(4) {
+              width: 28%;
+            }
+
+            .finalReportTable th:nth-child(5),
+            .finalReportTable td:nth-child(5) {
+              width: 12%;
+            }
+
+            .reportSignatureSection {
+              grid-template-columns: 1fr 1fr;
+              gap: 18px;
+              margin-top: 20px;
+            }
+
+            .reportSignatureBox {
+              font-size: 8px;
+            }
+
+            .signatureSpace {
+              height: 28px;
+            }
+
+            .reportNotes {
+              font-size: 7px;
+            }
+
+            .reportFooter {
+              flex-direction: column;
+              text-align: center;
+              gap: 4px;
+              font-size: 7px;
+            }
+
+          }
+
+          /* ==========================================
+             VERY SMALL PHONE
+             ========================================== */
+
+          @media (max-width: 380px) {
+
+            .printableReport {
+              width: calc(100% - 8px);
+              padding: 10px 7px;
+            }
+
+            .reportLabIdentity h1 {
+              font-size: 14px;
+            }
+
+            .reportPatientGrid {
+              grid-template-columns: 1fr;
+            }
+
+            .reportPatientGrid > div,
+            .reportPatientGrid > div:nth-child(2n) {
+              border-right: 0 !important;
+              border-bottom: 1px solid #e2e8f0 !important;
+            }
+
+            .reportPatientGrid > div:last-child {
+              border-bottom: 0 !important;
+            }
+
+            .finalReportTable th,
+            .finalReportTable td {
+              padding: 4px 2px;
+              font-size: 6.5px;
+            }
+
+          }
+
+          /* ==========================================
+             PRINT / SAVE PDF
+             ========================================== */
+
+          @media print {
+
+            @page {
+              size: A4;
+              margin: 0;
+            }
+
+            html,
+            body {
+              width: 210mm;
+              min-height: 297mm;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+            }
+
+            .finalReportPage {
+              width: 210mm;
+              min-height: 297mm;
+              margin: 0;
+              padding: 0;
+              background: #ffffff !important;
+            }
+
+            .reportScreenToolbar {
+              display: none !important;
+            }
+
+            .printableReport {
+              width: 210mm !important;
+              min-height: 297mm !important;
+              margin: 0 !important;
+              padding: 12mm 13mm !important;
+              box-shadow: none !important;
+              background: #ffffff !important;
+              overflow: visible !important;
+            }
+
+            .reportTestSection {
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+
+            .finalReportTable {
+              page-break-inside: auto;
+            }
+
+            .finalReportTable tr {
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+
+            .finalReportTable thead {
+              display: table-header-group;
+            }
+
+            .reportRemarks,
+            .reportSignatureSection,
+            .reportNotes,
+            .reportFooter {
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+
+          }
+
+        `}</style>
+
+      </div>
+    );
+  }
+}
       `}</style>
     </>
   );
