@@ -16,9 +16,10 @@ export default function ReportPage() {
   const [saveMessage, setSaveMessage] = useState("");
 
   const savingRef = useRef(false);
+  const saveTimerRef = useRef(null);
 
   /* =====================================================
-     LOAD DATA
+     LOAD REPORT DATA
   ===================================================== */
 
   useEffect(() => {
@@ -36,8 +37,10 @@ export default function ReportPage() {
       );
 
       setPatient(savedPatient);
-      setSelectedTests(savedTests);
-      setResults(savedResults);
+      setSelectedTests(
+        Array.isArray(savedTests) ? savedTests : []
+      );
+      setResults(savedResults || {});
 
       setReportDate(
         new Date().toLocaleDateString("en-IN", {
@@ -47,7 +50,8 @@ export default function ReportPage() {
         })
       );
     } catch (error) {
-      console.error("Report data loading error:", error);
+      console.error("REPORT DATA LOAD ERROR:", error);
+
       setSaveStatus("error");
       setSaveMessage("Report data load nahi hua.");
     }
@@ -67,7 +71,7 @@ export default function ReportPage() {
   }
 
   /* =====================================================
-     PATIENT GENDER
+     GENDER
   ===================================================== */
 
   function getGender() {
@@ -97,7 +101,7 @@ export default function ReportPage() {
   }
 
   /* =====================================================
-     PATIENT AGE
+     AGE
   ===================================================== */
 
   function getAge() {
@@ -108,6 +112,10 @@ export default function ReportPage() {
 
   /* =====================================================
      DEFAULT REFERENCE DATABASE
+     NOTE:
+     These are software defaults only.
+     Laboratory-specific validated ranges should take
+     priority when supplied in the test configuration.
   ===================================================== */
 
   function getDefaultReference(parameterName) {
@@ -115,7 +123,7 @@ export default function ReportPage() {
     const gender = getGender();
     const age = getAge();
 
-    /* CBC */
+    /* ================= CBC ================= */
 
     if (
       name === "hemoglobin" ||
@@ -277,7 +285,10 @@ export default function ReportPage() {
       };
     }
 
-    if (name === "rdw cv") {
+    if (
+      name === "rdw cv" ||
+      name === "rdw-cv"
+    ) {
       return {
         min: 11.5,
         max: 14.5,
@@ -325,7 +336,7 @@ export default function ReportPage() {
       };
     }
 
-    /* ESR */
+    /* ================= ESR ================= */
 
     if (
       name === "esr" ||
@@ -335,11 +346,14 @@ export default function ReportPage() {
         min: 0,
         max: gender === "female" ? 20 : 15,
         unit: "mm/hr",
-        range: gender === "female" ? "0 - 20" : "0 - 15",
+        range:
+          gender === "female"
+            ? "0 - 20"
+            : "0 - 15",
       };
     }
 
-    /* BLOOD SUGAR */
+    /* ================= BLOOD SUGAR ================= */
 
     if (
       name.includes("fasting blood sugar") ||
@@ -380,7 +394,7 @@ export default function ReportPage() {
       };
     }
 
-    /* KFT */
+    /* ================= KFT ================= */
 
     if (
       name === "blood urea" ||
@@ -458,7 +472,7 @@ export default function ReportPage() {
       };
     }
 
-    /* LFT */
+    /* ================= LFT ================= */
 
     if (name === "total bilirubin") {
       return {
@@ -541,7 +555,7 @@ export default function ReportPage() {
       };
     }
 
-    /* LIPID */
+    /* ================= LIPID ================= */
 
     if (name.includes("total cholesterol")) {
       return {
@@ -588,7 +602,7 @@ export default function ReportPage() {
       };
     }
 
-    /* HBA1C */
+    /* ================= HbA1c ================= */
 
     if (
       name === "hba1c" ||
@@ -602,7 +616,7 @@ export default function ReportPage() {
       };
     }
 
-    /* THYROID */
+    /* ================= THYROID ================= */
 
     if (name === "t3") {
       return {
@@ -639,12 +653,24 @@ export default function ReportPage() {
   ===================================================== */
 
   function resolveParameter(parameter) {
-    if (!parameter || typeof parameter === "string") {
+    if (!parameter) {
       return {
         min: null,
         max: null,
         unit: "",
         range: "-",
+      };
+    }
+
+    if (typeof parameter === "string") {
+      const defaults =
+        getDefaultReference(parameter);
+
+      return {
+        min: defaults?.min ?? null,
+        max: defaults?.max ?? null,
+        unit: defaults?.unit || "",
+        range: defaults?.range || "-",
       };
     }
 
@@ -654,7 +680,8 @@ export default function ReportPage() {
       parameter.investigation ||
       "";
 
-    const defaults = getDefaultReference(name);
+    const defaults =
+      getDefaultReference(name);
 
     let min = parameter.min;
     let max = parameter.max;
@@ -726,7 +753,11 @@ export default function ReportPage() {
      PARAMETER KEY
   ===================================================== */
 
-  function parameterKey(testId, parameter, index) {
+  function parameterKey(
+    testId,
+    parameter,
+    index
+  ) {
     const name =
       typeof parameter === "string"
         ? parameter
@@ -742,7 +773,10 @@ export default function ReportPage() {
      PARAMETER NAME
   ===================================================== */
 
-  function getParameterName(parameter, index) {
+  function getParameterName(
+    parameter,
+    index
+  ) {
     if (typeof parameter === "string") {
       return parameter;
     }
@@ -771,9 +805,12 @@ export default function ReportPage() {
     const resolved =
       resolveParameter(parameter);
 
-    const numericValue = Number(
-      String(value).replace(/,/g, "")
-    );
+    const cleanedValue = String(value)
+      .replace(/,/g, "")
+      .trim();
+
+    const numericValue =
+      Number(cleanedValue);
 
     if (Number.isNaN(numericValue)) {
       return "";
@@ -828,77 +865,94 @@ export default function ReportPage() {
     tests,
     resultData
   ) {
-    return tests.map((test) => {
+    if (!Array.isArray(tests)) {
+      return [];
+    }
+
+    return tests.map((test, testIndex) => {
       const parameters =
-        test.tests ||
-        test.parameters ||
+        test?.tests ||
+        test?.parameters ||
         [];
 
       return {
-        id: test.id,
+        id:
+          test?.id ??
+          test?.testId ??
+          `test-${testIndex}`,
 
         name:
-          test.name ||
-          test.testName ||
-          test.short ||
+          test?.name ||
+          test?.testName ||
+          test?.short ||
           "Laboratory Test",
 
         category:
           getCategory(test),
 
         parameters:
-          parameters.map(
-            (parameter, index) => {
-              const key =
-                parameterKey(
-                  test.id,
+          Array.isArray(parameters)
+            ? parameters.map(
+                (
                   parameter,
                   index
-                );
+                ) => {
+                  const key =
+                    parameterKey(
+                      test?.id ??
+                        test?.testId ??
+                        `test-${testIndex}`,
+                      parameter,
+                      index
+                    );
 
-              const value =
-                resultData[key] ?? "";
+                  const value =
+                    resultData?.[key] ??
+                    "";
 
-              const resolved =
-                resolveParameter(
-                  parameter
-                );
+                  const resolved =
+                    resolveParameter(
+                      parameter
+                    );
 
-              return {
-                name:
-                  getParameterName(
-                    parameter,
-                    index
-                  ),
+                  return {
+                    name:
+                      getParameterName(
+                        parameter,
+                        index
+                      ),
 
-                result: value,
+                    result: value,
 
-                unit:
-                  resolved.unit || "-",
+                    unit:
+                      resolved.unit ||
+                      "-",
 
-                referenceRange:
-                  resolved.range || "-",
+                    referenceRange:
+                      resolved.range ||
+                      "-",
 
-                min:
-                  resolved.min,
+                    min:
+                      resolved.min,
 
-                max:
-                  resolved.max,
+                    max:
+                      resolved.max,
 
-                flag:
-                  getFlag(
-                    value,
-                    parameter
-                  ),
-              };
-            }
-          ),
+                    flag:
+                      getFlag(
+                        value,
+                        parameter
+                      ),
+                  };
+                }
+              )
+            : [],
       };
     });
   }
 
   /* =====================================================
-     AUTO SAVE
+     AUTO SAVE REPORT
   ===================================================== */
 
   useEffect(() => {
@@ -910,109 +964,178 @@ export default function ReportPage() {
       return;
     }
 
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current =
+      setTimeout(() => {
+        saveReportAutomatically();
+      }, 400);
+
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(
+          saveTimerRef.current
+        );
+      }
+    };
+  }, [
+    patient,
+    selectedTests,
+    results,
+  ]);
+
+  /* =====================================================
+     SAVE FUNCTION
+  ===================================================== */
+
+  async function saveReportAutomatically() {
     if (savingRef.current) {
       return;
     }
 
-    async function saveReportAutomatically() {
-      savingRef.current = true;
+    if (
+      !patient ||
+      Object.keys(patient).length === 0 ||
+      selectedTests.length === 0
+    ) {
+      return;
+    }
 
-      try {
-        setSaveStatus("saving");
-        setSaveMessage(
-          "Report saving..."
+    savingRef.current = true;
+
+    try {
+      setSaveStatus("saving");
+      setSaveMessage(
+        "Report saving..."
+      );
+
+      const patientId =
+        patient.patientId ||
+        patient.id ||
+        "";
+
+      if (!patientId) {
+        throw new Error(
+          "Patient ID nahi mila."
+        );
+      }
+
+      const currentPatientId =
+        localStorage.getItem(
+          "nidanCurrentReportPatient"
         );
 
-        const patientId =
-          patient.patientId ||
-          patient.id ||
-          "";
-
-        if (!patientId) {
-          throw new Error(
-            "Patient ID nahi mila."
-          );
-        }
-
-        const currentPatientId =
-          localStorage.getItem(
-            "nidanCurrentReportPatient"
-          );
-
-        let existingReportNo =
-          localStorage.getItem(
-            "nidanCurrentReportNo"
-          );
-
-        if (
-          currentPatientId !==
-          String(patientId)
-        ) {
-          localStorage.removeItem(
-            "nidanCurrentReportNo"
-          );
-
-          existingReportNo = null;
-        }
-
-        const generatedReportNo =
-          existingReportNo ||
-          `RPT-${Date.now()}`;
-
-        setReportNo(
-          generatedReportNo
+      let existingReportNo =
+        localStorage.getItem(
+          "nidanCurrentReportNo"
         );
 
-        const reportTests =
-          buildReportTests(
-            selectedTests,
-            results
-          );
+      if (
+        currentPatientId !==
+        String(patientId)
+      ) {
+        localStorage.removeItem(
+          "nidanCurrentReportNo"
+        );
 
-        const reportPayload = {
-          patient: {
-            ...patient,
-            patientId,
-          },
+        existingReportNo = null;
+      }
 
+      const generatedReportNo =
+        existingReportNo ||
+        `RPT-${Date.now()}`;
+
+      setReportNo(
+        generatedReportNo
+      );
+
+      const reportTests =
+        buildReportTests(
           selectedTests,
+          results
+        );
 
-          results,
+      const reportPayload = {
+        patient: {
+          ...patient,
+          patientId,
+        },
 
-          reportTests,
+        selectedTests,
 
-          reportDate:
-            new Date().toISOString(),
+        results,
 
-          reportNo:
-            generatedReportNo,
-        };
+        reportTests,
 
+        reportDate:
+          new Date().toISOString(),
+
+        reportNo:
+          generatedReportNo,
+      };
+
+      /* ================= CHECK EXISTING ================= */
+
+      const {
+        data: existingData,
+        error: checkError,
+      } = await supabase
+        .from("reports")
+        .select("id, report_no")
+        .eq(
+          "report_no",
+          generatedReportNo
+        )
+        .maybeSingle();
+
+      if (checkError) {
+        console.error(
+          "Existing report check error:",
+          checkError
+        );
+      }
+
+      /* ================= UPDATE ================= */
+
+      if (existingData?.id) {
         const {
-          data: existingData,
-          error: checkError,
+          error: updateError,
         } = await supabase
           .from("reports")
-          .select("id, report_no")
+          .update({
+            patient_id:
+              patientId,
+
+            status:
+              "completed",
+
+            report_data:
+              reportPayload,
+          })
           .eq(
-            "report_no",
-            generatedReportNo
-          )
-          .maybeSingle();
-
-        if (checkError) {
-          console.error(
-            "Existing report check error:",
-            checkError
+            "id",
+            existingData.id
           );
-        }
 
-        if (existingData?.id) {
-          const {
-            error: updateError,
-          } = await supabase
-            .from("reports")
-            .update({
+        if (updateError) {
+          throw updateError;
+        }
+      }
+
+      /* ================= INSERT ================= */
+
+      else {
+        const {
+          error: insertError,
+        } = await supabase
+          .from("reports")
+          .insert([
+            {
+              report_no:
+                generatedReportNo,
+
               patient_id:
                 patientId,
 
@@ -1021,90 +1144,70 @@ export default function ReportPage() {
 
               report_data:
                 reportPayload,
-            })
-            .eq(
-              "id",
-              existingData.id
-            );
+            },
+          ]);
 
-          if (updateError) {
-            throw updateError;
-          }
-        } else {
-          const { error } =
-            await supabase
-              .from("reports")
-              .insert([
-                {
-                  report_no:
-                    generatedReportNo,
-
-                  patient_id:
-                    patientId,
-
-                  status:
-                    "completed",
-
-                  report_data:
-                    reportPayload,
-                },
-              ]);
-
-          if (error) {
-            throw error;
-          }
+        if (insertError) {
+          throw insertError;
         }
-
-        localStorage.setItem(
-          "nidanCurrentReportNo",
-          generatedReportNo
-        );
-
-        localStorage.setItem(
-          "nidanCurrentReportPatient",
-          String(patientId)
-        );
-
-        setSaveStatus("saved");
-        setSaveMessage(
-          "Report saved successfully"
-        );
-      } catch (error) {
-        console.error(
-          "AUTO REPORT SAVE ERROR:",
-          error
-        );
-
-        setSaveStatus("error");
-        setSaveMessage(
-          error?.message ||
-            "Report save nahi hua."
-        );
-      } finally {
-        savingRef.current = false;
       }
-    }
 
-    saveReportAutomatically();
-  }, [
-    patient,
-    selectedTests,
-    results,
-  ]);
+      /* ================= LOCAL STORAGE ================= */
+
+      localStorage.setItem(
+        "nidanCurrentReportNo",
+        generatedReportNo
+      );
+
+      localStorage.setItem(
+        "nidanCurrentReportPatient",
+        String(patientId)
+      );
+
+      setReportNo(
+        generatedReportNo
+      );
+
+      setSaveStatus("saved");
+
+      setSaveMessage(
+        "Report saved successfully"
+      );
+    } catch (error) {
+      console.error(
+        "AUTO REPORT SAVE ERROR:",
+        error
+      );
+
+      setSaveStatus("error");
+
+      setSaveMessage(
+        error?.message ||
+          "Report save nahi hua."
+      );
+    } finally {
+      savingRef.current = false;
+    }
+  }
 
   /* =====================================================
      PRINT
   ===================================================== */
 
   function printReport() {
-    if (saveStatus === "saving") {
+    if (
+      saveStatus === "saving"
+    ) {
       alert(
         "Report abhi save ho raha hai. Ek moment wait karein."
       );
+
       return;
     }
 
-    if (saveStatus === "error") {
+    if (
+      saveStatus === "error"
+    ) {
       const proceed =
         window.confirm(
           "Report database me save nahi hua hai.\n\nKya phir bhi Print / PDF karna hai?"
@@ -1139,12 +1242,16 @@ export default function ReportPage() {
       "nidanBillTotal",
       "nidanCurrentReportNo",
       "nidanCurrentReportPatient",
-    ].forEach((key) =>
-      localStorage.removeItem(key)
-    );
+    ].forEach((key) => {
+      localStorage.removeItem(key);
+    });
 
     router.push("/patients");
   }
+
+  /* =====================================================
+     REPORT DATA FOR UI
+  ===================================================== */
 
   const reportTests =
     buildReportTests(
@@ -1160,17 +1267,21 @@ export default function ReportPage() {
     <>
       <div className="finalReportPage">
 
-        {/* SCREEN TOOLBAR */}
+        {/* =================================================
+            SCREEN TOOLBAR
+        ================================================= */}
 
         <div className="reportScreenToolbar">
 
-          <div>
+          <div className="reportToolbarInfo">
+
             <strong>
               Final Laboratory Report
             </strong>
 
             <small>
-              Review report before printing or saving PDF
+              Review report before printing
+              or saving PDF
             </small>
 
             {reportNo && (
@@ -1179,46 +1290,59 @@ export default function ReportPage() {
               </small>
             )}
 
-            {saveStatus === "saving" && (
+            {saveStatus ===
+              "saving" && (
               <small className="savingText">
                 ● Saving report...
               </small>
             )}
 
-            {saveStatus === "saved" && (
+            {saveStatus ===
+              "saved" && (
               <small className="savedText">
                 ✓ Saved to Reports
               </small>
             )}
 
-            {saveStatus === "error" && (
+            {saveStatus ===
+              "error" && (
               <small className="errorText">
                 ⚠ {saveMessage}
               </small>
             )}
+
           </div>
 
           <div className="reportToolbarButtons">
 
             <button
+              type="button"
               className="reportBackButton"
               onClick={() =>
-                router.push("/results")
+                router.push(
+                  "/results"
+                )
               }
             >
               ← Edit Results
             </button>
 
             <button
+              type="button"
               className="reportPrintButton"
-              onClick={printReport}
+              onClick={
+                printReport
+              }
             >
               🖨 Print / Save PDF
             </button>
 
             <button
+              type="button"
               className="reportNewButton"
-              onClick={newPatient}
+              onClick={
+                newPatient
+              }
             >
               + New Patient
             </button>
@@ -1227,11 +1351,15 @@ export default function ReportPage() {
 
         </div>
 
-        {/* PRINTABLE REPORT */}
+        {/* =================================================
+            PRINTABLE A4 REPORT
+        ================================================= */}
 
         <main className="printableReport">
 
-          {/* HEADER */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
           <header className="labReportHeader">
 
@@ -1250,7 +1378,8 @@ export default function ReportPage() {
               </p>
 
               <p>
-                Clinical Pathology & Diagnostic Laboratory
+                Clinical Pathology &
+                Diagnostic Laboratory
               </p>
 
             </div>
@@ -1262,7 +1391,8 @@ export default function ReportPage() {
               </strong>
 
               <span>
-                Report Date: {reportDate}
+                Report Date:{" "}
+                {reportDate || "-"}
               </span>
 
               {reportNo && (
@@ -1277,7 +1407,9 @@ export default function ReportPage() {
 
           <div className="reportAccentLine" />
 
-          {/* PATIENT INFORMATION */}
+          {/* =================================================
+              PATIENT INFORMATION
+          ================================================= */}
 
           <section className="reportPatientSection">
 
@@ -1288,7 +1420,10 @@ export default function ReportPage() {
             <div className="reportPatientGrid">
 
               <div>
-                <span>Patient ID</span>
+                <span>
+                  Patient ID
+                </span>
+
                 <strong>
                   {patient.patientId ||
                     patient.id ||
@@ -1297,16 +1432,25 @@ export default function ReportPage() {
               </div>
 
               <div>
-                <span>Patient Name</span>
+                <span>
+                  Patient Name
+                </span>
+
                 <strong>
-                  {patient.name || "-"}
+                  {patient.name ||
+                    "-"}
                 </strong>
               </div>
 
               <div>
-                <span>Age / Sex</span>
+                <span>
+                  Age / Sex
+                </span>
+
                 <strong>
-                  {patient.age || "-"} Years /{" "}
+                  {patient.age ||
+                    "-"}{" "}
+                  Years /{" "}
                   {patient.gender ||
                     patient.sex ||
                     "-"}
@@ -1314,7 +1458,10 @@ export default function ReportPage() {
               </div>
 
               <div>
-                <span>Mobile</span>
+                <span>
+                  Mobile
+                </span>
+
                 <strong>
                   {patient.mobile ||
                     patient.mobileNumber ||
@@ -1323,7 +1470,10 @@ export default function ReportPage() {
               </div>
 
               <div>
-                <span>Ref. Doctor</span>
+                <span>
+                  Ref. Doctor
+                </span>
+
                 <strong>
                   {patient.doctor ||
                     patient.refDoctor ||
@@ -1332,7 +1482,10 @@ export default function ReportPage() {
               </div>
 
               <div>
-                <span>Sample Date</span>
+                <span>
+                  Sample Date
+                </span>
+
                 <strong>
                   {patient.sampleDate ||
                     reportDate ||
@@ -1344,11 +1497,14 @@ export default function ReportPage() {
 
           </section>
 
-          {/* TESTS */}
+          {/* =================================================
+              INVESTIGATIONS
+          ================================================= */}
 
           <section className="investigationReport">
 
-            {reportTests.length === 0 ? (
+            {reportTests.length ===
+            0 ? (
 
               <div className="reportEmpty">
                 No investigations selected.
@@ -1356,104 +1512,174 @@ export default function ReportPage() {
 
             ) : (
 
-              reportTests.map((test) => (
+              reportTests.map(
+                (
+                  test,
+                  testIndex
+                ) => (
 
-                <div
-                  className="reportTestSection"
-                  key={test.id}
-                >
+                  <section
+                    className="reportTestSection"
+                    key={
+                      test.id ||
+                      `report-test-${testIndex}`
+                    }
+                  >
 
-                  <div className="reportCategory">
-                    {test.category?.toUpperCase()}
-                  </div>
+                    <div className="reportCategory">
+                      {(
+                        test.category ||
+                        "PATHOLOGY"
+                      ).toUpperCase()}
+                    </div>
 
-                  <div className="reportTestHeading">
-                    {test.name}
-                  </div>
+                    <div className="reportTestHeading">
+                      {test.name}
+                    </div>
 
-                  <table className="finalReportTable">
+                    <div className="reportTableWrapper">
 
-                    <thead>
-                      <tr>
-                        <th>INVESTIGATION</th>
-                        <th>RESULT</th>
-                        <th>UNIT</th>
-                        <th>REFERENCE RANGE</th>
-                        <th>FLAG</th>
-                      </tr>
-                    </thead>
+                      <table className="finalReportTable">
 
-                    <tbody>
+                        <thead>
 
-                      {test.parameters.map(
-                        (parameter, index) => (
+                          <tr>
 
-                          <tr
-                            key={`${test.id}-${index}`}
-                          >
+                            <th>
+                              INVESTIGATION
+                            </th>
 
-                            <td>
-                              <strong>
-                                {parameter.name}
-                              </strong>
-                            </td>
+                            <th>
+                              RESULT
+                            </th>
 
-                            <td
-                              className={
-                                parameter.flag
-                                  ? "abnormalResult"
-                                  : "normalResult"
-                              }
-                            >
-                              {parameter.result !==
-                                ""
-                                ? parameter.result
-                                : "-"}
-                            </td>
+                            <th>
+                              UNIT
+                            </th>
 
-                            <td>
-                              {parameter.unit ||
-                                "-"}
-                            </td>
+                            <th>
+                              REFERENCE RANGE
+                            </th>
 
-                            <td>
-                              {parameter.referenceRange ||
-                                "-"}
-                            </td>
-
-                            <td>
-                              {parameter.flag && (
-                                <span
-                                  className={`reportFlag ${
-                                    parameter.flag ===
-                                    "H"
-                                      ? "highFlag"
-                                      : "lowFlag"
-                                  }`}
-                                >
-                                  {parameter.flag}
-                                </span>
-                              )}
-                            </td>
+                            <th>
+                              FLAG
+                            </th>
 
                           </tr>
 
-                        )
-                      )}
+                        </thead>
 
-                    </tbody>
+                        <tbody>
 
-                  </table>
+                          {test.parameters
+                            .length ===
+                          0 ? (
 
-                </div>
+                            <tr>
 
-              ))
+                              <td
+                                colSpan="5"
+                                className="noParameter"
+                              >
+                                No parameters
+                                available
+                              </td>
+
+                            </tr>
+
+                          ) : (
+
+                            test.parameters.map(
+                              (
+                                parameter,
+                                index
+                              ) => (
+
+                                <tr
+                                  key={`${test.id}-${index}`}
+                                >
+
+                                  <td>
+                                    <strong>
+                                      {
+                                        parameter.name
+                                      }
+                                    </strong>
+                                  </td>
+
+                                  <td
+                                    className={
+                                      parameter.flag
+                                        ? "abnormalResult"
+                                        : "normalResult"
+                                    }
+                                  >
+                                    {parameter.result !==
+                                      "" &&
+                                    parameter.result !==
+                                      null &&
+                                    parameter.result !==
+                                      undefined
+                                      ? parameter.result
+                                      : "-"}
+                                  </td>
+
+                                  <td>
+                                    {
+                                      parameter.unit
+                                    }
+                                  </td>
+
+                                  <td>
+                                    {
+                                      parameter.referenceRange
+                                    }
+                                  </td>
+
+                                  <td className="flagCell">
+
+                                    {parameter.flag && (
+                                      <span
+                                        className={`reportFlag ${
+                                          parameter.flag ===
+                                          "H"
+                                            ? "highFlag"
+                                            : "lowFlag"
+                                        }`}
+                                      >
+                                        {
+                                          parameter.flag
+                                        }
+                                      </span>
+                                    )}
+
+                                  </td>
+
+                                </tr>
+
+                              )
+                            )
+
+                          )}
+
+                        </tbody>
+
+                      </table>
+
+                    </div>
+
+                  </section>
+
+                )
+              )
 
             )}
 
           </section>
 
-          {/* SIGNATURE */}
+          {/* =================================================
+              SIGNATURE
+          ================================================= */}
 
           <section className="reportSignatureSection">
 
@@ -1487,22 +1713,30 @@ export default function ReportPage() {
 
           </section>
 
-          {/* NOTE */}
+          {/* =================================================
+              NOTE
+          ================================================= */}
 
           <section className="reportNotes">
 
-            <strong>Note:</strong>
+            <strong>
+              Note:
+            </strong>
 
             <p>
-              Reference intervals may vary according to
-              laboratory method, age, sex and clinical
-              circumstances. Laboratory results should be
-              interpreted with relevant clinical findings.
+              Reference intervals may vary
+              according to laboratory method,
+              age, sex and clinical
+              circumstances. Laboratory
+              results should be interpreted
+              with relevant clinical findings.
             </p>
 
           </section>
 
-          {/* FOOTER */}
+          {/* =================================================
+              FOOTER
+          ================================================= */}
 
           <footer className="reportFooter">
 
@@ -1524,151 +1758,229 @@ export default function ReportPage() {
 
       </div>
 
-      {/* =================================================
-          CSS
-      ================================================= */}
+      {/* =====================================================
+          COMPLETE REPORT CSS
+      ===================================================== */}
 
       <style jsx global>{`
 
-        * {
+        /* =====================================================
+           GLOBAL
+        ===================================================== */
+
+        *,
+        *::before,
+        *::after {
           box-sizing: border-box;
+        }
+
+        html {
+          margin: 0;
+          padding: 0;
         }
 
         body {
           margin: 0;
-          background: #eef2f5;
+          padding: 0;
+          background: #f1f5f9;
           color: #172033;
           font-family:
             Arial,
             Helvetica,
             sans-serif;
+          overflow-x: hidden;
         }
+
+        button {
+          font-family: inherit;
+        }
+
+        /* =====================================================
+           MAIN PAGE
+        ===================================================== */
 
         .finalReportPage {
+          width: 100%;
           min-height: 100vh;
+          background: #f1f5f9;
           padding: 18px;
+          padding-bottom: 40px;
         }
 
-        /* TOOLBAR */
+        /* =====================================================
+           TOOLBAR
+        ===================================================== */
 
         .reportScreenToolbar {
-          max-width: 1100px;
-          margin: 0 auto 16px;
-          padding: 14px 18px;
-          background: white;
+          width: 100%;
+          max-width: 1180px;
+          min-height: 76px;
+          margin: 0 auto 18px;
+          padding: 14px 20px;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
           border-radius: 10px;
           display: flex;
-          justify-content: space-between;
-          gap: 15px;
           align-items: center;
-          box-shadow: 0 2px 10px rgba(15,23,42,.06);
+          justify-content: space-between;
+          gap: 20px;
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          box-shadow:
+            0 3px 12px
+            rgba(15, 23, 42, 0.07);
         }
 
-        .reportScreenToolbar > div:first-child {
+        .reportToolbarInfo {
+          min-width: 0;
           display: flex;
           flex-direction: column;
           gap: 3px;
         }
 
-        .reportScreenToolbar strong {
-          font-size: 16px;
+        .reportToolbarInfo strong {
+          font-size: 17px;
+          line-height: 1.2;
+          color: #172033;
         }
 
-        .reportScreenToolbar small {
+        .reportToolbarInfo small {
           color: #64748b;
           font-size: 11px;
+          line-height: 1.3;
         }
 
         .reportToolbarButtons {
           display: flex;
+          align-items: center;
+          justify-content: flex-end;
           gap: 8px;
           flex-wrap: wrap;
+          flex-shrink: 0;
         }
 
         .reportToolbarButtons button {
-          border: none;
-          border-radius: 7px;
-          padding: 10px 13px;
+          min-height: 40px;
+          padding: 9px 14px;
+          border-radius: 8px;
+          border: 1px solid #dbe3ea;
           cursor: pointer;
-          font-weight: 700;
           font-size: 12px;
+          font-weight: 700;
+          white-space: nowrap;
+          transition:
+            opacity 0.2s ease,
+            transform 0.1s ease;
+        }
+
+        .reportToolbarButtons button:hover {
+          opacity: 0.9;
+        }
+
+        .reportToolbarButtons button:active {
+          transform: translateY(1px);
         }
 
         .reportBackButton {
-          background: #f1f5f9;
+          background: #ffffff;
           color: #334155;
         }
 
         .reportPrintButton {
-          background: #0f9d9a;
-          color: white;
+          background: #087f7d;
+          border-color: #087f7d !important;
+          color: #ffffff;
         }
 
         .reportNewButton {
-          background: #172033;
-          color: white;
+          background: #ffffff;
+          color: #dc2626;
         }
 
         .savingText {
           color: #b7791f !important;
+          font-weight: 700;
         }
 
         .savedText {
           color: #15803d !important;
+          font-weight: 700;
         }
 
         .errorText {
           color: #dc2626 !important;
+          font-weight: 700;
         }
 
-        /* REPORT */
+        /* =====================================================
+           A4 REPORT
+        ===================================================== */
 
         .printableReport {
           width: 210mm;
           min-height: 297mm;
           margin: 0 auto;
           padding: 14mm;
-          background: white;
-          box-shadow: 0 3px 20px rgba(15,23,42,.12);
+          background: #ffffff;
+          box-shadow:
+            0 8px 30px
+            rgba(15, 23, 42, 0.12);
+          overflow: hidden;
         }
 
-        /* HEADER */
+        /* =====================================================
+           HEADER
+        ===================================================== */
 
         .labReportHeader {
           display: grid;
-          grid-template-columns: 58px 1fr auto;
-          gap: 12px;
+          grid-template-columns:
+            58px
+            minmax(0, 1fr)
+            auto;
           align-items: center;
+          gap: 12px;
         }
 
         .reportLogo {
           width: 52px;
           height: 52px;
           border-radius: 12px;
-          background: #0f9d9a;
-          color: white;
+          background: #087f7d;
+          color: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 22px;
           font-weight: 900;
+          line-height: 1;
+        }
+
+        .reportLabIdentity {
+          min-width: 0;
         }
 
         .reportLabIdentity h1 {
           margin: 0;
           font-size: 22px;
-          color: #172033;
+          line-height: 1.15;
+          color: #087f7d;
+          letter-spacing: 0.3px;
+          word-break: break-word;
         }
 
         .reportLabIdentity p {
-          margin: 2px 0;
+          margin: 3px 0 0;
           font-size: 9px;
-          color: #64748b;
+          line-height: 1.35;
+          color: #475569;
         }
 
-        .reportTagline {
+        .reportLabIdentity .reportTagline {
+          font-size: 10px;
           font-weight: 700;
-          color: #0f9d9a !important;
+          color: #334155;
         }
 
         .reportHeaderRight {
@@ -1676,84 +1988,129 @@ export default function ReportPage() {
           flex-direction: column;
           align-items: flex-end;
           gap: 3px;
-          font-size: 9px;
-          color: #475569;
+          text-align: right;
         }
 
         .reportHeaderRight strong {
-          color: #0f766e;
           font-size: 10px;
+          color: #087f7d;
+        }
+
+        .reportHeaderRight span {
+          font-size: 8px;
+          color: #64748b;
         }
 
         .reportAccentLine {
+          width: 100%;
           height: 3px;
-          background: #0f9d9a;
           margin: 10px 0 12px;
+          background: #087f7d;
+          border-radius: 3px;
         }
 
-        /* PATIENT */
+        /* =====================================================
+           PATIENT SECTION
+        ===================================================== */
 
         .reportPatientSection {
-          border: 1px solid #dce4e8;
+          margin-top: 4px;
           margin-bottom: 14px;
+          border: 1px solid #dbe3ea;
+          border-radius: 6px;
+          overflow: hidden;
         }
 
         .reportSectionTitle {
-          background: #172033;
-          color: white;
-          padding: 6px 9px;
+          padding: 7px 9px;
+          background: #f0fdfa;
+          border-left: 3px solid #087f7d;
+          color: #087f7d;
           font-size: 10px;
           font-weight: 800;
+          letter-spacing: 0.4px;
         }
 
         .reportPatientGrid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns:
+            repeat(3, 1fr);
         }
 
         .reportPatientGrid > div {
+          min-width: 0;
           min-height: 43px;
           padding: 7px 9px;
           border-right: 1px solid #e2e8f0;
           border-bottom: 1px solid #e2e8f0;
         }
 
+        .reportPatientGrid > div:nth-child(3n) {
+          border-right: 0;
+        }
+
+        .reportPatientGrid > div:nth-last-child(-n + 3) {
+          border-bottom: 0;
+        }
+
         .reportPatientGrid span {
           display: block;
-          color: #64748b;
-          font-size: 8px;
           margin-bottom: 3px;
+          font-size: 8px;
+          line-height: 1.2;
+          color: #64748b;
+          font-weight: 600;
         }
 
         .reportPatientGrid strong {
           display: block;
-          color: #172033;
           font-size: 9px;
+          line-height: 1.3;
+          color: #172033;
           word-break: break-word;
         }
 
-        /* TEST */
+        /* =====================================================
+           INVESTIGATION
+        ===================================================== */
+
+        .investigationReport {
+          width: 100%;
+          margin-top: 14px;
+        }
 
         .reportTestSection {
-          margin-bottom: 14px;
+          width: 100%;
+          margin-bottom: 15px;
           page-break-inside: avoid;
+          break-inside: avoid;
         }
 
         .reportCategory {
-          text-align: center;
-          font-size: 9px;
-          font-weight: 800;
-          color: #475569;
+          width: 100%;
           margin-bottom: 3px;
+          text-align: center;
+          color: #64748b;
+          font-size: 8px;
+          font-weight: 800;
+          letter-spacing: 0.5px;
         }
 
         .reportTestHeading {
-          padding: 7px 10px;
-          background: #eaf7f6;
-          border-left: 3px solid #0f9d9a;
+          padding: 7px 9px;
+          background: #f8fafc;
+          border: 1px solid #dbe3ea;
+          border-left: 3px solid #087f7d;
+          color: #172033;
+          font-size: 10px;
           font-weight: 800;
-          font-size: 11px;
-          margin-bottom: 4px;
+          text-transform: uppercase;
+        }
+
+        .reportTableWrapper {
+          width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         .finalReportTable {
@@ -1763,144 +2120,494 @@ export default function ReportPage() {
         }
 
         .finalReportTable th {
-          background: #f1f5f9;
-          color: #334155;
-          font-size: 8px;
           padding: 6px 5px;
-          border: 1px solid #dce4e8;
-          text-align: left;
+          background: #eef2f7;
+          border: 1px solid #cfd8df;
+          color: #334155;
+          font-size: 7.5px;
+          line-height: 1.2;
+          font-weight: 800;
+          text-align: center;
+          vertical-align: middle;
         }
 
         .finalReportTable td {
-          padding: 5px;
-          border: 1px solid #e1e7eb;
+          padding: 6px 5px;
+          border: 1px solid #dbe3ea;
+          color: #172033;
           font-size: 8.5px;
+          line-height: 1.3;
           vertical-align: middle;
           word-break: break-word;
+          overflow-wrap: anywhere;
         }
 
         .finalReportTable th:nth-child(1),
         .finalReportTable td:nth-child(1) {
-          width: 32%;
+          width: 30%;
+          text-align: left;
         }
 
         .finalReportTable th:nth-child(2),
         .finalReportTable td:nth-child(2) {
           width: 17%;
+          text-align: center;
         }
 
         .finalReportTable th:nth-child(3),
         .finalReportTable td:nth-child(3) {
           width: 15%;
+          text-align: center;
         }
 
         .finalReportTable th:nth-child(4),
         .finalReportTable td:nth-child(4) {
           width: 26%;
+          text-align: center;
         }
 
         .finalReportTable th:nth-child(5),
         .finalReportTable td:nth-child(5) {
-          width: 10%;
+          width: 12%;
+          text-align: center;
         }
 
         .normalResult {
-          font-weight: 700;
+          font-weight: 600;
         }
 
         .abnormalResult {
           font-weight: 800;
-          color: #dc2626;
+          color: #dc2626 !important;
+        }
+
+        .flagCell {
+          text-align: center !important;
         }
 
         .reportFlag {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 19px;
-          height: 17px;
+          min-width: 22px;
+          min-height: 18px;
+          padding: 2px 5px;
           border-radius: 4px;
           font-size: 8px;
           font-weight: 900;
+          line-height: 1;
         }
 
         .highFlag {
-          color: #b91c1c;
           background: #fee2e2;
+          color: #b91c1c;
         }
 
         .lowFlag {
-          color: #1d4ed8;
           background: #dbeafe;
+          color: #1d4ed8;
         }
 
-        /* SIGNATURE */
+        .noParameter {
+          padding: 12px !important;
+          text-align: center !important;
+          color: #64748b !important;
+        }
+
+        /* =====================================================
+           EMPTY REPORT
+        ===================================================== */
+
+        .reportEmpty {
+          padding: 30px;
+          text-align: center;
+          color: #64748b;
+          border: 1px dashed #cbd5e1;
+          border-radius: 6px;
+        }
+
+        /* =====================================================
+           SIGNATURE
+        ===================================================== */
 
         .reportSignatureSection {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 60px;
-          margin-top: 35px;
+          margin-top: 30px;
           page-break-inside: avoid;
+          break-inside: avoid;
         }
 
         .reportSignatureBox {
           text-align: center;
-          display: flex;
-          flex-direction: column;
           font-size: 9px;
+          color: #334155;
         }
 
         .signatureSpace {
-          height: 32px;
-          border-bottom: 1px solid #64748b;
+          height: 34px;
           margin-bottom: 5px;
+          border-bottom: 1px solid #64748b;
+        }
+
+        .reportSignatureBox strong,
+        .reportSignatureBox span {
+          display: block;
         }
 
         .reportSignatureBox span {
-          color: #64748b;
           margin-top: 2px;
+          color: #64748b;
+          font-size: 8px;
         }
 
-        /* NOTE */
+        /* =====================================================
+           NOTES
+        ===================================================== */
 
         .reportNotes {
-          margin-top: 22px;
+          margin-top: 18px;
           padding-top: 8px;
-          border-top: 1px solid #dce4e8;
-          font-size: 8px;
+          border-top: 1px solid #e2e8f0;
           color: #64748b;
+          font-size: 8px;
+          line-height: 1.5;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+
+        .reportNotes strong {
+          color: #334155;
         }
 
         .reportNotes p {
-          display: inline;
-          margin-left: 4px;
+          margin: 3px 0 0;
         }
 
-        /* FOOTER */
+        /* =====================================================
+           FOOTER
+        ===================================================== */
 
         .reportFooter {
           display: flex;
+          align-items: center;
           justify-content: space-between;
           gap: 10px;
-          border-top: 1px solid #dce4e8;
-          margin-top: 12px;
-          padding-top: 7px;
-          font-size: 7px;
+          margin-top: 16px;
+          padding-top: 8px;
+          border-top: 1px solid #dbe3ea;
           color: #64748b;
+          font-size: 7.5px;
+          line-height: 1.3;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
         .reportFooter strong {
-          color: #0f766e;
+          color: #087f7d;
         }
 
-        .reportEmpty {
-          text-align: center;
-          padding: 30px;
-          color: #64748b;
+        /* =====================================================
+           TABLET
+        ===================================================== */
+
+        @media (max-width: 900px) {
+
+          .finalReportPage {
+            padding: 10px;
+          }
+
+          .reportScreenToolbar {
+            position: static;
+            align-items: flex-start;
+            flex-direction: column;
+            padding: 13px;
+          }
+
+          .reportToolbarInfo {
+            width: 100%;
+          }
+
+          .reportToolbarButtons {
+            width: 100%;
+            justify-content: stretch;
+          }
+
+          .reportToolbarButtons button {
+            flex: 1 1 auto;
+          }
+
+          .printableReport {
+            width: 100%;
+            min-height: auto;
+            padding: 20px;
+            margin: 0 auto;
+          }
+
+          .labReportHeader {
+            grid-template-columns:
+              48px
+              minmax(0, 1fr);
+          }
+
+          .reportLogo {
+            width: 44px;
+            height: 44px;
+            font-size: 19px;
+          }
+
+          .reportHeaderRight {
+            grid-column: 1 / -1;
+            align-items: flex-start;
+            text-align: left;
+            padding-top: 7px;
+            border-top: 1px solid #e2e8f0;
+          }
+
+          .reportPatientGrid {
+            grid-template-columns:
+              repeat(2, 1fr);
+          }
+
+          .reportPatientGrid > div:nth-child(3n) {
+            border-right: 1px solid #e2e8f0;
+          }
+
+          .reportPatientGrid > div:nth-child(2n) {
+            border-right: 0;
+          }
+
+          .reportPatientGrid > div:nth-last-child(-n + 3) {
+            border-bottom: 1px solid #e2e8f0;
+          }
+
+          .reportPatientGrid > div:nth-last-child(-n + 2) {
+            border-bottom: 0;
+          }
+
+          .reportTableWrapper {
+            overflow-x: auto;
+          }
+
+          .finalReportTable {
+            min-width: 620px;
+          }
+
+          .reportSignatureSection {
+            gap: 25px;
+          }
         }
 
-        /* PRINT */
+        /* =====================================================
+           MOBILE
+        ===================================================== */
+
+        @media (max-width: 600px) {
+
+          .finalReportPage {
+            padding: 6px;
+            padding-bottom: 20px;
+          }
+
+          .reportScreenToolbar {
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 12px;
+            border-radius: 8px;
+          }
+
+          .reportToolbarInfo strong {
+            font-size: 16px;
+          }
+
+          .reportToolbarInfo small {
+            font-size: 10px;
+          }
+
+          .reportToolbarButtons {
+            display: grid;
+            grid-template-columns: 1fr;
+            width: 100%;
+            gap: 7px;
+          }
+
+          .reportToolbarButtons button {
+            width: 100%;
+            min-height: 44px;
+          }
+
+          .printableReport {
+            width: 100%;
+            margin: 0 auto;
+            padding: 14px 10px;
+            box-shadow:
+              0 3px 14px
+              rgba(15, 23, 42, 0.09);
+          }
+
+          .labReportHeader {
+            grid-template-columns:
+              42px
+              minmax(0, 1fr);
+            gap: 9px;
+          }
+
+          .reportLogo {
+            width: 40px;
+            height: 40px;
+            border-radius: 9px;
+            font-size: 17px;
+          }
+
+          .reportLabIdentity h1 {
+            font-size: 16px;
+            letter-spacing: 0;
+          }
+
+          .reportLabIdentity p {
+            font-size: 7px;
+          }
+
+          .reportLabIdentity .reportTagline {
+            font-size: 8px;
+          }
+
+          .reportHeaderRight {
+            grid-column: 1 / -1;
+            padding-top: 6px;
+          }
+
+          .reportHeaderRight strong {
+            font-size: 9px;
+          }
+
+          .reportHeaderRight span {
+            font-size: 8px;
+          }
+
+          .reportAccentLine {
+            margin: 8px 0 10px;
+          }
+
+          .reportSectionTitle {
+            font-size: 9px;
+            padding: 7px 8px;
+          }
+
+          .reportPatientGrid {
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+          .reportPatientGrid > div {
+            min-height: 42px;
+            padding: 7px;
+          }
+
+          .reportPatientGrid span {
+            font-size: 7px;
+          }
+
+          .reportPatientGrid strong {
+            font-size: 8px;
+          }
+
+          .reportCategory {
+            font-size: 7.5px;
+          }
+
+          .reportTestHeading {
+            font-size: 9px;
+            padding: 7px;
+          }
+
+          .finalReportTable {
+            min-width: 620px;
+          }
+
+          .finalReportTable th,
+          .finalReportTable td {
+            padding: 5px 4px;
+            font-size: 7px;
+          }
+
+          .reportSignatureSection {
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 22px;
+          }
+
+          .reportSignatureBox {
+            font-size: 8px;
+          }
+
+          .signatureSpace {
+            height: 28px;
+          }
+
+          .reportSignatureBox span {
+            font-size: 7px;
+          }
+
+          .reportNotes {
+            font-size: 7px;
+          }
+
+          .reportFooter {
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+            gap: 4px;
+            font-size: 7px;
+          }
+        }
+
+        /* =====================================================
+           VERY SMALL PHONE
+        ===================================================== */
+
+        @media (max-width: 380px) {
+
+          .printableReport {
+            padding: 10px 7px;
+          }
+
+          .reportLabIdentity h1 {
+            font-size: 14px;
+          }
+
+          .reportPatientGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .reportPatientGrid > div {
+            border-right: 0 !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+          }
+
+          .reportPatientGrid > div:last-child {
+            border-bottom: 0 !important;
+          }
+
+          .finalReportTable {
+            min-width: 590px;
+          }
+
+          .finalReportTable th,
+          .finalReportTable td {
+            padding: 4px 3px;
+            font-size: 6.5px;
+          }
+
+          .reportSignatureSection {
+            gap: 10px;
+          }
+        }
+
+        /* =====================================================
+           PRINT / SAVE PDF
+        ===================================================== */
 
         @media print {
 
@@ -1909,13 +2616,25 @@ export default function ReportPage() {
             margin: 0;
           }
 
+          html,
           body {
-            background: white !important;
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+
+          body {
+            overflow: visible !important;
           }
 
           .finalReportPage {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0;
             padding: 0;
-            background: white;
+            background: #ffffff !important;
           }
 
           .reportScreenToolbar {
@@ -1923,915 +2642,57 @@ export default function ReportPage() {
           }
 
           .printableReport {
-            width: 210mm;
-            min-height: 297mm;
-            margin: 0;
-            padding: 12mm;
-            box-shadow: none;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            padding: 12mm 13mm !important;
+            background: #ffffff !important;
+            box-shadow: none !important;
+            overflow: visible !important;
           }
 
-          .reportTestSection {
-            page-break-inside: avoid;
-          }
-
-          .reportPatientSection {
-            page-break-inside: avoid;
-          }
-
-          .reportSignatureSection {
-            page-break-inside: avoid;
-          }
-        }
-
-        /* MOBILE */
-
-        @media (max-width: 900px) {
-
-          .finalReportPage {
-            padding: 8px;
-          }
-
-          .reportScreenToolbar {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .reportToolbarButtons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .reportToolbarButtons button {
-            width: 100%;
-          }
-
-          .reportNewButton {
-            grid-column: span 2;
-          }
-
-          .printableReport {
-            width: 100%;
-            min-height: auto;
-            padding: 14px;
-          }
-
-          .labReportHeader {
-            grid-template-columns: 45px 1fr;
-          }
-
-          .reportLogo {
-            width: 42px;
-            height: 42px;
-            font-size: 18px;
-          }
-
-          .reportLabIdentity h1 {
-            font-size: 17px;
-          }
-
-          .reportHeaderRight {
-            grid-column: span 2;
-            align-items: flex-start;
-            margin-top: 5px;
-          }
-
-          .reportPatientGrid {
-            grid-template-columns: 1fr 1fr;
+          .reportTableWrapper {
+            overflow: visible !important;
           }
 
           .finalReportTable {
-            min-width: 650px;
+            width: 100% !important;
+            min-width: 0 !important;
           }
 
-          .reportTestSection {
-            overflow-x: auto;
-          }
-
-          .reportSignatureSection {
-            gap: 25px;
-          }
-        }
-
-        @media (max-width: 500px) {
-
-          .reportPatientGrid {
-            grid-template-columns: 1fr;
-          }
-
-          .reportPatientGrid > div {
-            border-right: none;
-          }
-
-          .reportToolbarButtons {
-            grid-template-columns: 1fr;
-          }
-
-          .reportNewButton {
-            grid-column: auto;
-          }
-
-          .reportLabIdentity h1 {
-            font-size: 15px;
-          }
-
-          .reportSignatureSection {
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-          }
-
-        }
-        </main>
-
-        {/* =================================================
-            REPORT RESPONSIVE + PRINT CSS
-            ================================================= */}
-
-        <style jsx global>{`
-
-          * {
-            box-sizing: border-box;
-          }
-
-          body {
-            margin: 0;
-            background: #f1f5f9;
-            color: #172033;
-            overflow-x: hidden;
-          }
-
-          /* ==========================================
-             MAIN REPORT PAGE
-             ========================================== */
-
-          .finalReportPage {
-            width: 100%;
-            min-height: 100vh;
-            background: #f1f5f9;
-            padding-bottom: 40px;
-          }
-
-          /* ==========================================
-             SCREEN TOOLBAR
-             ========================================== */
-
-          .reportScreenToolbar {
-            width: 100%;
-            min-height: 76px;
-            padding: 14px 22px;
-            background: #ffffff;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 20px;
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
-          }
-
-          .reportScreenToolbar > div:first-child {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            min-width: 0;
-          }
-
-          .reportScreenToolbar strong {
-            font-size: 18px;
-            color: #172033;
-          }
-
-          .reportScreenToolbar small {
-            color: #64748b;
-            font-size: 12px;
-          }
-
-          .reportToolbarButtons {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-          }
-
-          .reportToolbarButtons button {
-            min-height: 40px;
-            padding: 8px 14px;
-            border-radius: 8px;
-            border: 1px solid #dbe3ea;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 700;
-            white-space: nowrap;
-          }
-
-          .reportBackButton {
-            background: #ffffff;
-            color: #334155;
-          }
-
-          .reportPrintButton {
-            background: #087f7d;
-            border-color: #087f7d !important;
-            color: #ffffff;
-          }
-
-          .reportNewButton {
-            background: #ffffff;
-            color: #dc2626;
-          }
-
-          .reportToolbarButtons button:hover {
-            opacity: 0.9;
-          }
-
-          /* ==========================================
-             A4 REPORT
-             ========================================== */
-
-          .printableReport {
-            width: 210mm;
-            min-height: 297mm;
-            margin: 24px auto;
-            padding: 16mm 14mm;
-            background: #ffffff;
-            box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
-            overflow: hidden;
-          }
-
-          /* ==========================================
-             REPORT HEADER
-             ========================================== */
-
-          .labReportHeader {
-            display: grid;
-            grid-template-columns: 60px minmax(0, 1fr) auto;
-            align-items: center;
-            gap: 14px;
-          }
-
-          .reportLogo {
-            width: 52px;
-            height: 52px;
-            border-radius: 12px;
-            background: #087f7d;
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            font-weight: 900;
-          }
-
-          .reportLabIdentity {
-            min-width: 0;
-          }
-
-          .reportLabIdentity h1 {
-            margin: 0;
-            font-size: 23px;
-            line-height: 1.15;
-            color: #087f7d;
-            letter-spacing: 0.3px;
-          }
-
-          .reportLabIdentity p {
-            margin: 3px 0 0;
-            font-size: 10px;
-            color: #475569;
-          }
-
-          .reportLabIdentity .reportTagline {
-            font-size: 11px;
-            font-weight: 700;
-            color: #334155;
-          }
-
-          .reportHeaderRight {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 3px;
-            text-align: right;
-          }
-
-          .reportHeaderRight strong {
-            font-size: 11px;
-            color: #087f7d;
-          }
-
-          .reportHeaderRight span {
-            font-size: 9px;
-            color: #64748b;
-          }
-
-          .reportAccentLine {
-            height: 3px;
-            width: 100%;
-            margin: 10px 0 8px;
-            background: #087f7d;
-            border-radius: 3px;
-          }
-
-          /* ==========================================
-             LAB DETAILS
-             ========================================== */
-
-          .reportLabDetails {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            padding: 7px 0 10px;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 8.5px;
-            color: #64748b;
-          }
-
-          .reportLabDetails span {
-            min-width: 0;
-          }
-
-          /* ==========================================
-             SECTION TITLE
-             ========================================== */
-
-          .reportSectionTitle {
-            padding: 7px 9px;
-            margin-bottom: 8px;
-            background: #f0fdfa;
-            border-left: 3px solid #087f7d;
-            color: #087f7d;
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.4px;
-          }
-
-          /* ==========================================
-             PATIENT SECTION
-             ========================================== */
-
-          .reportPatientSection {
-            margin-top: 12px;
-          }
-
-          .reportPatientGrid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            border: 1px solid #dbe3ea;
-            border-radius: 6px;
-            overflow: hidden;
-          }
-
-          .reportPatientGrid > div {
-            min-width: 0;
-            padding: 7px 9px;
-            border-right: 1px solid #e2e8f0;
-            border-bottom: 1px solid #e2e8f0;
-          }
-
-          .reportPatientGrid > div:nth-child(3n) {
-            border-right: 0;
-          }
-
-          .reportPatientGrid > div:nth-last-child(-n + 3) {
-            border-bottom: 0;
-          }
-
-          .reportPatientGrid span {
-            display: block;
-            margin-bottom: 3px;
-            font-size: 8px;
-            color: #64748b;
-            font-weight: 600;
-          }
-
-          .reportPatientGrid strong {
-            display: block;
-            font-size: 9.5px;
-            color: #172033;
-            word-break: break-word;
-          }
-
-          /* ==========================================
-             INVESTIGATION
-             ========================================== */
-
-          .investigationReport {
-            margin-top: 14px;
-          }
-
-          .reportTestSection {
-            margin-bottom: 14px;
+          .reportPatientSection,
+          .reportTestSection,
+          .reportSignatureSection,
+          .reportNotes,
+          .reportFooter {
             page-break-inside: avoid;
             break-inside: avoid;
           }
 
-          .reportTestHeading {
-            padding: 6px 8px;
-            background: #f8fafc;
-            border: 1px solid #dbe3ea;
-            border-bottom: 0;
-            text-align: center;
-            font-size: 10px;
-            font-weight: 800;
-            color: #172033;
-            text-transform: uppercase;
-          }
-
           .finalReportTable {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
+            page-break-inside: auto;
           }
 
-          .finalReportTable th {
-            padding: 6px 5px;
-            background: #eef2f7;
-            border: 1px solid #cfd8df;
-            font-size: 8px;
-            font-weight: 800;
-            color: #334155;
-            text-align: center;
+          .finalReportTable tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
 
-          .finalReportTable td {
-            padding: 6px 5px;
-            border: 1px solid #dbe3ea;
-            font-size: 8.5px;
-            color: #172033;
-            word-break: break-word;
-            vertical-align: middle;
+          .finalReportTable thead {
+            display: table-header-group;
           }
 
-          .finalReportTable th:nth-child(1),
-          .finalReportTable td:nth-child(1) {
-            width: 30%;
-          }
-
-          .finalReportTable th:nth-child(2),
-          .finalReportTable td:nth-child(2) {
-            width: 17%;
-            text-align: center;
-          }
-
-          .finalReportTable th:nth-child(3),
-          .finalReportTable td:nth-child(3) {
-            width: 15%;
-            text-align: center;
-          }
-
-          .finalReportTable th:nth-child(4),
-          .finalReportTable td:nth-child(4) {
-            width: 26%;
-            text-align: center;
-          }
-
-          .finalReportTable th:nth-child(5),
-          .finalReportTable td:nth-child(5) {
-            width: 12%;
-            text-align: center;
-          }
-
-          .normalResult {
-            font-weight: 600;
-          }
-
-          .abnormalResult {
-            font-weight: 800;
-            color: #dc2626 !important;
+          .finalReportTable tfoot {
+            display: table-footer-group;
           }
 
           .reportFlag {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 22px;
-            min-height: 18px;
-            padding: 2px 5px;
-            border-radius: 4px;
-            background: #fee2e2;
-            color: #dc2626;
-            font-size: 8px;
-            font-weight: 900;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
           }
-
-          /* ==========================================
-             EMPTY
-             ========================================== */
-
-          .reportEmpty {
-            padding: 30px;
-            text-align: center;
-            color: #64748b;
-            border: 1px dashed #cbd5e1;
-          }
-
-          /* ==========================================
-             REMARKS
-             ========================================== */
-
-          .reportRemarks {
-            margin-top: 16px;
-            font-size: 9px;
-            color: #334155;
-          }
-
-          .remarksLine {
-            margin-top: 7px;
-            min-height: 22px;
-            border-bottom: 1px solid #94a3b8;
-          }
-
-          /* ==========================================
-             SIGNATURE
-             ========================================== */
-
-          .reportSignatureSection {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            margin-top: 28px;
-          }
-
-          .reportSignatureBox {
-            text-align: center;
-            font-size: 9px;
-            color: #334155;
-          }
-
-          .signatureSpace {
-            height: 35px;
-            margin-bottom: 5px;
-            border-bottom: 1px solid #64748b;
-          }
-
-          .reportSignatureBox strong,
-          .reportSignatureBox span {
-            display: block;
-          }
-
-          .reportSignatureBox span {
-            margin-top: 2px;
-            color: #64748b;
-            font-size: 8px;
-          }
-
-          /* ==========================================
-             NOTES
-             ========================================== */
-
-          .reportNotes {
-            margin-top: 18px;
-            padding-top: 8px;
-            border-top: 1px solid #e2e8f0;
-            font-size: 8px;
-            color: #64748b;
-            line-height: 1.5;
-          }
-
-          .reportNotes p {
-            margin: 3px 0 0;
-          }
-
-          /* ==========================================
-             FOOTER
-             ========================================== */
-
-          .reportFooter {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin-top: 18px;
-            padding-top: 8px;
-            border-top: 1px solid #dbe3ea;
-            font-size: 7.5px;
-            color: #64748b;
-          }
-
-          .reportFooter strong {
-            color: #087f7d;
-          }
-
-          /* ==========================================
-             TABLET
-             ========================================== */
-
-          @media (max-width: 900px) {
-
-            .reportScreenToolbar {
-              position: static;
-              padding: 12px;
-              align-items: flex-start;
-            }
-
-            .reportToolbarButtons {
-              justify-content: flex-end;
-            }
-
-            .printableReport {
-              width: calc(100% - 24px);
-              min-height: auto;
-              margin: 12px auto;
-              padding: 20px;
-            }
-
-          }
-
-          /* ==========================================
-             MOBILE
-             ========================================== */
-
-          @media (max-width: 600px) {
-
-            .finalReportPage {
-              padding-bottom: 20px;
-            }
-
-            .reportScreenToolbar {
-              display: block;
-              width: 100%;
-            }
-
-            .reportScreenToolbar > div:first-child {
-              margin-bottom: 10px;
-            }
-
-            .reportScreenToolbar strong {
-              font-size: 16px;
-            }
-
-            .reportToolbarButtons {
-              display: grid;
-              grid-template-columns: 1fr;
-              width: 100%;
-              gap: 7px;
-            }
-
-            .reportToolbarButtons button {
-              width: 100%;
-              min-height: 44px;
-            }
-
-            .printableReport {
-              width: calc(100% - 16px);
-              margin: 8px auto;
-              padding: 14px 10px;
-              box-shadow: 0 4px 15px rgba(15, 23, 42, 0.10);
-            }
-
-            .labReportHeader {
-              grid-template-columns: 42px minmax(0, 1fr);
-              gap: 9px;
-            }
-
-            .reportLogo {
-              width: 40px;
-              height: 40px;
-              font-size: 18px;
-              border-radius: 9px;
-            }
-
-            .reportLabIdentity h1 {
-              font-size: 16px;
-            }
-
-            .reportLabIdentity p {
-              font-size: 7px;
-            }
-
-            .reportLabIdentity .reportTagline {
-              font-size: 8px;
-            }
-
-            .reportHeaderRight {
-              grid-column: 1 / -1;
-              align-items: flex-start;
-              text-align: left;
-              padding-top: 5px;
-              border-top: 1px solid #e2e8f0;
-            }
-
-            .reportHeaderRight strong {
-              font-size: 9px;
-            }
-
-            .reportHeaderRight span {
-              font-size: 8px;
-            }
-
-            .reportLabDetails {
-              display: grid;
-              grid-template-columns: 1fr;
-              gap: 4px;
-              font-size: 7.5px;
-            }
-
-            .reportSectionTitle {
-              font-size: 9px;
-            }
-
-            .reportPatientGrid {
-              grid-template-columns: 1fr 1fr;
-            }
-
-            .reportPatientGrid > div {
-              border-right: 1px solid #e2e8f0 !important;
-              border-bottom: 1px solid #e2e8f0 !important;
-            }
-
-            .reportPatientGrid > div:nth-child(2n) {
-              border-right: 0 !important;
-            }
-
-            .reportPatientGrid > div:nth-last-child(-n + 2) {
-              border-bottom: 0 !important;
-            }
-
-            .reportPatientGrid span {
-              font-size: 7px;
-            }
-
-            .reportPatientGrid strong {
-              font-size: 8px;
-            }
-
-            .reportTestHeading {
-              font-size: 9px;
-            }
-
-            .finalReportTable {
-              min-width: 0;
-            }
-
-            .finalReportTable th,
-            .finalReportTable td {
-              padding: 5px 3px;
-              font-size: 7px;
-            }
-
-            .finalReportTable th:nth-child(1),
-            .finalReportTable td:nth-child(1) {
-              width: 29%;
-            }
-
-            .finalReportTable th:nth-child(2),
-            .finalReportTable td:nth-child(2) {
-              width: 17%;
-            }
-
-            .finalReportTable th:nth-child(3),
-            .finalReportTable td:nth-child(3) {
-              width: 14%;
-            }
-
-            .finalReportTable th:nth-child(4),
-            .finalReportTable td:nth-child(4) {
-              width: 28%;
-            }
-
-            .finalReportTable th:nth-child(5),
-            .finalReportTable td:nth-child(5) {
-              width: 12%;
-            }
-
-            .reportSignatureSection {
-              grid-template-columns: 1fr 1fr;
-              gap: 18px;
-              margin-top: 20px;
-            }
-
-            .reportSignatureBox {
-              font-size: 8px;
-            }
-
-            .signatureSpace {
-              height: 28px;
-            }
-
-            .reportNotes {
-              font-size: 7px;
-            }
-
-            .reportFooter {
-              flex-direction: column;
-              text-align: center;
-              gap: 4px;
-              font-size: 7px;
-            }
-
-          }
-
-          /* ==========================================
-             VERY SMALL PHONE
-             ========================================== */
-
-          @media (max-width: 380px) {
-
-            .printableReport {
-              width: calc(100% - 8px);
-              padding: 10px 7px;
-            }
-
-            .reportLabIdentity h1 {
-              font-size: 14px;
-            }
-
-            .reportPatientGrid {
-              grid-template-columns: 1fr;
-            }
-
-            .reportPatientGrid > div,
-            .reportPatientGrid > div:nth-child(2n) {
-              border-right: 0 !important;
-              border-bottom: 1px solid #e2e8f0 !important;
-            }
-
-            .reportPatientGrid > div:last-child {
-              border-bottom: 0 !important;
-            }
-
-            .finalReportTable th,
-            .finalReportTable td {
-              padding: 4px 2px;
-              font-size: 6.5px;
-            }
-
-          }
-
-          /* ==========================================
-             PRINT / SAVE PDF
-             ========================================== */
-
-          @media print {
-
-            @page {
-              size: A4;
-              margin: 0;
-            }
-
-            html,
-            body {
-              width: 210mm;
-              min-height: 297mm;
-              margin: 0 !important;
-              padding: 0 !important;
-              background: #ffffff !important;
-            }
-
-            .finalReportPage {
-              width: 210mm;
-              min-height: 297mm;
-              margin: 0;
-              padding: 0;
-              background: #ffffff !important;
-            }
-
-            .reportScreenToolbar {
-              display: none !important;
-            }
-
-            .printableReport {
-              width: 210mm !important;
-              min-height: 297mm !important;
-              margin: 0 !important;
-              padding: 12mm 13mm !important;
-              box-shadow: none !important;
-              background: #ffffff !important;
-              overflow: visible !important;
-            }
-
-            .reportTestSection {
-              page-break-inside: avoid;
-              break-inside: avoid;
-            }
-
-            .finalReportTable {
-              page-break-inside: auto;
-            }
-
-            .finalReportTable tr {
-              page-break-inside: avoid;
-              break-inside: avoid;
-            }
-
-            .finalReportTable thead {
-              display: table-header-group;
-            }
-
-            .reportRemarks,
-            .reportSignatureSection,
-            .reportNotes,
-            .reportFooter {
-              page-break-inside: avoid;
-              break-inside: avoid;
-            }
-
-          }
-
-        `}</style>
-
-      </div>
-    );
-  }
+        }
+
+      `}</style>
+    </>
+  );
 }
