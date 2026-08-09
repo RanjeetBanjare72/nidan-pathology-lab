@@ -2715,6 +2715,51 @@ export default function ResultsPage() {
           }
 
         }
+        /* ==========================================
+   MOBILE FULL WIDTH FIX
+   ========================================== */
+
+@media (max-width: 900px) {
+
+  .resultPageApp {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .resultPageApp .sidebar {
+    display: none !important;
+  }
+
+  .resultPageApp .mainArea {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .resultPageApp .content {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .resultWorkspace {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .resultEntryCard {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .mobileParameterList {
+    width: 100% !important;
+  }
+
+  .mobileParameterCard {
+    width: 100% !important;
+  }
+
+}
 
       `}</style>
     </>
