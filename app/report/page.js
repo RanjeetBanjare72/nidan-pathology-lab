@@ -2835,7 +2835,3 @@ export default function ReportPage() {
     );
   }
 }
-      `}</style>
-    </>
-  );
-}
