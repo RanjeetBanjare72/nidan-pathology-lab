@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 /* =========================================================
    NIDAN PATHOLOGY LAB
-   ADVANCED RESULT ENTRY PAGE
+   RESULT ENTRY PAGE
+   MOBILE + DESKTOP RESPONSIVE VERSION
    ========================================================= */
 
 export default function ResultsPage() {
@@ -53,12 +54,12 @@ export default function ResultsPage() {
 
   const currentTest = useMemo(() => {
     return selectedTests.find(
-      (test) => test.id === activeTest
+      (test) => String(test.id) === String(activeTest)
     );
   }, [selectedTests, activeTest]);
 
   /* =========================================================
-     PATIENT AGE / GENDER
+     PATIENT AGE
      ========================================================= */
 
   function getPatientAge() {
@@ -70,6 +71,10 @@ export default function ResultsPage() {
 
     return age;
   }
+
+  /* =========================================================
+     PATIENT GENDER
+     ========================================================= */
 
   function getPatientGender() {
     const gender = String(
@@ -112,8 +117,6 @@ export default function ResultsPage() {
 
   /* =========================================================
      DEFAULT REFERENCE DATABASE
-     Used only when parameter itself does not contain
-     min/max/range/reference information.
      ========================================================= */
 
   function getDefaultReference(parameterName) {
@@ -122,9 +125,7 @@ export default function ResultsPage() {
     const gender = getPatientGender();
     const age = getPatientAge();
 
-    /* -------------------------
-       CBC
-       ------------------------- */
+    /* ================= CBC ================= */
 
     if (
       name === "hemoglobin" ||
@@ -286,10 +287,7 @@ export default function ResultsPage() {
       };
     }
 
-    if (
-      name === "rdw cv" ||
-      name === "rdw-cv"
-    ) {
+    if (name === "rdw cv") {
       return {
         min: 11.5,
         max: 14.5,
@@ -337,9 +335,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* -------------------------
-       ESR
-       ------------------------- */
+    /* ================= ESR ================= */
 
     if (
       name === "esr" ||
@@ -362,9 +358,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* -------------------------
-       BLOOD SUGAR
-       ------------------------- */
+    /* ================= BLOOD SUGAR ================= */
 
     if (
       name.includes("fasting blood sugar") ||
@@ -405,9 +399,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* -------------------------
-       KFT
-       ------------------------- */
+    /* ================= KFT ================= */
 
     if (
       name === "blood urea" ||
@@ -487,9 +479,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* -------------------------
-       LFT
-       ------------------------- */
+    /* ================= LFT ================= */
 
     if (name === "total bilirubin") {
       return {
@@ -572,9 +562,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* -------------------------
-       LIPID PROFILE
-       ------------------------- */
+    /* ================= LIPID ================= */
 
     if (name.includes("total cholesterol")) {
       return {
@@ -621,9 +609,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* -------------------------
-       HBA1C
-       ------------------------- */
+    /* ================= HBA1C ================= */
 
     if (
       name === "hba1c" ||
@@ -637,9 +623,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* -------------------------
-       THYROID
-       ------------------------- */
+    /* ================= THYROID ================= */
 
     if (name === "t3") {
       return {
@@ -673,8 +657,6 @@ export default function ResultsPage() {
 
   /* =========================================================
      RESOLVE PARAMETER
-     IMPORTANT:
-     Explicit data from tests/page.js gets priority.
      ========================================================= */
 
   function resolveParameter(parameter) {
@@ -686,7 +668,6 @@ export default function ResultsPage() {
     );
 
     let min = parameter.min;
-
     let max = parameter.max;
 
     let unit =
@@ -800,7 +781,7 @@ export default function ResultsPage() {
   }
 
   /* =========================================================
-     FLAG CALCULATION
+     FLAG
      ========================================================= */
 
   function getFlag(value, parameter) {
@@ -812,7 +793,8 @@ export default function ResultsPage() {
       return "";
     }
 
-    const resolved = resolveParameter(parameter);
+    const resolved =
+      resolveParameter(parameter);
 
     const numericValue = Number(
       String(value).replace(/,/g, "")
@@ -862,7 +844,7 @@ export default function ResultsPage() {
   }
 
   /* =========================================================
-     TEXT / SELECT PARAMETERS
+     OPTIONS
      ========================================================= */
 
   function getOptions(parameter) {
@@ -928,27 +910,7 @@ export default function ResultsPage() {
   }
 
   /* =========================================================
-     REFERENCE RANGE
-     ========================================================= */
-
-  function getReference(parameter) {
-    const resolved = resolveParameter(parameter);
-
-    return resolved.range || "-";
-  }
-
-  /* =========================================================
-     UNIT
-     ========================================================= */
-
-  function getUnit(parameter) {
-    const resolved = resolveParameter(parameter);
-
-    return resolved.unit || "-";
-  }
-
-  /* =========================================================
-     SAVE
+     SAVE RESULTS
      ========================================================= */
 
   function saveResults(showAlert = true) {
@@ -982,7 +944,7 @@ export default function ResultsPage() {
   }
 
   /* =========================================================
-     CHECK MISSING RESULTS
+     MISSING RESULTS
      ========================================================= */
 
   function getMissingResults() {
@@ -990,15 +952,18 @@ export default function ResultsPage() {
 
     selectedTests.forEach((test) => {
       const parameters =
-        test.tests || test.parameters || [];
+        test.tests ||
+        test.parameters ||
+        [];
 
       parameters.forEach(
         (parameter, index) => {
-          const key = getParameterKey(
-            test.id,
-            parameter,
-            index
-          );
+          const key =
+            getParameterKey(
+              test.id,
+              parameter,
+              index
+            );
 
           const value = results[key];
 
@@ -1038,7 +1003,8 @@ export default function ResultsPage() {
       return;
     }
 
-    const missing = getMissingResults();
+    const missing =
+      getMissingResults();
 
     if (missing.length > 0) {
       const preview = missing
@@ -1056,9 +1022,10 @@ export default function ResultsPage() {
             } result blank hain.`
           : "";
 
-      const proceed = window.confirm(
-        `${missing.length} result blank hain:\n\n${preview}${more}\n\nKya phir bhi Final Report banana hai?`
-      );
+      const proceed =
+        window.confirm(
+          `${missing.length} result blank hain:\n\n${preview}${more}\n\nKya phir bhi Final Report banana hai?`
+        );
 
       if (!proceed) {
         return;
@@ -1077,12 +1044,15 @@ export default function ResultsPage() {
   function nextTest() {
     const index =
       selectedTests.findIndex(
-        (test) => test.id === activeTest
+        (test) =>
+          String(test.id) ===
+          String(activeTest)
       );
 
     if (
       index >= 0 &&
-      index < selectedTests.length - 1
+      index <
+        selectedTests.length - 1
     ) {
       setActiveTest(
         selectedTests[index + 1].id
@@ -1104,7 +1074,9 @@ export default function ResultsPage() {
   function previousTest() {
     const index =
       selectedTests.findIndex(
-        (test) => test.id === activeTest
+        (test) =>
+          String(test.id) ===
+          String(activeTest)
       );
 
     if (index > 0) {
@@ -1157,9 +1129,11 @@ export default function ResultsPage() {
                 results[key];
 
               return (
-                value !== undefined &&
+                value !==
+                  undefined &&
                 value !== null &&
-                String(value).trim() !== ""
+                String(value).trim() !==
+                  ""
               );
             }
           ).length;
@@ -1178,311 +1152,317 @@ export default function ResultsPage() {
         )
       : 0;
 
+  const currentParameters =
+    currentTest
+      ? currentTest.tests ||
+        currentTest.parameters ||
+        []
+      : [];
+
   /* =========================================================
      UI
      ========================================================= */
 
   return (
-    <div className="labApp">
-      {/* SIDEBAR */}
+    <>
+      <div className="labApp resultPageApp">
 
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brandLogo">
-            N+
-          </div>
+        {/* =================================================
+            SIDEBAR
+            ================================================= */}
 
-          <div>
-            <h2>NIDAN</h2>
-            <p>PATHOLOGY LAB</p>
-          </div>
-        </div>
+        <aside className="sidebar">
+          <div className="brand">
+            <div className="brandLogo">
+              N+
+            </div>
 
-        <div className="menuLabel">
-          MAIN MENU
-        </div>
-
-        <button
-          className="menu"
-          onClick={() =>
-            router.push("/")
-          }
-        >
-          <span>⌂</span>
-          Dashboard
-        </button>
-
-        <button
-          className="menu"
-          onClick={() =>
-            router.push("/patients")
-          }
-        >
-          <span>♙</span>
-          Patients
-        </button>
-
-        <button
-          className="menu"
-          onClick={() =>
-            router.push("/tests")
-          }
-        >
-          <span>🧪</span>
-          Test Selection
-        </button>
-
-        <button
-          className="menu"
-          onClick={() =>
-            router.push("/billing")
-          }
-        >
-          <span>₹</span>
-          Billing
-        </button>
-
-        <button className="menu active">
-          <span>✎</span>
-          Result Entry
-        </button>
-
-        <button
-          className="menu"
-          onClick={() =>
-            router.push("/reports")
-          }
-        >
-          <span>▤</span>
-          Reports
-        </button>
-      </aside>
-
-      {/* MAIN */}
-
-      <main className="mainArea">
-        <header className="topbar">
-          <div>
-            <h3>Result Entry</h3>
-
-            <p>
-              Enter laboratory
-              investigation results
-            </p>
-          </div>
-
-          <div className="topRight">
-            <span className="statusDot" />
-            NIDAN Lab System
-          </div>
-        </header>
-
-        <div className="content">
-          {/* PAGE HEADING */}
-
-          <div className="pageHeading">
             <div>
-              <div className="smallTitle">
-                STEP 4 OF 5
-              </div>
+              <h2>NIDAN</h2>
+              <p>PATHOLOGY LAB</p>
+            </div>
+          </div>
 
-              <h1>
-                Laboratory Results
-              </h1>
+          <div className="menuLabel">
+            MAIN MENU
+          </div>
+
+          <button
+            className="menu"
+            onClick={() =>
+              router.push("/")
+            }
+          >
+            <span>⌂</span>
+            Dashboard
+          </button>
+
+          <button
+            className="menu"
+            onClick={() =>
+              router.push(
+                "/patients"
+              )
+            }
+          >
+            <span>♙</span>
+            Patients
+          </button>
+
+          <button
+            className="menu"
+            onClick={() =>
+              router.push("/tests")
+            }
+          >
+            <span>🧪</span>
+            Test Selection
+          </button>
+
+          <button
+            className="menu"
+            onClick={() =>
+              router.push(
+                "/billing"
+              )
+            }
+          >
+            <span>₹</span>
+            Billing
+          </button>
+
+          <button className="menu active">
+            <span>✎</span>
+            Result Entry
+          </button>
+
+          <button
+            className="menu"
+            onClick={() =>
+              router.push(
+                "/reports"
+              )
+            }
+          >
+            <span>▤</span>
+            Reports
+          </button>
+        </aside>
+
+        {/* =================================================
+            MAIN
+            ================================================= */}
+
+        <main className="mainArea">
+
+          <header className="topbar">
+            <div>
+              <h3>Result Entry</h3>
 
               <p>
-                Selected tests ke results
-                enter karein.
+                Enter laboratory
+                investigation results
               </p>
             </div>
 
-            <button
-              className="backBtn"
-              onClick={() =>
-                router.push("/billing")
-              }
-            >
-              ← Back to Billing
-            </button>
-          </div>
+            <div className="topRight">
+              <span className="statusDot" />
+              NIDAN Lab System
+            </div>
+          </header>
 
-          {/* STEPS */}
+          <div className="content">
 
-          <div className="steps">
-            <div className="step">
-              <span>✓</span>
+            {/* PAGE HEADING */}
 
+            <div className="pageHeading">
               <div>
-                Patient
-                <small>
-                  Registered
-                </small>
+                <div className="smallTitle">
+                  STEP 4 OF 5
+                </div>
+
+                <h1>
+                  Laboratory Results
+                </h1>
+
+                <p>
+                  Selected tests ke
+                  results enter karein.
+                </p>
+              </div>
+
+              <button
+                className="backBtn"
+                onClick={() =>
+                  router.push(
+                    "/billing"
+                  )
+                }
+              >
+                ← Back to Billing
+              </button>
+            </div>
+
+            {/* STEPS */}
+
+            <div className="steps">
+              <div className="step">
+                <span>✓</span>
+                <div>
+                  Patient
+                  <small>
+                    Registered
+                  </small>
+                </div>
+              </div>
+
+              <div className="step">
+                <span>✓</span>
+                <div>
+                  Tests
+                  <small>
+                    Selected
+                  </small>
+                </div>
+              </div>
+
+              <div className="step">
+                <span>✓</span>
+                <div>
+                  Billing
+                  <small>
+                    Completed
+                  </small>
+                </div>
+              </div>
+
+              <div className="step activeStep">
+                <span>4</span>
+                <div>
+                  Results
+                  <small>
+                    Enter Results
+                  </small>
+                </div>
+              </div>
+
+              <div className="step">
+                <span>5</span>
+                <div>
+                  Report
+                  <small>
+                    Print / PDF
+                  </small>
+                </div>
               </div>
             </div>
 
-            <div className="step">
-              <span>✓</span>
+            {/* PATIENT CARD */}
 
+            <div className="resultPatientCard">
               <div>
-                Tests
                 <small>
-                  Selected
+                  PATIENT ID
                 </small>
-              </div>
-            </div>
 
-            <div className="step">
-              <span>✓</span>
-
-              <div>
-                Billing
-                <small>
-                  Completed
-                </small>
-              </div>
-            </div>
-
-            <div className="step activeStep">
-              <span>4</span>
-
-              <div>
-                Results
-                <small>
-                  Enter Results
-                </small>
-              </div>
-            </div>
-
-            <div className="step">
-              <span>5</span>
-
-              <div>
-                Report
-                <small>
-                  Print / PDF
-                </small>
-              </div>
-            </div>
-          </div>
-
-          {/* PATIENT */}
-
-          <div className="resultPatientCard">
-            <div>
-              <small>
-                PATIENT ID
-              </small>
-
-              <strong>
-                {patient.patientId ||
-                  patient.id ||
-                  "-"}
-              </strong>
-            </div>
-
-            <div>
-              <small>
-                PATIENT NAME
-              </small>
-
-              <strong>
-                {patient.name || "-"}
-              </strong>
-            </div>
-
-            <div>
-              <small>
-                AGE / SEX
-              </small>
-
-              <strong>
-                {patient.age || "-"} /{" "}
-                {patient.gender ||
-                  patient.sex ||
-                  "-"}
-              </strong>
-            </div>
-
-            <div>
-              <small>
-                REF. DOCTOR
-              </small>
-
-              <strong>
-                {patient.doctor ||
-                  patient.refDoctor ||
-                  "-"}
-              </strong>
-            </div>
-          </div>
-
-          {/* PROGRESS */}
-
-          <div className="resultProgressCard">
-            <div>
-              <div>
                 <strong>
-                  Result Progress
+                  {patient.patientId ||
+                    patient.id ||
+                    "-"}
                 </strong>
-
-                <small>
-                  {completedResults} of{" "}
-                  {totalParameters} parameters
-                  entered
-                </small>
               </div>
 
-              <strong className="progressNumber">
-                {progress}%
-              </strong>
+              <div>
+                <small>
+                  PATIENT NAME
+                </small>
+
+                <strong>
+                  {patient.name ||
+                    "-"}
+                </strong>
+              </div>
+
+              <div>
+                <small>
+                  AGE / SEX
+                </small>
+
+                <strong>
+                  {patient.age ||
+                    "-"}{" "}
+                  /{" "}
+                  {patient.gender ||
+                    patient.sex ||
+                    "-"}
+                </strong>
+              </div>
+
+              <div>
+                <small>
+                  REF. DOCTOR
+                </small>
+
+                <strong>
+                  {patient.doctor ||
+                    patient.refDoctor ||
+                    "-"}
+                </strong>
+              </div>
             </div>
 
-            <div className="progressTrack">
-              <div
-                className="progressFill"
-                style={{
-                  width: `${progress}%`,
-                }}
-              />
+            {/* PROGRESS */}
+
+            <div className="resultProgressCard">
+              <div className="progressTop">
+                <div>
+                  <strong>
+                    Result Progress
+                  </strong>
+
+                  <small>
+                    {completedResults}{" "}
+                    of{" "}
+                    {totalParameters}{" "}
+                    parameters entered
+                  </small>
+                </div>
+
+                <strong className="progressNumber">
+                  {progress}%
+                </strong>
+              </div>
+
+              <div className="progressTrack">
+                <div
+                  className="progressFill"
+                  style={{
+                    width: `${progress}%`,
+                  }}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* SAVE MESSAGE */}
+            {/* SAVE MESSAGE */}
 
-          {savedMessage && (
-            <div
-              style={{
-                marginBottom: "14px",
-                padding: "12px 16px",
-                background: "#ecfdf5",
-                border:
-                  "1px solid #a7f3d0",
-                borderRadius: "10px",
-                color: "#047857",
-                fontWeight: "600",
-              }}
-            >
-              {savedMessage}
-            </div>
-          )}
+            {savedMessage && (
+              <div className="savedMessage">
+                {savedMessage}
+              </div>
+            )}
 
-          {/* WORKSPACE */}
+            {/* =================================================
+                SELECTED TESTS
+                MOBILE FRIENDLY
+                ================================================= */}
 
-          <div className="resultWorkspace">
-            {/* TEST NAVIGATION */}
-
-            <aside className="testResultNav">
-              <div className="resultNavHeading">
+            <div className="selectedTestsMobile">
+              <div className="mobileSectionTitle">
                 Selected Tests
               </div>
 
-              {selectedTests.length ===
-              0 ? (
-                <div className="noSelectedTests">
-                  No tests selected.
-                </div>
-              ) : (
-                selectedTests.map(
+              <div className="mobileTestScroller">
+                {selectedTests.map(
                   (test, index) => {
                     const parameters =
                       test.tests ||
@@ -1493,10 +1473,14 @@ export default function ResultsPage() {
                       <button
                         key={test.id}
                         className={
-                          activeTest ===
-                          test.id
-                            ? "resultTestButton activeResultTest"
-                            : "resultTestButton"
+                          String(
+                            activeTest
+                          ) ===
+                          String(
+                            test.id
+                          )
+                            ? "mobileTestButton active"
+                            : "mobileTestButton"
                         }
                         onClick={() =>
                           setActiveTest(
@@ -1504,363 +1488,1235 @@ export default function ResultsPage() {
                           )
                         }
                       >
-                        <span className="testNumber">
+                        <span>
                           {index + 1}
                         </span>
 
-                        <div>
-                          <strong>
-                            {test.short ||
-                              test.name}
-                          </strong>
+                        <strong>
+                          {test.short ||
+                            test.name}
+                        </strong>
 
-                          <small>
-                            {
-                              parameters.length
-                            }{" "}
-                            parameters
-                          </small>
-                        </div>
+                        <small>
+                          {
+                            parameters.length
+                          }{" "}
+                          parameters
+                        </small>
                       </button>
                     );
                   }
-                )
-              )}
-            </aside>
-
-            {/* RESULT CARD */}
-
-            <section className="resultEntryCard">
-              {!currentTest ? (
-                <div className="emptyResultPage">
-                  <div>🧪</div>
-
-                  <h2>
-                    No Test Selected
-                  </h2>
-
-                  <p>
-                    Test Selection page se
-                    investigation select
-                    karein.
-                  </p>
-
-                  <button
-                    className="continueBtn"
-                    onClick={() =>
-                      router.push(
-                        "/tests"
-                      )
-                    }
-                  >
-                    Select Tests
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {/* TEST HEADER */}
-
-                  <div className="resultCardHeader">
-                    <div>
-                      <div className="smallTitle">
-                        INVESTIGATION
-                      </div>
-
-                      <h2>
-                        {currentTest.name}
-                      </h2>
-
-                      <p>
-                        Enter patient
-                        laboratory results.
-                      </p>
-                    </div>
-
-                    <div className="parameterBadge">
-                      {(
-                        currentTest.tests ||
-                        currentTest.parameters ||
-                        []
-                      ).length}{" "}
-                      Parameters
-                    </div>
-                  </div>
-
-                  {/* TABLE */}
-
-                  <div className="resultTableWrapper">
-                    <table className="resultTable">
-                      <thead>
-                        <tr>
-                          <th>
-                            Investigation
-                          </th>
-
-                          <th>
-                            Result
-                          </th>
-
-                          <th>
-                            Unit
-                          </th>
-
-                          <th>
-                            Reference Range
-                          </th>
-
-                          <th>
-                            Flag
-                          </th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {(
-                          currentTest.tests ||
-                          currentTest.parameters ||
-                          []
-                        ).map(
-                          (
-                            parameter,
-                            index
-                          ) => {
-                            const key =
-                              getParameterKey(
-                                currentTest.id,
-                                parameter,
-                                index
-                              );
-
-                            const value =
-                              results[key] ??
-                              "";
-
-                            const resolved =
-                              resolveParameter(
-                                parameter
-                              );
-
-                            const flag =
-                              getFlag(
-                                value,
-                                parameter
-                              );
-
-                            const options =
-                              getOptions(
-                                parameter
-                              );
-
-                            const parameterName =
-                              parameter.name ||
-                              parameter.testName ||
-                              parameter.investigation ||
-                              "Investigation";
-
-                            return (
-                              <tr key={key}>
-                                <td>
-                                  <strong>
-                                    {
-                                      parameterName
-                                    }
-                                  </strong>
-                                </td>
-
-                                <td>
-                                  {options.length >
-                                  0 ? (
-                                    <select
-                                      className="resultInput"
-                                      value={
-                                        value
-                                      }
-                                      onChange={(
-                                        e
-                                      ) =>
-                                        updateResult(
-                                          currentTest.id,
-                                          parameter,
-                                          index,
-                                          e
-                                            .target
-                                            .value
-                                        )
-                                      }
-                                    >
-                                      <option value="">
-                                        Select
-                                      </option>
-
-                                      {options.map(
-                                        (
-                                          option
-                                        ) => (
-                                          <option
-                                            key={
-                                              option
-                                            }
-                                            value={
-                                              option
-                                            }
-                                          >
-                                            {
-                                              option
-                                            }
-                                          </option>
-                                        )
-                                      )}
-                                    </select>
-                                  ) : (
-                                    <input
-                                      className="resultInput"
-                                      type="text"
-                                      inputMode={
-                                        resolved.min !==
-                                          undefined ||
-                                        resolved.max !==
-                                          undefined
-                                          ? "decimal"
-                                          : "text"
-                                      }
-                                      placeholder="Enter result"
-                                      value={
-                                        value
-                                      }
-                                      onChange={(
-                                        e
-                                      ) =>
-                                        updateResult(
-                                          currentTest.id,
-                                          parameter,
-                                          index,
-                                          e
-                                            .target
-                                            .value
-                                        )
-                                      }
-                                    />
-                                  )}
-                                </td>
-
-                                <td>
-                                  {getUnit(
-                                    parameter
-                                  )}
-                                </td>
-
-                                <td>
-                                  {getReference(
-                                    parameter
-                                  )}
-                                </td>
-
-                                <td>
-                                  {flag && (
-                                    <span
-                                      className={`resultFlag ${
-                                        flag ===
-                                        "HIGH"
-                                          ? "flagHigh"
-                                          : flag ===
-                                            "LOW"
-                                          ? "flagLow"
-                                          : "flagNormal"
-                                      }`}
-                                    >
-                                      {
-                                        flag
-                                      }
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          }
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* FOOTER */}
-
-                  <div className="resultFooter">
-                    <button
-                      className="secondaryResultBtn"
-                      onClick={
-                        previousTest
-                      }
-                      disabled={
-                        selectedTests.findIndex(
-                          (test) =>
-                            test.id ===
-                            activeTest
-                        ) === 0
-                      }
-                    >
-                      ← Previous Test
-                    </button>
-
-                    <div className="resultFooterRight">
-                      <button
-                        className="saveResultBtn"
-                        onClick={() =>
-                          saveResults(
-                            true
-                          )
-                        }
-                      >
-                        Save Results
-                      </button>
-
-                      <button
-                        className="nextResultBtn"
-                        onClick={
-                          nextTest
-                        }
-                      >
-                        {selectedTests.findIndex(
-                          (test) =>
-                            test.id ===
-                            activeTest
-                        ) ===
-                        selectedTests.length -
-                          1
-                          ? "Final Report →"
-                          : "Next Test →"}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </section>
-          </div>
-
-          {/* BOTTOM */}
-
-          <div className="resultBottomActions">
-            <div>
-              <strong>
-                Results ready?
-              </strong>
-
-              <p>
-                Save results and create
-                final laboratory report.
-              </p>
+                )}
+              </div>
             </div>
 
-            <button
-              className="generateReportBtn"
-              onClick={
-                continueReport
-              }
-            >
-              Generate Final Report →
-            </button>
+            {/* =================================================
+                WORKSPACE
+                ================================================= */}
+
+            <div className="resultWorkspace">
+
+              {/* DESKTOP TEST NAV */}
+
+              <aside className="testResultNav">
+                <div className="resultNavHeading">
+                  Selected Tests
+                </div>
+
+                {selectedTests.length ===
+                0 ? (
+                  <div className="noSelectedTests">
+                    No tests selected.
+                  </div>
+                ) : (
+                  selectedTests.map(
+                    (
+                      test,
+                      index
+                    ) => {
+                      const parameters =
+                        test.tests ||
+                        test.parameters ||
+                        [];
+
+                      return (
+                        <button
+                          key={
+                            test.id
+                          }
+                          className={
+                            String(
+                              activeTest
+                            ) ===
+                            String(
+                              test.id
+                            )
+                              ? "resultTestButton activeResultTest"
+                              : "resultTestButton"
+                          }
+                          onClick={() =>
+                            setActiveTest(
+                              test.id
+                            )
+                          }
+                        >
+                          <span className="testNumber">
+                            {index +
+                              1}
+                          </span>
+
+                          <div>
+                            <strong>
+                              {test.short ||
+                                test.name}
+                            </strong>
+
+                            <small>
+                              {
+                                parameters.length
+                              }{" "}
+                              parameters
+                            </small>
+                          </div>
+                        </button>
+                      );
+                    }
+                  )
+                )}
+              </aside>
+
+              {/* RESULT CARD */}
+
+              <section className="resultEntryCard">
+
+                {!currentTest ? (
+                  <div className="emptyResultPage">
+                    <div>🧪</div>
+
+                    <h2>
+                      No Test Selected
+                    </h2>
+
+                    <p>
+                      Test Selection page
+                      se investigation
+                      select karein.
+                    </p>
+
+                    <button
+                      className="continueBtn"
+                      onClick={() =>
+                        router.push(
+                          "/tests"
+                        )
+                      }
+                    >
+                      Select Tests
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* TEST HEADER */}
+
+                    <div className="resultCardHeader">
+                      <div>
+                        <div className="smallTitle">
+                          INVESTIGATION
+                        </div>
+
+                        <h2>
+                          {currentTest.name ||
+                            currentTest.short}
+                        </h2>
+
+                        <p>
+                          Enter patient
+                          laboratory
+                          results.
+                        </p>
+                      </div>
+
+                      <div className="parameterBadge">
+                        {
+                          currentParameters.length
+                        }{" "}
+                        Parameters
+                      </div>
+                    </div>
+
+                    {/* =================================================
+                        DESKTOP TABLE
+                        ================================================= */}
+
+                    <div className="resultTableWrapper desktopResultTable">
+                      <table className="resultTable">
+                        <thead>
+                          <tr>
+                            <th>
+                              Investigation
+                            </th>
+
+                            <th>
+                              Result
+                            </th>
+
+                            <th>
+                              Unit
+                            </th>
+
+                            <th>
+                              Reference Range
+                            </th>
+
+                            <th>
+                              Flag
+                            </th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {currentParameters.map(
+                            (
+                              parameter,
+                              index
+                            ) => {
+                              const key =
+                                getParameterKey(
+                                  currentTest.id,
+                                  parameter,
+                                  index
+                                );
+
+                              const value =
+                                results[key] ??
+                                "";
+
+                              const resolved =
+                                resolveParameter(
+                                  parameter
+                                );
+
+                              const flag =
+                                getFlag(
+                                  value,
+                                  parameter
+                                );
+
+                              const options =
+                                getOptions(
+                                  parameter
+                                );
+
+                              const parameterName =
+                                parameter.name ||
+                                parameter.testName ||
+                                parameter.investigation ||
+                                "Investigation";
+
+                              return (
+                                <tr
+                                  key={
+                                    key
+                                  }
+                                >
+                                  <td>
+                                    <strong>
+                                      {
+                                        parameterName
+                                      }
+                                    </strong>
+                                  </td>
+
+                                  <td>
+                                    {options.length >
+                                    0 ? (
+                                      <select
+                                        className="resultInput"
+                                        value={
+                                          value
+                                        }
+                                        onChange={(
+                                          e
+                                        ) =>
+                                          updateResult(
+                                            currentTest.id,
+                                            parameter,
+                                            index,
+                                            e
+                                              .target
+                                              .value
+                                          )
+                                        }
+                                      >
+                                        <option value="">
+                                          Select
+                                        </option>
+
+                                        {options.map(
+                                          (
+                                            option
+                                          ) => (
+                                            <option
+                                              key={
+                                                option
+                                              }
+                                              value={
+                                                option
+                                              }
+                                            >
+                                              {
+                                                option
+                                              }
+                                            </option>
+                                          )
+                                        )}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        className="resultInput"
+                                        type="text"
+                                        inputMode={
+                                          resolved.min !==
+                                            undefined ||
+                                          resolved.max !==
+                                            undefined
+                                            ? "decimal"
+                                            : "text"
+                                        }
+                                        placeholder="Enter result"
+                                        value={
+                                          value
+                                        }
+                                        onChange={(
+                                          e
+                                        ) =>
+                                          updateResult(
+                                            currentTest.id,
+                                            parameter,
+                                            index,
+                                            e
+                                              .target
+                                              .value
+                                          )
+                                        }
+                                      />
+                                    )}
+                                  </td>
+
+                                  <td>
+                                    {
+                                      resolved.unit ||
+                                      "-"
+                                    }
+                                  </td>
+
+                                  <td>
+                                    {
+                                      resolved.range ||
+                                      "-"
+                                    }
+                                  </td>
+
+                                  <td>
+                                    {flag && (
+                                      <span
+                                        className={`resultFlag ${
+                                          flag ===
+                                          "HIGH"
+                                            ? "flagHigh"
+                                            : flag ===
+                                              "LOW"
+                                            ? "flagLow"
+                                            : "flagNormal"
+                                        }`}
+                                      >
+                                        {
+                                          flag
+                                        }
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            }
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* =================================================
+                        MOBILE PARAMETER CARDS
+                        ================================================= */}
+
+                    <div className="mobileParameterList">
+
+                      {currentParameters.map(
+                        (
+                          parameter,
+                          index
+                        ) => {
+                          const key =
+                            getParameterKey(
+                              currentTest.id,
+                              parameter,
+                              index
+                            );
+
+                          const value =
+                            results[key] ??
+                            "";
+
+                          const resolved =
+                            resolveParameter(
+                              parameter
+                            );
+
+                          const flag =
+                            getFlag(
+                              value,
+                              parameter
+                            );
+
+                          const options =
+                            getOptions(
+                              parameter
+                            );
+
+                          const parameterName =
+                            parameter.name ||
+                            parameter.testName ||
+                            parameter.investigation ||
+                            "Investigation";
+
+                          return (
+                            <div
+                              className="mobileParameterCard"
+                              key={
+                                key
+                              }
+                            >
+
+                              {/* PARAMETER NAME */}
+
+                              <div className="mobileParameterName">
+                                <span>
+                                  {index +
+                                    1}
+                                </span>
+
+                                <strong>
+                                  {
+                                    parameterName
+                                  }
+                                </strong>
+                              </div>
+
+                              {/* RESULT */}
+
+                              <div className="mobileField">
+                                <label>
+                                  Result
+                                </label>
+
+                                {options.length >
+                                0 ? (
+                                  <select
+                                    className="mobileResultInput"
+                                    value={
+                                      value
+                                    }
+                                    onChange={(
+                                      e
+                                    ) =>
+                                      updateResult(
+                                        currentTest.id,
+                                        parameter,
+                                        index,
+                                        e
+                                          .target
+                                          .value
+                                      )
+                                    }
+                                  >
+                                    <option value="">
+                                      Select result
+                                    </option>
+
+                                    {options.map(
+                                      (
+                                        option
+                                      ) => (
+                                        <option
+                                          key={
+                                            option
+                                          }
+                                          value={
+                                            option
+                                          }
+                                        >
+                                          {
+                                            option
+                                          }
+                                        </option>
+                                      )
+                                    )}
+                                  </select>
+                                ) : (
+                                  <input
+                                    className="mobileResultInput"
+                                    type="text"
+                                    inputMode={
+                                      resolved.min !==
+                                        undefined ||
+                                      resolved.max !==
+                                        undefined
+                                        ? "decimal"
+                                        : "text"
+                                    }
+                                    placeholder="Enter result"
+                                    value={
+                                      value
+                                    }
+                                    onChange={(
+                                      e
+                                    ) =>
+                                      updateResult(
+                                        currentTest.id,
+                                        parameter,
+                                        index,
+                                        e
+                                          .target
+                                          .value
+                                      )
+                                    }
+                                  />
+                                )}
+                              </div>
+
+                              {/* UNIT + RANGE */}
+
+                              <div className="mobileInfoGrid">
+
+                                <div>
+                                  <small>
+                                    Unit
+                                  </small>
+
+                                  <strong>
+                                    {
+                                      resolved.unit ||
+                                      "-"
+                                    }
+                                  </strong>
+                                </div>
+
+                                <div>
+                                  <small>
+                                    Reference Range
+                                  </small>
+
+                                  <strong>
+                                    {
+                                      resolved.range ||
+                                      "-"
+                                    }
+                                  </strong>
+                                </div>
+
+                                <div>
+                                  <small>
+                                    Flag
+                                  </small>
+
+                                  <strong>
+                                    {flag ? (
+                                      <span
+                                        className={`resultFlag ${
+                                          flag ===
+                                          "HIGH"
+                                            ? "flagHigh"
+                                            : flag ===
+                                              "LOW"
+                                            ? "flagLow"
+                                            : "flagNormal"
+                                        }`}
+                                      >
+                                        {
+                                          flag
+                                        }
+                                      </span>
+                                    ) : (
+                                      "-"
+                                    )}
+                                  </strong>
+                                </div>
+
+                              </div>
+
+                            </div>
+                          );
+                        }
+                      )}
+
+                    </div>
+
+                    {/* FOOTER */}
+
+                    <div className="resultFooter">
+
+                      <button
+                        className="secondaryResultBtn"
+                        onClick={
+                          previousTest
+                        }
+                        disabled={
+                          selectedTests.findIndex(
+                            (test) =>
+                              String(
+                                test.id
+                              ) ===
+                              String(
+                                activeTest
+                              )
+                          ) === 0
+                        }
+                      >
+                        ← Previous Test
+                      </button>
+
+                      <div className="resultFooterRight">
+
+                        <button
+                          className="saveResultBtn"
+                          onClick={() =>
+                            saveResults(
+                              true
+                            )
+                          }
+                        >
+                          Save Results
+                        </button>
+
+                        <button
+                          className="nextResultBtn"
+                          onClick={
+                            nextTest
+                          }
+                        >
+                          {selectedTests.findIndex(
+                            (test) =>
+                              String(
+                                test.id
+                              ) ===
+                              String(
+                                activeTest
+                              )
+                          ) ===
+                          selectedTests.length -
+                            1
+                            ? "Final Report →"
+                            : "Next Test →"}
+                        </button>
+
+                      </div>
+                    </div>
+                  </>
+                )}
+
+              </section>
+            </div>
+
+            {/* BOTTOM */}
+
+            <div className="resultBottomActions">
+              <div>
+                <strong>
+                  Results ready?
+                </strong>
+
+                <p>
+                  Save results and create
+                  final laboratory report.
+                </p>
+              </div>
+
+              <button
+                className="generateReportBtn"
+                onClick={
+                  continueReport
+                }
+              >
+                Generate Final Report →
+              </button>
+            </div>
+
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+
+      {/* =========================================================
+          RESPONSIVE CSS
+          ========================================================= */}
+
+      <style jsx global>{`
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          overflow-x: hidden;
+        }
+
+        /* ==========================================
+           MAIN RESULT WORKSPACE
+           ========================================== */
+
+        .resultWorkspace {
+          width: 100%;
+          min-width: 0;
+          display: grid;
+          grid-template-columns: 220px minmax(0, 1fr);
+          gap: 18px;
+          align-items: start;
+        }
+
+        .resultEntryCard {
+          min-width: 0;
+          width: 100%;
+          overflow: hidden;
+        }
+
+        .resultTableWrapper {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .resultTable {
+          width: 100%;
+          min-width: 760px;
+          border-collapse: collapse;
+          table-layout: fixed;
+        }
+
+        .resultTable th,
+        .resultTable td {
+          padding: 12px 10px;
+          vertical-align: middle;
+          word-break: break-word;
+        }
+
+        .resultTable th:nth-child(1),
+        .resultTable td:nth-child(1) {
+          width: 27%;
+        }
+
+        .resultTable th:nth-child(2),
+        .resultTable td:nth-child(2) {
+          width: 21%;
+        }
+
+        .resultTable th:nth-child(3),
+        .resultTable td:nth-child(3) {
+          width: 15%;
+        }
+
+        .resultTable th:nth-child(4),
+        .resultTable td:nth-child(4) {
+          width: 24%;
+        }
+
+        .resultTable th:nth-child(5),
+        .resultTable td:nth-child(5) {
+          width: 13%;
+        }
+
+        .resultInput {
+          width: 100%;
+          min-width: 120px;
+          min-height: 42px;
+          padding: 9px 10px;
+          border: 1px solid #d6dde5;
+          border-radius: 8px;
+          background: #ffffff;
+          font-size: 14px;
+          outline: none;
+        }
+
+        .resultInput:focus {
+          border-color: #0f9d9a;
+          box-shadow: 0 0 0 3px rgba(15,157,154,.10);
+        }
+
+        /* ==========================================
+           PATIENT CARD
+           ========================================== */
+
+        .resultPatientCard {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .resultProgressCard {
+          width: 100%;
+        }
+
+        .progressTop {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+        }
+
+        .savedMessage {
+          margin-bottom: 14px;
+          padding: 12px 16px;
+          background: #ecfdf5;
+          border: 1px solid #a7f3d0;
+          border-radius: 10px;
+          color: #047857;
+          font-weight: 600;
+        }
+
+        /* ==========================================
+           MOBILE SELECTED TESTS
+           ========================================== */
+
+        .selectedTestsMobile {
+          display: none;
+        }
+
+        /* ==========================================
+           MOBILE PARAMETER LIST
+           ========================================== */
+
+        .mobileParameterList {
+          display: none;
+        }
+
+        /* ==========================================
+           MOBILE
+           ========================================== */
+
+        @media (max-width: 900px) {
+
+          .resultWorkspace {
+            grid-template-columns: 1fr;
+          }
+
+          .testResultNav {
+            display: none !important;
+          }
+
+          .selectedTestsMobile {
+            display: block;
+            width: 100%;
+            margin-bottom: 14px;
+            padding: 14px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+          }
+
+          .mobileSectionTitle {
+            font-size: 14px;
+            font-weight: 800;
+            color: #172033;
+            margin-bottom: 10px;
+          }
+
+          .mobileTestScroller {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .mobileTestButton {
+            flex: 0 0 auto;
+            min-width: 125px;
+            padding: 10px 12px;
+            border: 1px solid #dce4e8;
+            background: #ffffff;
+            border-radius: 10px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+          }
+
+          .mobileTestButton span {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: #edf4f4;
+            color: #087f7d;
+            font-weight: 800;
+            font-size: 12px;
+          }
+
+          .mobileTestButton strong {
+            font-size: 13px;
+            color: #182233;
+          }
+
+          .mobileTestButton small {
+            color: #718096;
+            font-size: 11px;
+          }
+
+          .mobileTestButton.active {
+            border-color: #0f9d9a;
+            background: #effcfb;
+          }
+
+          /* Hide desktop table on mobile */
+
+          .desktopResultTable {
+            display: none !important;
+          }
+
+          /* Show parameter cards */
+
+          .mobileParameterList {
+            display: block;
+            width: 100%;
+            padding: 12px;
+          }
+
+          .mobileParameterCard {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 12px;
+            border: 1px solid #e1e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(15,23,42,.04);
+          }
+
+          .mobileParameterName {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin-bottom: 13px;
+          }
+
+          .mobileParameterName span {
+            flex: 0 0 auto;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: #e9f8f7;
+            color: #087f7d;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .mobileParameterName strong {
+            color: #172033;
+            font-size: 14px;
+            line-height: 1.35;
+          }
+
+          .mobileField {
+            width: 100%;
+            margin-bottom: 12px;
+          }
+
+          .mobileField label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+          }
+
+          .mobileResultInput {
+            width: 100%;
+            height: 46px;
+            padding: 10px 12px;
+            border: 1px solid #cfd8df;
+            border-radius: 9px;
+            background: #ffffff;
+            color: #111827;
+            font-size: 15px;
+            outline: none;
+          }
+
+          .mobileResultInput:focus {
+            border-color: #0f9d9a;
+            box-shadow: 0 0 0 3px rgba(15,157,154,.10);
+          }
+
+          .mobileInfoGrid {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 0.8fr;
+            gap: 8px;
+            width: 100%;
+          }
+
+          .mobileInfoGrid > div {
+            min-width: 0;
+            padding: 9px;
+            background: #f8fafc;
+            border-radius: 8px;
+          }
+
+          .mobileInfoGrid small {
+            display: block;
+            margin-bottom: 4px;
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+          }
+
+          .mobileInfoGrid strong {
+            display: block;
+            color: #172033;
+            font-size: 12px;
+            line-height: 1.3;
+            word-break: break-word;
+          }
+
+          /* ======================================
+             RESULT FOOTER
+             ====================================== */
+
+          .resultFooter {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 12px;
+          }
+
+          .resultFooterRight {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+          }
+
+          .secondaryResultBtn,
+          .saveResultBtn,
+          .nextResultBtn {
+            min-height: 44px;
+            width: 100%;
+          }
+
+          .resultBottomActions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .generateReportBtn {
+            width: 100%;
+            min-height: 46px;
+          }
+
+        }
+
+        /* ==========================================
+           SMALL MOBILE
+           ========================================== */
+
+        @media (max-width: 600px) {
+
+          .resultPageApp {
+            width: 100%;
+            overflow-x: hidden;
+          }
+
+          .mainArea {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .content {
+            width: 100%;
+            max-width: 100%;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+          }
+
+          .topbar {
+            width: 100%;
+          }
+
+          .pageHeading {
+            width: 100%;
+          }
+
+          .pageHeading h1 {
+            font-size: 24px !important;
+            line-height: 1.15;
+          }
+
+          .pageHeading p {
+            font-size: 12px;
+          }
+
+          .backBtn {
+            width: 100%;
+            margin-top: 8px;
+          }
+
+          /* Steps become horizontal scroll */
+
+          .steps {
+            width: 100%;
+            overflow-x: auto;
+            display: flex !important;
+            gap: 8px;
+            padding-bottom: 5px;
+          }
+
+          .step {
+            flex: 0 0 105px;
+            min-width: 105px;
+          }
+
+          /* Patient information */
+
+          .resultPatientCard {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+          }
+
+          .resultPatientCard > div {
+            min-width: 0;
+            padding: 10px !important;
+          }
+
+          .resultPatientCard strong {
+            font-size: 12px !important;
+            word-break: break-word;
+          }
+
+          .resultPatientCard small {
+            font-size: 9px !important;
+          }
+
+          /* Progress */
+
+          .progressTop {
+            align-items: flex-start;
+          }
+
+          .progressNumber {
+            font-size: 20px;
+          }
+
+          /* Result card */
+
+          .resultEntryCard {
+            width: 100%;
+            max-width: 100%;
+          }
+
+          .resultCardHeader {
+            padding: 14px !important;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-start !important;
+          }
+
+          .resultCardHeader h2 {
+            font-size: 20px !important;
+            line-height: 1.25;
+            word-break: break-word;
+          }
+
+          .parameterBadge {
+            align-self: flex-start;
+          }
+
+          /* Parameter cards */
+
+          .mobileParameterList {
+            padding: 10px 8px;
+          }
+
+          .mobileParameterCard {
+            padding: 13px 11px;
+          }
+
+          .mobileInfoGrid {
+            grid-template-columns: 1fr 1.25fr;
+          }
+
+          .mobileInfoGrid > div:last-child {
+            grid-column: span 2;
+          }
+
+          .mobileInfoGrid strong {
+            font-size: 12px;
+          }
+
+          /* Buttons */
+
+          .resultFooterRight {
+            grid-template-columns: 1fr;
+          }
+
+          .secondaryResultBtn,
+          .saveResultBtn,
+          .nextResultBtn {
+            font-size: 13px;
+          }
+
+          .resultBottomActions {
+            padding: 14px !important;
+          }
+
+          .resultBottomActions strong {
+            font-size: 14px;
+          }
+
+          .resultBottomActions p {
+            font-size: 11px;
+          }
+
+        }
+
+        /* ==========================================
+           VERY SMALL PHONES
+           ========================================== */
+
+        @media (max-width: 380px) {
+
+          .resultPatientCard {
+            grid-template-columns: 1fr !important;
+          }
+
+          .mobileTestButton {
+            min-width: 115px;
+          }
+
+          .mobileParameterName strong {
+            font-size: 13px;
+          }
+
+          .mobileResultInput {
+            height: 44px;
+            font-size: 14px;
+          }
+
+        }
+
+      `}</style>
+    </>
   );
 }
