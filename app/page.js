@@ -8,6 +8,8 @@ export default function Home() {
   const router = useRouter();
 
   const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+
   const [active, setActive] = useState("dashboard");
   const [saving, setSaving] = useState(false);
 
@@ -22,12 +24,17 @@ export default function Home() {
     address: "",
   });
 
+  // =========================================================
+  // INITIAL LOAD
+  // =========================================================
+
   useEffect(() => {
     fetchPatients();
+    loadDoctors();
   }, []);
 
   // =========================================================
-  // LOAD PATIENTS
+  // LOAD PATIENTS FROM SUPABASE
   // =========================================================
 
   async function fetchPatients() {
@@ -45,6 +52,27 @@ export default function Home() {
       setPatients(data || []);
     } catch (error) {
       console.error("Patients load error:", error);
+    }
+  }
+
+  // =========================================================
+  // LOAD DOCTORS
+  // =========================================================
+
+  function loadDoctors() {
+    try {
+      const savedDoctors = JSON.parse(
+        localStorage.getItem("nidanDoctors") || "[]"
+      );
+
+      const activeDoctors = savedDoctors.filter(
+        (doctor) => doctor.active !== false
+      );
+
+      setDoctors(activeDoctors);
+    } catch (error) {
+      console.error("Doctors load error:", error);
+      setDoctors([]);
     }
   }
 
@@ -71,6 +99,9 @@ export default function Home() {
   // =========================================================
 
   function openNewPatient() {
+    // Doctor list ko fresh load karenge
+    loadDoctors();
+
     setPatient({
       id: generatePatientId(),
       name: "",
@@ -99,7 +130,7 @@ export default function Home() {
   }
 
   // =========================================================
-  // SAVE PATIENT + CONTINUE
+  // SAVE PATIENT + CONTINUE TO TESTS
   // =========================================================
 
   async function continueToTests(e) {
@@ -123,33 +154,36 @@ export default function Home() {
     try {
       setSaving(true);
 
-      const { error } = await supabase.from("patients").insert([
-        {
-          patient_id: patient.id,
-          name: patient.name,
-          age: Number(patient.age),
-          age_unit: patient.ageUnit,
-          gender: patient.gender,
-          mobile: patient.mobile,
-          referring_doctor: patient.doctor,
-          address: patient.address,
-        },
-      ]);
+      const { error } = await supabase
+        .from("patients")
+        .insert([
+          {
+            patient_id: patient.id,
+            name: patient.name.trim(),
+            age: Number(patient.age),
+            age_unit: patient.ageUnit,
+            gender: patient.gender,
+            mobile: patient.mobile || "",
+            referring_doctor: patient.doctor || "",
+            address: patient.address || "",
+          },
+        ]);
 
       if (error) {
-        console.error(error);
+        console.error("Patient save error:", error);
 
-        alert("Patient save nahi hua: " + error.message);
+        alert(
+          "Patient save nahi hua:\n\n" +
+            error.message
+        );
 
         setSaving(false);
         return;
       }
 
-      // -------------------------------------------------------
-      // IMPORTANT:
-      // Existing Tests/Billing/Results pages isi patient data
-      // ko localStorage se use kar sakte hain.
-      // -------------------------------------------------------
+      // =====================================================
+      // SAVE CURRENT PATIENT FOR TESTS / BILLING / RESULTS
+      // =====================================================
 
       localStorage.setItem(
         "nidanPatient",
@@ -164,17 +198,27 @@ export default function Home() {
         })
       );
 
-      // Old selected tests remove so new patient starts clean
+      // =====================================================
+      // CLEAR OLD VISIT DATA
+      // =====================================================
+
       localStorage.removeItem("nidanSelectedTests");
       localStorage.removeItem("nidanBilling");
       localStorage.removeItem("nidanResults");
 
+      // Refresh dashboard data
+      await fetchPatients();
+
+      // Go to tests
       router.push("/tests");
     } catch (error) {
-      console.error(error);
+      console.error("Patient save error:", error);
 
-      alert("Patient save karte waqt error aaya.");
-
+      alert(
+        "Patient save karte waqt error aaya:\n\n" +
+          error.message
+      );
+    } finally {
       setSaving(false);
     }
   }
@@ -224,6 +268,15 @@ export default function Home() {
   }
 
   // =========================================================
+  // REFRESH DASHBOARD
+  // =========================================================
+
+  async function refreshDashboard() {
+    await fetchPatients();
+    loadDoctors();
+  }
+
+  // =========================================================
   // DASHBOARD
   // =========================================================
 
@@ -235,6 +288,8 @@ export default function Home() {
       ===================================================== */}
 
       <aside className="sidebar">
+
+        {/* BRAND */}
 
         <div className="brand">
 
@@ -248,6 +303,8 @@ export default function Home() {
           </div>
 
         </div>
+
+        {/* MAIN MENU */}
 
         <div className="menuLabel">
           MAIN MENU
@@ -317,6 +374,8 @@ export default function Home() {
           Reports
         </button>
 
+        {/* MANAGEMENT */}
+
         <div className="menuLabel second">
           MANAGEMENT
         </div>
@@ -348,14 +407,12 @@ export default function Home() {
       </aside>
 
       {/* =====================================================
-          MAIN
+          MAIN AREA
       ===================================================== */}
 
       <main className="mainArea">
 
-        {/* ===================================================
-            TOP BAR
-        =================================================== */}
+        {/* TOP BAR */}
 
         <header className="topbar">
 
@@ -406,18 +463,30 @@ export default function Home() {
                 </h1>
 
                 <p>
-                  Patients, billing, samples, test results aur
-                  laboratory reports ko ek jagah manage karein.
+                  Patients, billing, samples, test results
+                  aur laboratory reports ko ek jagah
+                  manage karein.
                 </p>
 
               </div>
 
-              <button
-                className="primaryBtn"
-                onClick={openNewPatient}
-              >
-                + New Patient
-              </button>
+              <div className="welcomeActions">
+
+                <button
+                  className="refreshBtn"
+                  onClick={refreshDashboard}
+                >
+                  ↻ Refresh
+                </button>
+
+                <button
+                  className="primaryBtn"
+                  onClick={openNewPatient}
+                >
+                  + New Patient
+                </button>
+
+              </div>
 
             </div>
 
@@ -426,6 +495,8 @@ export default function Home() {
             ================================================= */}
 
             <div className="stats">
+
+              {/* TOTAL PATIENTS */}
 
               <div className="statCard">
 
@@ -440,6 +511,8 @@ export default function Home() {
 
               </div>
 
+              {/* TODAY COLLECTION */}
+
               <div className="statCard">
 
                 <div className="statIcon">
@@ -453,6 +526,8 @@ export default function Home() {
 
               </div>
 
+              {/* TOTAL PATIENTS */}
+
               <div className="statCard">
 
                 <div className="statIcon">
@@ -465,6 +540,8 @@ export default function Home() {
                 </div>
 
               </div>
+
+              {/* PENDING REPORTS */}
 
               <div className="statCard">
 
@@ -522,11 +599,13 @@ export default function Home() {
                     </h3>
 
                     <p>
-                      Patient registration shuru karne ke liye
-                      New Patient par click karein.
+                      Patient registration shuru karne
+                      ke liye New Patient par click karein.
                     </p>
 
-                    <button onClick={openNewPatient}>
+                    <button
+                      onClick={openNewPatient}
+                    >
                       Register Patient
                     </button>
 
@@ -534,42 +613,57 @@ export default function Home() {
 
                 ) : (
 
-                  <div>
+                  <div className="recentPatients">
 
                     {patients
                       .slice(0, 5)
                       .map((p) => (
 
                         <div
-                          key={p.id}
-                          style={{
-                            padding: "10px",
-                            borderBottom:
-                              "1px solid #edf1f5",
-                          }}
+                          key={
+                            p.id ||
+                            p.patient_id
+                          }
+                          className="recentPatient"
                         >
 
-                          <b>
-                            {p.name}
-                          </b>
-
                           <div>
-                            {p.patient_id}
+
+                            <b>
+                              {p.name}
+                            </b>
+
+                            <div className="patientNumber">
+                              {p.patient_id ||
+                                p.id ||
+                                "-"}
+                            </div>
+
+                            <small>
+
+                              {p.mobile ||
+                                "No mobile"}
+
+                              {" • "}
+
+                              {p.age || "-"}
+
+                              {" "}
+
+                              {p.age_unit ||
+                                "Years"}
+
+                            </small>
+
                           </div>
 
-                          <small>
+                          <div className="recentDoctor">
 
-                            {p.mobile || "No mobile"}
+                            {p.referring_doctor ||
+                              p.doctor ||
+                              "No doctor"}
 
-                            {" • "}
-
-                            {p.age}
-
-                            {" "}
-
-                            {p.age_unit || "Years"}
-
-                          </small>
+                          </div>
 
                         </div>
 
@@ -581,9 +675,7 @@ export default function Home() {
 
               </section>
 
-              {/* =================================================
-                  QUICK ACTIONS
-              ================================================= */}
+              {/* QUICK ACTIONS */}
 
               <section className="panel quickPanel">
 
@@ -603,12 +695,15 @@ export default function Home() {
 
                 </div>
 
-                <button onClick={openNewPatient}>
+                <button
+                  onClick={openNewPatient}
+                >
 
                   <span>＋</span>
 
                   <div>
                     <b>New Patient</b>
+
                     <small>
                       Register new patient
                     </small>
@@ -616,12 +711,15 @@ export default function Home() {
 
                 </button>
 
-                <button onClick={goBilling}>
+                <button
+                  onClick={goBilling}
+                >
 
                   <span>₹</span>
 
                   <div>
                     <b>Create Bill</b>
+
                     <small>
                       Patient billing
                     </small>
@@ -629,12 +727,15 @@ export default function Home() {
 
                 </button>
 
-                <button onClick={goResults}>
+                <button
+                  onClick={goResults}
+                >
 
                   <span>▤</span>
 
                   <div>
                     <b>Result Entry</b>
+
                     <small>
                       Enter test results
                     </small>
@@ -642,14 +743,33 @@ export default function Home() {
 
                 </button>
 
-                <button onClick={goReports}>
+                <button
+                  onClick={goReports}
+                >
 
                   <span>▣</span>
 
                   <div>
                     <b>Reports</b>
+
                     <small>
                       View final reports
+                    </small>
+                  </div>
+
+                </button>
+
+                <button
+                  onClick={goDoctors}
+                >
+
+                  <span>♧</span>
+
+                  <div>
+                    <b>Doctors</b>
+
+                    <small>
+                      Manage referring doctors
                     </small>
                   </div>
 
@@ -670,6 +790,8 @@ export default function Home() {
         {active === "newPatient" && (
 
           <div className="content">
+
+            {/* PAGE HEADING */}
 
             <div className="pageHeading">
 
@@ -705,6 +827,8 @@ export default function Home() {
 
             <div className="steps">
 
+              {/* STEP 1 */}
+
               <div className="step activeStep">
 
                 <span>1</span>
@@ -715,6 +839,8 @@ export default function Home() {
                 </div>
 
               </div>
+
+              {/* STEP 2 */}
 
               <div className="step">
 
@@ -727,6 +853,8 @@ export default function Home() {
 
               </div>
 
+              {/* STEP 3 */}
+
               <div className="step">
 
                 <span>3</span>
@@ -738,6 +866,8 @@ export default function Home() {
 
               </div>
 
+              {/* STEP 4 */}
+
               <div className="step">
 
                 <span>4</span>
@@ -748,6 +878,8 @@ export default function Home() {
                 </div>
 
               </div>
+
+              {/* STEP 5 */}
 
               <div className="step">
 
@@ -771,6 +903,8 @@ export default function Home() {
               onSubmit={continueToTests}
             >
 
+              {/* FORM HEADER */}
+
               <div className="formHeader">
 
                 <div className="formIcon">
@@ -790,6 +924,8 @@ export default function Home() {
                 </div>
 
               </div>
+
+              {/* FORM GRID */}
 
               <div className="formGrid">
 
@@ -852,9 +988,17 @@ export default function Home() {
                       value={patient.ageUnit}
                       onChange={change}
                     >
-                      <option>Years</option>
-                      <option>Months</option>
-                      <option>Days</option>
+                      <option value="Years">
+                        Years
+                      </option>
+
+                      <option value="Months">
+                        Months
+                      </option>
+
+                      <option value="Days">
+                        Days
+                      </option>
                     </select>
 
                   </div>
@@ -874,9 +1018,19 @@ export default function Home() {
                     value={patient.gender}
                     onChange={change}
                   >
-                    <option>Male</option>
-                    <option>Female</option>
-                    <option>Other</option>
+
+                    <option value="Male">
+                      Male
+                    </option>
+
+                    <option value="Female">
+                      Female
+                    </option>
+
+                    <option value="Other">
+                      Other
+                    </option>
+
                   </select>
 
                 </div>
@@ -899,7 +1053,9 @@ export default function Home() {
 
                 </div>
 
-                {/* DOCTOR */}
+                {/* =================================================
+                    REFERRING DOCTOR
+                ================================================= */}
 
                 <div className="field">
 
@@ -907,12 +1063,61 @@ export default function Home() {
                     Referring Doctor
                   </label>
 
-                  <input
+                  <select
                     name="doctor"
                     value={patient.doctor}
                     onChange={change}
-                    placeholder="Doctor name"
-                  />
+                  >
+
+                    <option value="">
+                      Select Referring Doctor
+                    </option>
+
+                    {doctors.length === 0 ? (
+
+                      <option
+                        value=""
+                        disabled
+                      >
+                        No doctor saved
+                      </option>
+
+                    ) : (
+
+                      doctors.map((doctor) => (
+
+                        <option
+                          key={doctor.id}
+                          value={`Dr. ${doctor.name}`}
+                        >
+
+                          Dr. {doctor.name}
+
+                          {doctor.specialization
+                            ? ` - ${doctor.specialization}`
+                            : ""}
+
+                        </option>
+
+                      ))
+
+                    )}
+
+                  </select>
+
+                  {/* DOCTOR COUNT */}
+
+                  {doctors.length === 0 && (
+
+                    <button
+                      type="button"
+                      className="doctorHelp"
+                      onClick={goDoctors}
+                    >
+                      + Add Doctor
+                    </button>
+
+                  )}
 
                 </div>
 
@@ -929,15 +1134,14 @@ export default function Home() {
                     value={patient.address}
                     onChange={change}
                     placeholder="Patient address"
+                    rows="4"
                   />
 
                 </div>
 
               </div>
 
-              {/* =================================================
-                  FORM FOOTER
-              ================================================= */}
+              {/* FORM FOOTER */}
 
               <div className="formFooter">
 
@@ -954,9 +1158,11 @@ export default function Home() {
                   className="primaryBtn"
                   disabled={saving}
                 >
+
                   {saving
                     ? "Saving..."
                     : "Save & Select Tests →"}
+
                 </button>
 
               </div>
@@ -968,6 +1174,825 @@ export default function Home() {
         )}
 
       </main>
+
+      {/* =====================================================
+          GLOBAL CSS
+      ===================================================== */}
+
+      <style jsx global>{`
+
+        * {
+          box-sizing: border-box;
+        }
+
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+          background: #f4f7fb;
+          color: #172033;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+          font-family: inherit;
+        }
+
+        button {
+          cursor: pointer;
+        }
+
+        /* ===================================================
+           APP
+        =================================================== */
+
+        .labApp {
+          min-height: 100vh;
+          display: flex;
+          background: #f4f7fb;
+        }
+
+        /* ===================================================
+           SIDEBAR
+        =================================================== */
+
+        .sidebar {
+          width: 235px;
+          min-height: 100vh;
+          background: #092638;
+          color: white;
+          padding: 18px 12px;
+          position: fixed;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          overflow-y: auto;
+          z-index: 100;
+        }
+
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 4px 5px 25px;
+        }
+
+        .brandLogo {
+          width: 38px;
+          height: 38px;
+          border-radius: 9px;
+          background: #10a7a3;
+          display: grid;
+          place-items: center;
+          font-size: 17px;
+          font-weight: 800;
+        }
+
+        .brand h2 {
+          margin: 0;
+          font-size: 16px;
+          letter-spacing: .5px;
+        }
+
+        .brand p {
+          margin: 2px 0 0;
+          color: #91a6b5;
+          font-size: 8px;
+          letter-spacing: .8px;
+        }
+
+        .menuLabel {
+          color: #718b9b;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          padding: 7px 9px;
+          margin-top: 3px;
+        }
+
+        .menuLabel.second {
+          margin-top: 20px;
+        }
+
+        .menu {
+          width: 100%;
+          border: 0;
+          background: transparent;
+          color: #d4e0e7;
+          padding: 11px 10px;
+          border-radius: 7px;
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          text-align: left;
+          font-size: 13px;
+          margin: 2px 0;
+        }
+
+        .menu span {
+          width: 18px;
+          text-align: center;
+        }
+
+        .menu:hover {
+          background: #103c51;
+        }
+
+        .menu.active {
+          background: #0e5369;
+          color: white;
+          box-shadow:
+            inset 3px 0 0 #13b4ad;
+        }
+
+        /* ===================================================
+           MAIN
+        =================================================== */
+
+        .mainArea {
+          width: calc(100% - 235px);
+          margin-left: 235px;
+          min-height: 100vh;
+        }
+
+        /* ===================================================
+           TOP BAR
+        =================================================== */
+
+        .topbar {
+          min-height: 72px;
+          background: white;
+          border-bottom: 1px solid #e4e9ee;
+          padding: 15px 25px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .topbar h3 {
+          margin: 0;
+          font-size: 16px;
+        }
+
+        .topbar p {
+          margin: 4px 0 0;
+          color: #84919e;
+          font-size: 10px;
+        }
+
+        .topRight {
+          color: #526273;
+          font-size: 11px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .statusDot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #20b56c;
+        }
+
+        /* ===================================================
+           CONTENT
+        =================================================== */
+
+        .content {
+          padding: 25px;
+          max-width: 1450px;
+          margin: auto;
+        }
+
+        .smallTitle {
+          color: #119b98;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 1.3px;
+        }
+
+        .welcome,
+        .pageHeading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 20px;
+        }
+
+        .welcome h1,
+        .pageHeading h1 {
+          margin: 5px 0;
+          font-size: 26px;
+        }
+
+        .welcome p,
+        .pageHeading p {
+          margin: 0;
+          color: #718096;
+          font-size: 13px;
+        }
+
+        .welcomeActions {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        /* ===================================================
+           BUTTONS
+        =================================================== */
+
+        .primaryBtn {
+          border: 0;
+          background: #0d9f9b;
+          color: white;
+          font-weight: 700;
+          border-radius: 8px;
+          padding: 12px 17px;
+          white-space: nowrap;
+        }
+
+        .primaryBtn:hover {
+          background: #078b88;
+        }
+
+        .primaryBtn:disabled {
+          opacity: .6;
+          cursor: not-allowed;
+        }
+
+        .refreshBtn {
+          border: 1px solid #d9e1e7;
+          background: white;
+          color: #526273;
+          border-radius: 8px;
+          padding: 11px 14px;
+        }
+
+        .backBtn {
+          border: 1px solid #d8e0e7;
+          background: white;
+          padding: 11px 15px;
+          border-radius: 8px;
+          color: #526273;
+        }
+
+        .cancelBtn {
+          border: 1px solid #d8e0e7;
+          background: white;
+          color: #526273;
+          padding: 11px 16px;
+          border-radius: 8px;
+        }
+
+        /* ===================================================
+           STATS
+        =================================================== */
+
+        .stats {
+          display: grid;
+          grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .statCard {
+          background: white;
+          border: 1px solid #e4e9ee;
+          border-radius: 13px;
+          padding: 17px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .statIcon {
+          width: 42px;
+          height: 42px;
+          border-radius: 11px;
+          background: #e7f8f7;
+          color: #079b97;
+          display: grid;
+          place-items: center;
+          font-size: 19px;
+        }
+
+        .statCard p {
+          margin: 0 0 5px;
+          color: #81909d;
+          font-size: 11px;
+        }
+
+        .statCard h2 {
+          margin: 0;
+          font-size: 22px;
+        }
+
+        /* ===================================================
+           DASHBOARD GRID
+        =================================================== */
+
+        .dashboardGrid {
+          display: grid;
+          grid-template-columns:
+            minmax(0, 1.7fr)
+            minmax(280px, .8fr);
+          gap: 18px;
+        }
+
+        .panel {
+          background: white;
+          border: 1px solid #e3e8ed;
+          border-radius: 14px;
+          overflow: hidden;
+        }
+
+        .panelHead {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 17px 18px;
+          border-bottom: 1px solid #edf1f4;
+        }
+
+        .panelHead h2 {
+          margin: 0;
+          font-size: 15px;
+        }
+
+        .panelHead p {
+          margin: 4px 0 0;
+          font-size: 11px;
+          color: #8794a1;
+        }
+
+        .panelHead button {
+          border: 0;
+          background: #edf9f8;
+          color: #079b97;
+          padding: 7px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+        }
+
+        /* ===================================================
+           RECENT PATIENTS
+        =================================================== */
+
+        .recentPatient {
+          padding: 12px 18px;
+          border-bottom: 1px solid #edf1f5;
+          display: flex;
+          justify-content: space-between;
+          gap: 15px;
+        }
+
+        .recentPatient:last-child {
+          border-bottom: 0;
+        }
+
+        .recentPatient b {
+          font-size: 13px;
+        }
+
+        .patientNumber {
+          color: #0c9895;
+          font-size: 10px;
+          margin-top: 3px;
+        }
+
+        .recentPatient small {
+          display: block;
+          color: #718096;
+          font-size: 10px;
+          margin-top: 4px;
+        }
+
+        .recentDoctor {
+          font-size: 10px;
+          color: #64748b;
+          text-align: right;
+          max-width: 180px;
+        }
+
+        /* ===================================================
+           EMPTY
+        =================================================== */
+
+        .emptyState {
+          text-align: center;
+          padding: 45px 20px;
+          color: #718096;
+        }
+
+        .emptyState > div {
+          font-size: 32px;
+          margin-bottom: 10px;
+        }
+
+        .emptyState h3 {
+          margin: 0 0 6px;
+          color: #27364a;
+          font-size: 15px;
+        }
+
+        .emptyState p {
+          font-size: 12px;
+          max-width: 380px;
+          margin: 0 auto 15px;
+        }
+
+        .emptyState button {
+          border: 0;
+          background: #0d9f9b;
+          color: white;
+          padding: 10px 14px;
+          border-radius: 7px;
+        }
+
+        /* ===================================================
+           QUICK ACTIONS
+        =================================================== */
+
+        .quickPanel > button {
+          width: calc(100% - 28px);
+          margin: 7px 14px;
+          border: 1px solid #edf0f3;
+          background: white;
+          border-radius: 9px;
+          padding: 11px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          text-align: left;
+        }
+
+        .quickPanel > button:hover {
+          background: #f8fbfc;
+        }
+
+        .quickPanel > button > span {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          background: #edf9f8;
+          color: #079b97;
+          display: grid;
+          place-items: center;
+        }
+
+        .quickPanel b {
+          display: block;
+          font-size: 12px;
+        }
+
+        .quickPanel small {
+          display: block;
+          color: #82909c;
+          font-size: 9px;
+          margin-top: 3px;
+        }
+
+        /* ===================================================
+           STEPS
+        =================================================== */
+
+        .steps {
+          background: white;
+          border: 1px solid #e3e8ed;
+          border-radius: 13px;
+          padding: 14px;
+          display: grid;
+          grid-template-columns:
+            repeat(5, 1fr);
+          margin-bottom: 15px;
+        }
+
+        .step {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #8895a1;
+          position: relative;
+        }
+
+        .step span {
+          width: 27px;
+          height: 27px;
+          border-radius: 50%;
+          background: #edf1f4;
+          display: grid;
+          place-items: center;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .step b {
+          display: block;
+          font-size: 11px;
+        }
+
+        .step small {
+          display: block;
+          font-size: 8px;
+          margin-top: 2px;
+        }
+
+        .step.activeStep {
+          color: #0c9d99;
+        }
+
+        .step.activeStep span {
+          background: #0c9d99;
+          color: white;
+        }
+
+        /* ===================================================
+           REGISTRATION CARD
+        =================================================== */
+
+        .registrationCard {
+          background: white;
+          border: 1px solid #e3e8ed;
+          border-radius: 14px;
+          overflow: hidden;
+        }
+
+        .formHeader {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          padding: 18px;
+          border-bottom: 1px solid #edf1f4;
+        }
+
+        .formIcon {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          background: #e7f8f7;
+          color: #079b97;
+          display: grid;
+          place-items: center;
+        }
+
+        .formHeader h2 {
+          margin: 0;
+          font-size: 16px;
+        }
+
+        .formHeader p {
+          margin: 4px 0 0;
+          color: #8794a1;
+          font-size: 10px;
+        }
+
+        .formGrid {
+          padding: 20px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+        }
+
+        .field {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .field label {
+          font-size: 11px;
+          font-weight: 700;
+          color: #344256;
+          margin-bottom: 6px;
+        }
+
+        .field label b {
+          color: #e34c4c;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+          width: 100%;
+          border: 1px solid #d8e0e7;
+          border-radius: 8px;
+          padding: 11px;
+          background: white;
+          color: #27364a;
+          outline: none;
+          font-size: 12px;
+        }
+
+        .field input:focus,
+        .field select:focus,
+        .field textarea:focus {
+          border-color: #0ca09c;
+          box-shadow:
+            0 0 0 2px rgba(12,160,156,.08);
+        }
+
+        .field textarea {
+          resize: vertical;
+          min-height: 85px;
+        }
+
+        .field .readonly {
+          background: #f2f5f7;
+          color: #73808c;
+        }
+
+        .ageField {
+          display: grid;
+          grid-template-columns: 1fr 110px;
+          gap: 7px;
+        }
+
+        .full {
+          grid-column: span 2;
+        }
+
+        .doctorHelp {
+          margin-top: 5px;
+          border: 0;
+          background: transparent;
+          color: #079b97;
+          padding: 3px 0;
+          text-align: left;
+          font-size: 10px;
+        }
+
+        .formFooter {
+          padding: 15px 20px;
+          border-top: 1px solid #edf1f4;
+          display: flex;
+          justify-content: flex-end;
+          gap: 9px;
+        }
+
+        /* ===================================================
+           MOBILE
+        =================================================== */
+
+        @media (max-width: 900px) {
+
+          .sidebar {
+            width: 190px;
+          }
+
+          .mainArea {
+            width: calc(100% - 190px);
+            margin-left: 190px;
+          }
+
+          .stats {
+            grid-template-columns:
+              repeat(2, 1fr);
+          }
+
+          .dashboardGrid {
+            grid-template-columns: 1fr;
+          }
+
+        }
+
+        @media (max-width: 650px) {
+
+          .sidebar {
+            position: fixed;
+            width: 70px;
+            padding: 10px 7px;
+          }
+
+          .brand {
+            justify-content: center;
+            padding-bottom: 15px;
+          }
+
+          .brand > div:last-child,
+          .menuLabel {
+            display: none;
+          }
+
+          .menu {
+            justify-content: center;
+            padding: 12px 5px;
+          }
+
+          .menu span {
+            width: auto;
+            font-size: 16px;
+          }
+
+          .menu {
+            font-size: 0;
+          }
+
+          .mainArea {
+            width: calc(100% - 70px);
+            margin-left: 70px;
+          }
+
+          .topbar {
+            padding: 12px;
+          }
+
+          .topRight {
+            display: none;
+          }
+
+          .content {
+            padding: 12px;
+          }
+
+          .welcome,
+          .pageHeading {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .welcome h1,
+          .pageHeading h1 {
+            font-size: 21px;
+          }
+
+          .welcomeActions {
+            width: 100%;
+          }
+
+          .welcomeActions button {
+            flex: 1;
+          }
+
+          .stats {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+
+          .statCard {
+            padding: 12px;
+          }
+
+          .statIcon {
+            width: 34px;
+            height: 34px;
+          }
+
+          .statCard h2 {
+            font-size: 18px;
+          }
+
+          .steps {
+            overflow-x: auto;
+            display: flex;
+            gap: 20px;
+          }
+
+          .step {
+            min-width: 105px;
+          }
+
+          .formGrid {
+            grid-template-columns: 1fr;
+            padding: 14px;
+          }
+
+          .full {
+            grid-column: auto;
+          }
+
+          .ageField {
+            grid-template-columns: 1fr 100px;
+          }
+
+          .formFooter {
+            padding: 12px 14px;
+          }
+
+          .formFooter button {
+            flex: 1;
+          }
+
+          .recentPatient {
+            flex-direction: column;
+            gap: 5px;
+          }
+
+          .recentDoctor {
+            text-align: left;
+          }
+
+        }
+
+      `}</style>
 
     </div>
   );
