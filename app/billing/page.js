@@ -88,32 +88,21 @@ export default function BillingPage() {
 
       if (error) {
         console.error("Patients fetch error:", error);
-
-        alert(
-          "Patients load nahi ho paye: " +
-            error.message
-        );
-
+        alert("Patients load nahi ho paye: " + error.message);
         return;
       }
 
       setPatients(data || []);
     } catch (error) {
       console.error("Patients loading error:", error);
-
-      alert(
-        "Patients loading ke waqt error aaya."
-      );
+      alert("Patients loading mein error aaya.");
     } finally {
       setLoadingPatients(false);
     }
   }
 
   useEffect(() => {
-    if (
-      showPatientSearch &&
-      patients.length === 0
-    ) {
+    if (showPatientSearch && patients.length === 0) {
       fetchPatients();
     }
   }, [showPatientSearch]);
@@ -161,6 +150,9 @@ export default function BillingPage() {
     patient.referring_doctor ||
     "";
 
+  const patientAddress =
+    patient.address || "";
+
   const hasPatient = Boolean(
     patientId || patientName
   );
@@ -170,9 +162,7 @@ export default function BillingPage() {
   // =========================================================
 
   const filteredPatients = useMemo(() => {
-    const query = search
-      .trim()
-      .toLowerCase();
+    const query = search.trim().toLowerCase();
 
     if (!query) {
       return patients.slice(0, 20);
@@ -390,14 +380,35 @@ export default function BillingPage() {
   }
 
   // =========================================================
+  // GENERATE BILL NUMBER
+  // =========================================================
+
+  function generateBillNo() {
+    const now = new Date();
+
+    const datePart =
+      now.getFullYear().toString() +
+      String(
+        now.getMonth() + 1
+      ).padStart(2, "0") +
+      String(
+        now.getDate()
+      ).padStart(2, "0");
+
+    const randomPart =
+      Math.floor(
+        1000 +
+          Math.random() * 9000
+      );
+
+    return `NPL-BILL-${datePart}-${randomPart}`;
+  }
+
+  // =========================================================
   // SAVE BILL TO SUPABASE
   // =========================================================
 
   async function continueResults() {
-    if (savingBill) {
-      return;
-    }
-
     if (!hasPatient) {
       alert(
         "Pehle patient select karein."
@@ -411,121 +422,93 @@ export default function BillingPage() {
       alert(
         "Billing ke liye kam se kam ek test select hona chahiye."
       );
+      return;
+    }
 
+    if (savingBill) {
       return;
     }
 
     try {
       setSavingBill(true);
 
-      const billNo =
-        `NPL-BILL-${Date.now()
-          .toString()
-          .slice(-8)}`;
+      const billNo = generateBillNo();
 
-      const billDate =
-        new Date().toISOString();
+      // -----------------------------------------------------
+      // SUPABASE BILL DATA
+      // -----------------------------------------------------
 
-      // -------------------------------------------------------
-      // BILL OBJECT FOR LOCAL STORAGE
-      // -------------------------------------------------------
+      const billData = {
+        bill_no: billNo,
 
-      const bill = {
-        billNo: billNo,
+        bill_date:
+          new Date().toISOString(),
 
-        date: billDate,
+        patient_id:
+          patientId || null,
 
-        patient: patient,
+        patient_name:
+          patientName || null,
 
-        subtotal: subtotal,
+        patient_mobile:
+          patientMobile || null,
 
-        discount: discountAmount,
+        referring_doctor:
+          patientDoctor || null,
 
-        netAmount: netAmount,
+        subtotal:
+          Number(subtotal) || 0,
 
-        paid: paidAmount,
+        discount:
+          Number(discountAmount) || 0,
 
-        balance: balance,
+        net_amount:
+          Number(netAmount) || 0,
 
-        paymentMode: paymentMode,
+        paid:
+          Number(paidAmount) || 0,
 
-        paymentStatus: paymentStatus,
+        balance:
+          Number(balance) || 0,
 
-        tests: tests,
+        payment_mode:
+          paymentMode || "Cash",
+
+        payment_status:
+          paymentStatus || "Unpaid",
+
+        tests:
+          tests || [],
+
+        created_at:
+          new Date().toISOString(),
       };
 
-      // -------------------------------------------------------
-      // SAVE BILL TO SUPABASE
-      // -------------------------------------------------------
+      // -----------------------------------------------------
+      // INSERT INTO SUPABASE
+      // -----------------------------------------------------
 
-      const { data, error } =
-        await supabase
-          .from("bills")
-          .insert([
-            {
-              bill_no: billNo,
-
-              bill_date: billDate,
-
-              patient_id:
-                String(patientId || ""),
-
-              patient_name:
-                patientName || "",
-
-              patient_mobile:
-                patientMobile || "",
-
-              referring_doctor:
-                patientDoctor || "",
-
-              subtotal:
-                Number(subtotal) || 0,
-
-              discount:
-                Number(discountAmount) || 0,
-
-              net_amount:
-                Number(netAmount) || 0,
-
-              paid:
-                Number(paidAmount) || 0,
-
-              balance:
-                Number(balance) || 0,
-
-              payment_mode:
-                paymentMode || "Cash",
-
-              payment_status:
-                paymentStatus || "Unpaid",
-
-              tests:
-                Array.isArray(tests)
-                  ? tests
-                  : [],
-            },
-          ])
-          .select()
-          .single();
-
-      // -------------------------------------------------------
-      // ERROR
-      // -------------------------------------------------------
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("bills")
+        .insert([billData])
+        .select()
+        .single();
 
       if (error) {
         console.error(
-          "SUPABASE BILL SAVE ERROR:",
+          "Bill save error:",
           error
         );
 
         alert(
-          "Bill database me save nahi hua:\n\n" +
+          "Bill Supabase mein save nahi hua:\n" +
             error.message
         );
 
         setSavingBill(false);
-
         return;
       }
 
@@ -534,9 +517,38 @@ export default function BillingPage() {
         data
       );
 
-      // -------------------------------------------------------
-      // SAVE LOCAL DATA
-      // -------------------------------------------------------
+      // -----------------------------------------------------
+      // LOCAL BILL
+      // -----------------------------------------------------
+
+      const localBill = {
+        id: data?.id || null,
+
+        billNo,
+
+        date:
+          billData.bill_date,
+
+        patient,
+
+        subtotal,
+
+        discount:
+          discountAmount,
+
+        netAmount,
+
+        paid:
+          paidAmount,
+
+        balance,
+
+        paymentMode,
+
+        paymentStatus,
+
+        tests,
+      };
 
       localStorage.setItem(
         "nidanPatient",
@@ -550,53 +562,26 @@ export default function BillingPage() {
 
       localStorage.setItem(
         "nidanBilling",
-        JSON.stringify(bill)
+        JSON.stringify(localBill)
       );
 
-      // -------------------------------------------------------
-      // LOCAL BILL HISTORY
-      // -------------------------------------------------------
-
-      try {
-        const oldBills =
-          JSON.parse(
-            localStorage.getItem(
-              "nidanBills"
-            ) || "[]"
-          );
-
-        localStorage.setItem(
-          "nidanBills",
-          JSON.stringify([
-            bill,
-            ...oldBills,
-          ])
-        );
-      } catch (error) {
-        console.error(
-          "Local bill history error:",
-          error
-        );
-      }
-
-      // -------------------------------------------------------
+      // -----------------------------------------------------
       // SUCCESS
-      // -------------------------------------------------------
+      // -----------------------------------------------------
 
       alert(
-        "Bill successfully save ho gaya."
+        `Bill successfully save ho gaya.\n\nBill No: ${billNo}\nNet Amount: ₹${netAmount}\nPaid: ₹${paidAmount}\nBalance: ₹${balance}`
       );
 
       router.push("/results");
-
     } catch (error) {
       console.error(
-        "Billing save error:",
+        "Billing error:",
         error
       );
 
       alert(
-        "Bill save karte waqt error aaya:\n\n" +
+        "Bill save karte waqt error aaya:\n" +
           error.message
       );
     } finally {
@@ -611,9 +596,7 @@ export default function BillingPage() {
   return (
     <div className="labApp">
 
-      {/* =====================================================
-          SIDEBAR
-      ===================================================== */}
+      {/* SIDEBAR */}
 
       <aside className="sidebar">
 
@@ -689,23 +672,19 @@ export default function BillingPage() {
 
       </aside>
 
-      {/* =====================================================
-          MAIN AREA
-      ===================================================== */}
+      {/* MAIN */}
 
       <main className="mainArea">
 
         <header className="topbar">
 
           <div>
-
             <h3>Billing</h3>
 
             <p>
               Create patient bill and
               payment details
             </p>
-
           </div>
 
           <div className="topRight">
@@ -720,7 +699,7 @@ export default function BillingPage() {
 
         <div className="content">
 
-          {/* PAGE HEADING */}
+          {/* HEADING */}
 
           <div className="pageHeading">
 
@@ -751,9 +730,7 @@ export default function BillingPage() {
 
           </div>
 
-          {/* =================================================
-              STEPS
-          ================================================= */}
+          {/* STEPS */}
 
           <div className="steps">
 
@@ -768,8 +745,8 @@ export default function BillingPage() {
                     ? "Selected"
                     : "Select Patient"}
                 </small>
-              </div>
 
+              </div>
             </div>
 
             <div className="step">
@@ -798,7 +775,6 @@ export default function BillingPage() {
 
               <div>
                 Billing
-
                 <small>
                   Create Bill
                 </small>
@@ -812,7 +788,6 @@ export default function BillingPage() {
 
               <div>
                 Results
-
                 <small>
                   Enter Results
                 </small>
@@ -826,7 +801,6 @@ export default function BillingPage() {
 
               <div>
                 Report
-
                 <small>
                   Print / PDF
                 </small>
@@ -836,24 +810,20 @@ export default function BillingPage() {
 
           </div>
 
-          {/* =================================================
-              PATIENT SEARCH
-          ================================================= */}
+          {/* PATIENT SEARCH */}
 
           {showPatientSearch && (
 
             <section
               className="billingCard"
               style={{
-                marginBottom:
-                  "20px",
+                marginBottom: "20px",
               }}
             >
 
               <div className="billingTitle">
 
                 <div>
-
                   <h2>
                     Select Patient
                   </h2>
@@ -863,7 +833,6 @@ export default function BillingPage() {
                     mobile number se
                     search karein.
                   </p>
-
                 </div>
 
                 {hasPatient && (
@@ -894,8 +863,7 @@ export default function BillingPage() {
                     display: "flex",
                     gap: "10px",
                     flexWrap: "wrap",
-                    marginBottom:
-                      "15px",
+                    marginBottom: "15px",
                   }}
                 >
 
@@ -910,21 +878,17 @@ export default function BillingPage() {
                     placeholder="Search Patient ID / Name / Mobile"
                     style={{
                       flex: "1",
-                      minWidth:
-                        "220px",
+                      minWidth: "220px",
                       padding: "12px",
                       border:
                         "1px solid #d9e1e8",
-                      borderRadius:
-                        "8px",
+                      borderRadius: "8px",
                     }}
                   />
 
                   <button
                     className="backBtn"
-                    onClick={
-                      fetchPatients
-                    }
+                    onClick={fetchPatients}
                   >
                     ↻ Refresh
                   </button>
@@ -945,8 +909,7 @@ export default function BillingPage() {
                   <div
                     style={{
                       padding: "25px",
-                      textAlign:
-                        "center",
+                      textAlign: "center",
                     }}
                   >
                     Patients loading...
@@ -958,8 +921,7 @@ export default function BillingPage() {
                   <div
                     style={{
                       padding: "25px",
-                      textAlign:
-                        "center",
+                      textAlign: "center",
                     }}
                   >
                     Koi patient nahi mila.
@@ -969,14 +931,11 @@ export default function BillingPage() {
 
                   <div
                     style={{
-                      maxHeight:
-                        "350px",
-                      overflowY:
-                        "auto",
+                      maxHeight: "350px",
+                      overflowY: "auto",
                       border:
                         "1px solid #e5e7eb",
-                      borderRadius:
-                        "8px",
+                      borderRadius: "8px",
                     }}
                   >
 
@@ -1003,8 +962,7 @@ export default function BillingPage() {
                           "-";
 
                         const age =
-                          item.age ??
-                          "-";
+                          item.age ?? "-";
 
                         const gender =
                           item.gender ||
@@ -1026,8 +984,7 @@ export default function BillingPage() {
                                 "space-between",
                               alignItems:
                                 "center",
-                              gap:
-                                "15px",
+                              gap: "15px",
                               flexWrap:
                                 "wrap",
                             }}
@@ -1084,15 +1041,11 @@ export default function BillingPage() {
 
           )}
 
-          {/* =================================================
-              BILLING GRID
-          ================================================= */}
+          {/* BILLING GRID */}
 
           <div className="billingGrid">
 
-            {/* =================================================
-                LEFT
-            ================================================= */}
+            {/* LEFT */}
 
             <section className="billingCard">
 
@@ -1122,8 +1075,7 @@ export default function BillingPage() {
                 <div
                   style={{
                     padding: "25px",
-                    textAlign:
-                      "center",
+                    textAlign: "center",
                   }}
                 >
 
@@ -1224,8 +1176,7 @@ export default function BillingPage() {
                       </small>
 
                       <strong>
-                        {patientName ||
-                          "-"}
+                        {patientName || "-"}
                       </strong>
                     </div>
 
@@ -1237,8 +1188,7 @@ export default function BillingPage() {
                       <strong>
                         {patientAge ||
                           "-"}{" "}
-                        {patientAgeUnit}{" "}
-                        /{" "}
+                        {patientAgeUnit} /{" "}
                         {patientGender ||
                           "-"}
                       </strong>
@@ -1272,9 +1222,7 @@ export default function BillingPage() {
 
               )}
 
-              {/* =================================================
-                  TEST TABLE
-              ================================================= */}
+              {/* TEST TABLE */}
 
               <div className="billTableWrap">
 
@@ -1283,23 +1231,17 @@ export default function BillingPage() {
                   <thead>
 
                     <tr>
-
                       <th>#</th>
-
                       <th>
                         Investigation
                       </th>
-
                       <th>
                         Category
                       </th>
-
                       <th>
                         Rate
                       </th>
-
                       <th></th>
-
                     </tr>
 
                   </thead>
@@ -1377,8 +1319,7 @@ export default function BillingPage() {
                               <small>
                                 {test.tests
                                   ?.length ||
-                                  test
-                                    .parameters
+                                  test.parameters
                                     ?.length ||
                                   0}{" "}
                                 parameters
@@ -1397,9 +1338,7 @@ export default function BillingPage() {
                                 test.price ||
                                   test.rate ||
                                   0
-                              ).toFixed(
-                                0
-                              )}
+                              ).toFixed(0)}
                             </td>
 
                             <td>
@@ -1433,9 +1372,7 @@ export default function BillingPage() {
 
             </section>
 
-            {/* =================================================
-                PAYMENT
-            ================================================= */}
+            {/* PAYMENT */}
 
             <aside className="paymentCard">
 
@@ -1459,21 +1396,19 @@ export default function BillingPage() {
               <div className="paymentRows">
 
                 <div>
-
                   <span>
                     Subtotal
                   </span>
 
                   <strong>
                     ₹
-                    {subtotal.toFixed(
-                      0
-                    )}
+                    {subtotal.toFixed(0)}
                   </strong>
-
                 </div>
 
-                <div className="paymentInputRow">
+                <div
+                  className="paymentInputRow"
+                >
 
                   <label>
                     Discount ₹
@@ -1501,14 +1436,14 @@ export default function BillingPage() {
 
                   <strong>
                     ₹
-                    {netAmount.toFixed(
-                      0
-                    )}
+                    {netAmount.toFixed(0)}
                   </strong>
 
                 </div>
 
-                <div className="paymentInputRow">
+                <div
+                  className="paymentInputRow"
+                >
 
                   <label>
                     Paid Amount ₹
@@ -1528,23 +1463,22 @@ export default function BillingPage() {
 
                 </div>
 
-                <div className="paymentInputRow">
+                <div
+                  className="paymentInputRow"
+                >
 
                   <label>
                     Payment Mode
                   </label>
 
                   <select
-                    value={
-                      paymentMode
-                    }
+                    value={paymentMode}
                     onChange={(e) =>
                       setPaymentMode(
                         e.target.value
                       )
                     }
                   >
-
                     <option>
                       Cash
                     </option>
@@ -1564,7 +1498,6 @@ export default function BillingPage() {
                     <option>
                       Credit
                     </option>
-
                   </select>
 
                 </div>
@@ -1589,16 +1522,12 @@ export default function BillingPage() {
 
                   <strong>
                     ₹
-                    {balance.toFixed(
-                      0
-                    )}
+                    {balance.toFixed(0)}
                   </strong>
 
                 </div>
 
               </div>
-
-              {/* FULL PAYMENT */}
 
               <button
                 className="fullPaymentBtn"
@@ -1606,15 +1535,11 @@ export default function BillingPage() {
                   netAmount <= 0
                 }
                 onClick={() =>
-                  setPaid(
-                    netAmount
-                  )
+                  setPaid(netAmount)
                 }
               >
                 Mark Full Payment
               </button>
-
-              {/* SAVE BILL */}
 
               <button
                 className="continueBtn billingContinue"
@@ -1626,11 +1551,9 @@ export default function BillingPage() {
                   continueResults
                 }
               >
-
                 {savingBill
                   ? "Saving Bill..."
                   : "Save Bill & Continue to Results →"}
-
               </button>
 
             </aside>
@@ -1640,6 +1563,507 @@ export default function BillingPage() {
         </div>
 
       </main>
+
+      {/* =====================================================
+          CSS
+      ===================================================== */}
+
+      <style jsx global>{`
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          font-family:
+            Arial,
+            sans-serif;
+          background:
+            #f5f8fb;
+        }
+
+        .labApp {
+          min-height: 100vh;
+          display: flex;
+        }
+
+        .sidebar {
+          width: 220px;
+          min-height: 100vh;
+          background: #09263a;
+          color: white;
+          padding: 18px 12px;
+          position: fixed;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          overflow-y: auto;
+        }
+
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 30px;
+        }
+
+        .brandLogo {
+          width: 38px;
+          height: 38px;
+          background: #10a6a3;
+          border-radius: 10px;
+          display: grid;
+          place-items: center;
+          font-weight: bold;
+        }
+
+        .brand h2 {
+          margin: 0;
+          font-size: 17px;
+        }
+
+        .brand p {
+          margin: 2px 0 0;
+          font-size: 8px;
+          opacity: .65;
+        }
+
+        .menuLabel {
+          font-size: 8px;
+          letter-spacing: 2px;
+          opacity: .5;
+          margin: 18px 8px 8px;
+        }
+
+        .menu {
+          width: 100%;
+          border: 0;
+          background: transparent;
+          color: #dbe7ed;
+          padding: 11px 10px;
+          border-radius: 7px;
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          text-align: left;
+          cursor: pointer;
+          margin-bottom: 3px;
+        }
+
+        .menu:hover,
+        .menu.active {
+          background: #10485e;
+          color: white;
+        }
+
+        .menu span {
+          width: 20px;
+          text-align: center;
+        }
+
+        .mainArea {
+          margin-left: 220px;
+          width: calc(100% - 220px);
+          min-height: 100vh;
+        }
+
+        .topbar {
+          height: 70px;
+          background: white;
+          border-bottom: 1px solid #e5ebef;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 25px;
+        }
+
+        .topbar h3 {
+          margin: 0;
+          font-size: 16px;
+        }
+
+        .topbar p {
+          margin: 3px 0 0;
+          color: #718096;
+          font-size: 11px;
+        }
+
+        .topRight {
+          font-size: 11px;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+        }
+
+        .statusDot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #20b486;
+        }
+
+        .content {
+          padding: 22px;
+        }
+
+        .pageHeading {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 15px;
+          margin-bottom: 18px;
+        }
+
+        .smallTitle {
+          color: #129e9b;
+          font-size: 10px;
+          font-weight: bold;
+          letter-spacing: 1px;
+        }
+
+        .pageHeading h1 {
+          margin: 5px 0;
+          font-size: 25px;
+          color: #172b3a;
+        }
+
+        .pageHeading p {
+          margin: 0;
+          color: #718096;
+          font-size: 12px;
+        }
+
+        .backBtn {
+          border: 1px solid #d9e2e8;
+          background: white;
+          padding: 10px 14px;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+
+        .steps {
+          background: white;
+          border: 1px solid #e1e8ed;
+          border-radius: 12px;
+          padding: 12px;
+          display: flex;
+          gap: 10px;
+          margin-bottom: 18px;
+        }
+
+        .step {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          color: #52606d;
+          padding: 7px;
+          border-radius: 8px;
+        }
+
+        .step > span {
+          width: 25px;
+          height: 25px;
+          border-radius: 50%;
+          background: #edf2f5;
+          display: grid;
+          place-items: center;
+          font-weight: bold;
+          color: #718096;
+        }
+
+        .step small {
+          display: block;
+          font-size: 8px;
+          color: #94a3b8;
+          margin-top: 2px;
+        }
+
+        .activeStep {
+          color: #079c99;
+          background: #effbfa;
+        }
+
+        .activeStep > span {
+          background: #10a6a3;
+          color: white;
+        }
+
+        .billingGrid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.7fr) minmax(280px, .8fr);
+          gap: 18px;
+        }
+
+        .billingCard,
+        .paymentCard {
+          background: white;
+          border: 1px solid #e0e7ec;
+          border-radius: 13px;
+          overflow: hidden;
+        }
+
+        .paymentCard {
+          height: fit-content;
+        }
+
+        .billingTitle {
+          padding: 18px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          border-bottom: 1px solid #edf1f4;
+        }
+
+        .billingTitle h2 {
+          margin: 0;
+          font-size: 16px;
+        }
+
+        .billingTitle p {
+          margin: 4px 0 0;
+          font-size: 11px;
+          color: #718096;
+        }
+
+        .billBadge {
+          background: #e6f8f7;
+          color: #087f7d;
+          padding: 7px 10px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: bold;
+        }
+
+        .patientBillInfo {
+          padding: 15px 18px;
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 12px;
+          background: #fafcfd;
+        }
+
+        .patientBillInfo small {
+          display: block;
+          color: #8795a1;
+          font-size: 9px;
+          margin-bottom: 4px;
+        }
+
+        .patientBillInfo strong {
+          display: block;
+          font-size: 11px;
+          color: #243746;
+          word-break: break-word;
+        }
+
+        .billTableWrap {
+          overflow-x: auto;
+        }
+
+        .billTable {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .billTable th {
+          text-align: left;
+          padding: 11px;
+          background: #f7f9fb;
+          color: #64748b;
+          font-size: 10px;
+        }
+
+        .billTable td {
+          padding: 12px 11px;
+          border-top: 1px solid #edf1f4;
+          font-size: 11px;
+        }
+
+        .billTable td small {
+          display: block;
+          color: #94a3b8;
+          font-size: 9px;
+          margin-top: 3px;
+        }
+
+        .emptyBill {
+          text-align: center;
+          color: #718096;
+        }
+
+        .removeBillTest {
+          border: 0;
+          background: #fee2e2;
+          color: #b91c1c;
+          width: 27px;
+          height: 27px;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+
+        .paymentRows {
+          padding: 18px;
+        }
+
+        .paymentRows > div {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 0;
+          font-size: 12px;
+          border-bottom: 1px solid #edf1f4;
+        }
+
+        .paymentRows span {
+          color: #64748b;
+        }
+
+        .paymentRows strong {
+          color: #172b3a;
+        }
+
+        .paymentInputRow input,
+        .paymentInputRow select {
+          width: 120px;
+          padding: 8px;
+          border: 1px solid #d8e0e7;
+          border-radius: 7px;
+        }
+
+        .netPayable {
+          padding: 15px 0 !important;
+        }
+
+        .netPayable strong {
+          font-size: 21px;
+          color: #079c99;
+        }
+
+        .balanceRow strong {
+          color: #dc2626 !important;
+        }
+
+        .fullPaymentBtn,
+        .continueBtn {
+          border: 0;
+          cursor: pointer;
+          border-radius: 8px;
+          padding: 11px 14px;
+          font-weight: bold;
+        }
+
+        .fullPaymentBtn {
+          width: calc(100% - 36px);
+          margin: 0 18px 10px;
+          background: #e7f8f7;
+          color: #078b88;
+        }
+
+        .continueBtn {
+          background: #0fa4a1;
+          color: white;
+        }
+
+        .billingContinue {
+          width: calc(100% - 36px);
+          margin: 0 18px 18px;
+        }
+
+        .continueBtn:disabled,
+        .billingContinue:disabled {
+          opacity: .5;
+          cursor: not-allowed;
+        }
+
+        @media(max-width: 900px) {
+
+          .sidebar {
+            width: 180px;
+          }
+
+          .mainArea {
+            margin-left: 180px;
+            width: calc(100% - 180px);
+          }
+
+          .billingGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .patientBillInfo {
+            grid-template-columns:
+              repeat(2, 1fr);
+          }
+
+        }
+
+        @media(max-width: 600px) {
+
+          .sidebar {
+            width: 65px;
+            padding: 10px 6px;
+          }
+
+          .brand > div:last-child,
+          .menuLabel {
+            display: none;
+          }
+
+          .menu {
+            justify-content: center;
+            padding: 11px 5px;
+          }
+
+          .menu span {
+            width: auto;
+          }
+
+          .menu:not(.active) {
+            font-size: 0;
+          }
+
+          .menu:not(.active) span {
+            font-size: 16px;
+          }
+
+          .mainArea {
+            margin-left: 65px;
+            width: calc(100% - 65px);
+          }
+
+          .content {
+            padding: 10px;
+          }
+
+          .topbar {
+            padding: 0 10px;
+          }
+
+          .pageHeading {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .steps {
+            overflow-x: auto;
+          }
+
+          .step {
+            min-width: 100px;
+          }
+
+          .patientBillInfo {
+            grid-template-columns: 1fr 1fr;
+          }
+
+        }
+
+      `}</style>
 
     </div>
   );
