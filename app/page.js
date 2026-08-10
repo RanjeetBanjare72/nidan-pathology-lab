@@ -1,61 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
+const EMPTY_PATIENT = {
+  id: "",
+  name: "",
+  age: "",
+  ageUnit: "Years",
+  gender: "Male",
+  mobile: "",
+  doctor: "",
+  address: "",
+};
+
 export default function Home() {
   const router = useRouter();
-
-  // =========================================================
-  // STATE
-  // =========================================================
 
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
 
   const [active, setActive] = useState("dashboard");
+
   const [saving, setSaving] = useState(false);
 
-  const [patient, setPatient] = useState({
-    id: "",
-    name: "",
-    age: "",
-    ageUnit: "Years",
-    gender: "Male",
-    mobile: "",
-    doctor: "",
-    address: "",
-  });
+  const [todayCollection, setTodayCollection] =
+    useState(0);
+
+  const [pendingReports, setPendingReports] =
+    useState(0);
+
+  const [loadingDashboard, setLoadingDashboard] =
+    useState(true);
+
+  const [patient, setPatient] =
+    useState(EMPTY_PATIENT);
 
   // =========================================================
-  // PAGE LOAD
+  // INITIAL LOAD
   // =========================================================
 
   useEffect(() => {
-    fetchPatients();
+    loadDashboard();
     loadDoctors();
-
-    // Browser storage change listener
-    function handleStorageChange() {
-      loadDoctors();
-    }
-
-    window.addEventListener(
-      "storage",
-      handleStorageChange
-    );
-
-    return () => {
-      window.removeEventListener(
-        "storage",
-        handleStorageChange
-      );
-    };
   }, []);
 
   // =========================================================
-  // LOAD PATIENTS FROM SUPABASE
+  // LOAD DASHBOARD DATA
+  // =========================================================
+
+  async function loadDashboard() {
+    setLoadingDashboard(true);
+
+    try {
+      await Promise.all([
+        fetchPatients(),
+        fetchTodayCollection(),
+        fetchPendingReports(),
+      ]);
+    } catch (error) {
+      console.error(
+        "Dashboard loading error:",
+        error
+      );
+    } finally {
+      setLoadingDashboard(false);
+    }
+  }
+
+  // =========================================================
+  // LOAD PATIENTS
   // =========================================================
 
   async function fetchPatients() {
@@ -74,6 +89,7 @@ export default function Home() {
         );
 
         setPatients([]);
+
         return;
       }
 
@@ -89,104 +105,241 @@ export default function Home() {
   }
 
   // =========================================================
-  // LOAD DOCTORS FROM LOCAL STORAGE
+  // TODAY'S COLLECTION
   // =========================================================
 
-  function loadDoctors() {
+  async function fetchTodayCollection() {
     try {
-      const raw =
-        localStorage.getItem(
-          "nidanDoctors"
-        );
+      // Start of today
+      const start = new Date();
 
-      if (!raw) {
-        setDoctors([]);
-        return;
-      }
-
-      const savedDoctors =
-        JSON.parse(raw);
-
-      if (!Array.isArray(savedDoctors)) {
-        setDoctors([]);
-        return;
-      }
-
-      // Only active doctors
-      const activeDoctors =
-        savedDoctors.filter(
-          (doctor) =>
-            doctor &&
-            doctor.name &&
-            doctor.active !== false
-        );
-
-      setDoctors(activeDoctors);
-
-      console.log(
-        "NIDAN Doctors loaded:",
-        activeDoctors
+      start.setHours(
+        0,
+        0,
+        0,
+        0
       );
+
+      // Start of tomorrow
+      const end = new Date(start);
+
+      end.setDate(
+        end.getDate() + 1
+      );
+
+      const { data, error } =
+        await supabase
+          .from("bills")
+          .select(
+            "paid, bill_date, payment_status"
+          )
+          .gte(
+            "bill_date",
+            start.toISOString()
+          )
+          .lt(
+            "bill_date",
+            end.toISOString()
+          );
+
+      if (error) {
+        console.error(
+          "Today's collection error:",
+          error
+        );
+
+        setTodayCollection(0);
+
+        return;
+      }
+
+      const total = (data || []).reduce(
+        (sum, bill) => {
+          return (
+            sum +
+            Number(
+              bill.paid || 0
+            )
+          );
+        },
+        0
+      );
+
+      setTodayCollection(total);
     } catch (error) {
       console.error(
-        "Doctors load error:",
+        "Today's collection error:",
         error
       );
 
-      setDoctors([]);
+      setTodayCollection(0);
     }
   }
 
   // =========================================================
-  // GENERATE PATIENT ID
+  // PENDING REPORTS
+  // =========================================================
+
+  async function fetchPendingReports() {
+    try {
+      /*
+       * Agar future me reports table me
+       * status column hoga to yahan se
+       * actual pending reports count kiya ja sakta hai.
+       *
+       * Abhi safe fallback = 0
+       */
+
+      setPendingReports(0);
+    } catch (error) {
+      console.error(
+        "Pending reports error:",
+        error
+      );
+
+      setPendingReports(0);
+    }
+  }
+
+  // =========================================================
+  // LOAD DOCTORS
+  // =========================================================
+
+  async function loadDoctors() {
+    let loadedDoctors = [];
+
+    // -------------------------------------------------------
+    // SUPABASE DOCTORS
+    // -------------------------------------------------------
+
+    try {
+      const { data, error } =
+        await supabase
+          .from("doctors")
+          .select("*")
+          .order("created_at", {
+            ascending: false,
+          });
+
+      if (!error && data) {
+        loadedDoctors = data;
+      }
+    } catch (error) {
+      console.error(
+        "Supabase doctors error:",
+        error
+      );
+    }
+
+    // -------------------------------------------------------
+    // LOCAL STORAGE DOCTORS
+    // -------------------------------------------------------
+
+    try {
+      const localDoctors =
+        JSON.parse(
+          localStorage.getItem(
+            "nidanDoctors"
+          ) || "[]"
+        );
+
+      if (
+        Array.isArray(localDoctors)
+      ) {
+        loadedDoctors = [
+          ...loadedDoctors,
+          ...localDoctors,
+        ];
+      }
+    } catch (error) {
+      console.error(
+        "Local doctors error:",
+        error
+      );
+    }
+
+    // -------------------------------------------------------
+    // REMOVE DUPLICATES
+    // -------------------------------------------------------
+
+    const uniqueDoctors = [];
+
+    const used = new Set();
+
+    loadedDoctors.forEach(
+      (doctor) => {
+        const name =
+          doctor.name ||
+          doctor.doctor_name ||
+          "";
+
+        if (!name) return;
+
+        const key =
+          `${name}-${doctor.registrationNo || doctor.registration_no || ""}`
+            .toLowerCase();
+
+        if (!used.has(key)) {
+          used.add(key);
+
+          uniqueDoctors.push(
+            doctor
+          );
+        }
+      }
+    );
+
+    setDoctors(
+      uniqueDoctors
+    );
+  }
+
+  // =========================================================
+  // PATIENT ID
   // =========================================================
 
   function generatePatientId() {
     const now = new Date();
 
-    const year =
+    const y =
       now.getFullYear();
 
-    const month =
+    const m =
       String(
         now.getMonth() + 1
       ).padStart(2, "0");
 
-    const day =
+    const d =
       String(
         now.getDate()
       ).padStart(2, "0");
 
-    const randomNumber =
+    const n =
       Math.floor(
         1000 +
-          Math.random() * 9000
+          Math.random() *
+            9000
       );
 
-    return `NPL-${year}${month}${day}-${randomNumber}`;
+    return `NPL-${y}${m}${d}-${n}`;
   }
 
   // =========================================================
-  // OPEN NEW PATIENT
+  // NEW PATIENT
   // =========================================================
 
   function openNewPatient() {
-    // IMPORTANT:
-    // Doctor list ko fresh load karna
-    loadDoctors();
-
     setPatient({
+      ...EMPTY_PATIENT,
       id: generatePatientId(),
-      name: "",
-      age: "",
-      ageUnit: "Years",
-      gender: "Male",
-      mobile: "",
-      doctor: "",
-      address: "",
     });
 
-    setActive("newPatient");
+    setActive(
+      "newPatient"
+    );
+
+    // Refresh doctors whenever form opens
+    loadDoctors();
   }
 
   // =========================================================
@@ -199,24 +352,12 @@ export default function Home() {
       value,
     } = e.target;
 
-    setPatient((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
-  }
-
-  // =========================================================
-  // DOCTOR CHANGE
-  // =========================================================
-
-  function changeDoctor(e) {
-    const value =
-      e.target.value;
-
-    setPatient((previous) => ({
-      ...previous,
-      doctor: value,
-    }));
+    setPatient(
+      (previous) => ({
+        ...previous,
+        [name]: value,
+      })
+    );
   }
 
   // =========================================================
@@ -226,36 +367,39 @@ export default function Home() {
   async function continueToTests(e) {
     e.preventDefault();
 
-    // Patient name
     if (!patient.name.trim()) {
       alert(
         "Patient Name enter karein."
       );
+
       return;
     }
 
-    // Age
-    if (!patient.age) {
+    if (
+      patient.age === "" ||
+      patient.age === null
+    ) {
       alert(
         "Patient Age enter karein."
       );
+
       return;
     }
 
-    // Patient ID
     if (!patient.id) {
       alert(
         "Patient ID generate nahi hua."
       );
+
       return;
     }
 
     try {
       setSaving(true);
 
-      // =====================================================
-      // SUPABASE INSERT
-      // =====================================================
+      // -----------------------------------------------------
+      // SAVE PATIENT TO SUPABASE
+      // -----------------------------------------------------
 
       const { error } =
         await supabase
@@ -280,16 +424,13 @@ export default function Home() {
                 patient.gender,
 
               mobile:
-                patient.mobile ||
-                "",
+                patient.mobile,
 
               referring_doctor:
-                patient.doctor ||
-                "",
+                patient.doctor,
 
               address:
-                patient.address ||
-                "",
+                patient.address,
             },
           ]);
 
@@ -304,20 +445,28 @@ export default function Home() {
             error.message
         );
 
+        setSaving(false);
+
         return;
       }
 
-      // =====================================================
-      // SAVE CURRENT PATIENT FOR OTHER PAGES
-      // =====================================================
+      // -----------------------------------------------------
+      // LOCAL PATIENT
+      // -----------------------------------------------------
 
-      const currentPatient = {
+      const localPatient = {
         ...patient,
 
         patientId:
           patient.id,
 
+        patient_id:
+          patient.id,
+
         refDoctor:
+          patient.doctor,
+
+        referring_doctor:
           patient.doctor,
 
         sex:
@@ -327,13 +476,13 @@ export default function Home() {
       localStorage.setItem(
         "nidanPatient",
         JSON.stringify(
-          currentPatient
+          localPatient
         )
       );
 
-      // =====================================================
-      // CLEAR PREVIOUS VISIT DATA
-      // =====================================================
+      // -----------------------------------------------------
+      // CLEAR OLD VISIT DATA
+      // -----------------------------------------------------
 
       localStorage.removeItem(
         "nidanSelectedTests"
@@ -347,17 +496,19 @@ export default function Home() {
         "nidanResults"
       );
 
-      // =====================================================
-      // REFRESH PATIENTS
-      // =====================================================
+      // -----------------------------------------------------
+      // UPDATE DASHBOARD
+      // -----------------------------------------------------
 
       await fetchPatients();
 
-      // =====================================================
-      // GO TO TEST SELECTION
-      // =====================================================
+      // -----------------------------------------------------
+      // GO TO TESTS
+      // -----------------------------------------------------
 
-      router.push("/tests");
+      router.push(
+        "/tests"
+      );
     } catch (error) {
       console.error(
         "Patient save error:",
@@ -365,8 +516,7 @@ export default function Home() {
       );
 
       alert(
-        "Patient save karte waqt error aaya:\n\n" +
-          error.message
+        "Patient save karte waqt error aaya."
       );
     } finally {
       setSaving(false);
@@ -378,52 +528,96 @@ export default function Home() {
   // =========================================================
 
   function goDashboard() {
-    setActive("dashboard");
+    setActive(
+      "dashboard"
+    );
+
+    loadDashboard();
   }
 
   function goPatients() {
-    router.push("/patients");
+    router.push(
+      "/patients"
+    );
+  }
+
+  function goTests() {
+    router.push(
+      "/tests"
+    );
   }
 
   function goBilling() {
-    router.push("/billing");
+    router.push(
+      "/billing"
+    );
   }
 
   function goSamples() {
-    router.push("/samples");
+    router.push(
+      "/samples"
+    );
   }
 
   function goResults() {
-    router.push("/results");
+    router.push(
+      "/results"
+    );
   }
 
   function goReports() {
-    router.push("/reports");
+    router.push(
+      "/reports"
+    );
   }
 
   function goTestMaster() {
-    router.push("/test-master");
+    router.push(
+      "/test-master"
+    );
   }
 
   function goDoctors() {
-    router.push("/doctors");
+    router.push(
+      "/doctors"
+    );
   }
 
   function goSettings() {
-    router.push("/settings");
+    router.push(
+      "/settings"
+    );
   }
 
   // =========================================================
-  // REFRESH
+  // FORMAT MONEY
   // =========================================================
 
-  async function refreshDashboard() {
-    await fetchPatients();
-    loadDoctors();
+  function formatMoney(amount) {
+    return Number(
+      amount || 0
+    ).toLocaleString(
+      "en-IN",
+      {
+        maximumFractionDigits: 0,
+      }
+    );
   }
 
   // =========================================================
-  // RENDER
+  // RECENT PATIENTS
+  // =========================================================
+
+  const recentPatients =
+    useMemo(() => {
+      return patients.slice(
+        0,
+        5
+      );
+    }, [patients]);
+
+  // =========================================================
+  // DASHBOARD
   // =========================================================
 
   return (
@@ -442,7 +636,10 @@ export default function Home() {
           </div>
 
           <div>
-            <h2>NIDAN</h2>
+            <h2>
+              NIDAN
+            </h2>
+
             <p>
               PATHOLOGY LAB
             </p>
@@ -458,7 +655,8 @@ export default function Home() {
 
         <button
           className={
-            active === "dashboard"
+            active ===
+            "dashboard"
               ? "menu active"
               : "menu"
           }
@@ -466,7 +664,10 @@ export default function Home() {
             goDashboard
           }
         >
-          <span>▦</span>
+          <span>
+            ▦
+          </span>
+
           Dashboard
         </button>
 
@@ -474,7 +675,8 @@ export default function Home() {
 
         <button
           className={
-            active === "newPatient"
+            active ===
+            "newPatient"
               ? "menu active"
               : "menu"
           }
@@ -482,7 +684,10 @@ export default function Home() {
             openNewPatient
           }
         >
-          <span>＋</span>
+          <span>
+            ＋
+          </span>
+
           New Patient
         </button>
 
@@ -494,7 +699,10 @@ export default function Home() {
             goPatients
           }
         >
-          <span>♙</span>
+          <span>
+            ♙
+          </span>
+
           Patients
         </button>
 
@@ -506,7 +714,10 @@ export default function Home() {
             goBilling
           }
         >
-          <span>₹</span>
+          <span>
+            ₹
+          </span>
+
           Billing
         </button>
 
@@ -518,11 +729,14 @@ export default function Home() {
             goSamples
           }
         >
-          <span>⌁</span>
+          <span>
+            ⌁
+          </span>
+
           Samples
         </button>
 
-        {/* RESULT */}
+        {/* RESULTS */}
 
         <button
           className="menu"
@@ -530,11 +744,14 @@ export default function Home() {
             goResults
           }
         >
-          <span>▤</span>
+          <span>
+            ▤
+          </span>
+
           Result Entry
         </button>
 
-        {/* REPORT */}
+        {/* REPORTS */}
 
         <button
           className="menu"
@@ -542,7 +759,10 @@ export default function Home() {
             goReports
           }
         >
-          <span>▣</span>
+          <span>
+            ▣
+          </span>
+
           Reports
         </button>
 
@@ -558,7 +778,10 @@ export default function Home() {
             goTestMaster
           }
         >
-          <span>⚗</span>
+          <span>
+            ⚗
+          </span>
+
           Test Master
         </button>
 
@@ -570,7 +793,10 @@ export default function Home() {
             goDoctors
           }
         >
-          <span>♧</span>
+          <span>
+            ♧
+          </span>
+
           Doctors
         </button>
 
@@ -582,7 +808,10 @@ export default function Home() {
             goSettings
           }
         >
-          <span>⚙</span>
+          <span>
+            ⚙
+          </span>
+
           Settings
         </button>
 
@@ -594,7 +823,7 @@ export default function Home() {
 
       <main className="mainArea">
 
-        {/* TOP BAR */}
+        {/* TOPBAR */}
 
         <header className="topbar">
 
@@ -658,33 +887,24 @@ export default function Home() {
 
               </div>
 
-              <div className="welcomeActions">
-
-                <button
-                  className="refreshBtn"
-                  onClick={
-                    refreshDashboard
-                  }
-                >
-                  ↻ Refresh
-                </button>
-
-                <button
-                  className="primaryBtn"
-                  onClick={
-                    openNewPatient
-                  }
-                >
-                  + New Patient
-                </button>
-
-              </div>
+              <button
+                className="primaryBtn"
+                onClick={
+                  openNewPatient
+                }
+              >
+                + New Patient
+              </button>
 
             </div>
 
-            {/* STAT CARDS */}
+            {/* =================================================
+                STAT CARDS
+            ================================================= */}
 
             <div className="stats">
+
+              {/* TOTAL PATIENTS */}
 
               <div className="statCard">
 
@@ -699,14 +919,18 @@ export default function Home() {
                   </p>
 
                   <h2>
-                    {patients.length}
+                    {loadingDashboard
+                      ? "..."
+                      : patients.length}
                   </h2>
 
                 </div>
 
               </div>
 
-              <div className="statCard">
+              {/* TODAY COLLECTION */}
+
+              <div className="statCard collectionCard">
 
                 <div className="statIcon">
                   ₹
@@ -719,32 +943,43 @@ export default function Home() {
                   </p>
 
                   <h2>
-                    ₹0
+                    ₹
+                    {loadingDashboard
+                      ? "..."
+                      : formatMoney(
+                          todayCollection
+                        )}
                   </h2>
 
                 </div>
 
               </div>
 
+              {/* TODAY BILLS */}
+
               <div className="statCard">
 
                 <div className="statIcon">
-                  ♧
+                  🧾
                 </div>
 
                 <div>
 
                   <p>
-                    Total Doctors
+                    Today's Bills
                   </p>
 
                   <h2>
-                    {doctors.length}
+                    {loadingDashboard
+                      ? "..."
+                      : "—"}
                   </h2>
 
                 </div>
 
               </div>
+
+              {/* PENDING REPORTS */}
 
               <div className="statCard">
 
@@ -759,7 +994,7 @@ export default function Home() {
                   </p>
 
                   <h2>
-                    0
+                    {pendingReports}
                   </h2>
 
                 </div>
@@ -768,7 +1003,9 @@ export default function Home() {
 
             </div>
 
-            {/* DASHBOARD GRID */}
+            {/* =================================================
+                DASHBOARD GRID
+            ================================================= */}
 
             <div className="dashboardGrid">
 
@@ -801,7 +1038,7 @@ export default function Home() {
 
                 </div>
 
-                {patients.length ===
+                {recentPatients.length ===
                 0 ? (
 
                   <div className="emptyState">
@@ -834,17 +1071,23 @@ export default function Home() {
 
                 ) : (
 
-                  <div className="recentPatients">
+                  <div>
 
-                    {patients
-                      .slice(0, 5)
-                      .map(
-                        (p) => (
+                    {recentPatients.map(
+                      (p) => {
+
+                        const patientId =
+                          p.patient_id ||
+                          p.patientId ||
+                          p.id ||
+                          "-";
+
+                        return (
 
                           <div
                             key={
                               p.id ||
-                              p.patient_id
+                              patientId
                             }
                             className="recentPatient"
                           >
@@ -852,13 +1095,12 @@ export default function Home() {
                             <div>
 
                               <b>
-                                {p.name}
+                                {p.name ||
+                                  "Unknown Patient"}
                               </b>
 
-                              <div className="patientNumber">
-                                {p.patient_id ||
-                                  p.id ||
-                                  "-"}
+                              <div>
+                                {patientId}
                               </div>
 
                               <small>
@@ -868,29 +1110,24 @@ export default function Home() {
 
                                 {" • "}
 
-                                {p.age ||
+                                {p.age ??
                                   "-"}
 
                                 {" "}
 
                                 {p.age_unit ||
+                                  p.ageUnit ||
                                   "Years"}
 
                               </small>
 
                             </div>
 
-                            <div className="recentDoctor">
-
-                              {p.referring_doctor ||
-                                "No doctor"}
-
-                            </div>
-
                           </div>
 
-                        )
-                      )}
+                        );
+                      }
+                    )}
 
                   </div>
 
@@ -980,7 +1217,8 @@ export default function Home() {
                     </b>
 
                     <small>
-                      Enter test results
+                      Enter test
+                      results
                     </small>
                   </div>
 
@@ -1002,30 +1240,8 @@ export default function Home() {
                     </b>
 
                     <small>
-                      View final reports
-                    </small>
-                  </div>
-
-                </button>
-
-                <button
-                  onClick={
-                    goDoctors
-                  }
-                >
-
-                  <span>
-                    ♧
-                  </span>
-
-                  <div>
-                    <b>
-                      Doctors
-                    </b>
-
-                    <small>
-                      Manage referring
-                      doctors
+                      View final
+                      reports
                     </small>
                   </div>
 
@@ -1036,7 +1252,6 @@ export default function Home() {
             </div>
 
           </div>
-
         )}
 
         {/* ===================================================
@@ -1047,8 +1262,6 @@ export default function Home() {
           "newPatient" && (
 
           <div className="content">
-
-            {/* PAGE HEADING */}
 
             <div className="pageHeading">
 
@@ -1187,8 +1400,6 @@ export default function Home() {
               }
             >
 
-              {/* HEADER */}
-
               <div className="formHeader">
 
                 <div className="formIcon">
@@ -1210,8 +1421,6 @@ export default function Home() {
 
               </div>
 
-              {/* FORM */}
-
               <div className="formGrid">
 
                 {/* PATIENT ID */}
@@ -1232,12 +1441,12 @@ export default function Home() {
 
                 </div>
 
-                {/* PATIENT NAME */}
+                {/* NAME */}
 
                 <div className="field">
 
                   <label>
-                    Patient Name
+                    Patient Name{" "}
                     <b>*</b>
                   </label>
 
@@ -1260,8 +1469,7 @@ export default function Home() {
                 <div className="field">
 
                   <label>
-                    Age
-                    <b>*</b>
+                    Age <b>*</b>
                   </label>
 
                   <div className="ageField">
@@ -1290,15 +1498,15 @@ export default function Home() {
                       }
                     >
 
-                      <option value="Years">
+                      <option>
                         Years
                       </option>
 
-                      <option value="Months">
+                      <option>
                         Months
                       </option>
 
-                      <option value="Days">
+                      <option>
                         Days
                       </option>
 
@@ -1326,15 +1534,15 @@ export default function Home() {
                     }
                   >
 
-                    <option value="Male">
+                    <option>
                       Male
                     </option>
 
-                    <option value="Female">
+                    <option>
                       Female
                     </option>
 
-                    <option value="Other">
+                    <option>
                       Other
                     </option>
 
@@ -1364,10 +1572,7 @@ export default function Home() {
 
                 </div>
 
-                {/* =================================================
-                    REFERRING DOCTOR
-                    IMPORTANT FIX
-                ================================================= */}
+                {/* DOCTOR */}
 
                 <div className="field">
 
@@ -1375,93 +1580,89 @@ export default function Home() {
                     Referring Doctor
                   </label>
 
-                  <select
-                    name="doctor"
-                    value={
-                      patient.doctor
-                    }
-                    onChange={
-                      changeDoctor
-                    }
-                  >
-
-                    <option value="">
-                      Select Referring Doctor
-                    </option>
-
-                    {doctors.length >
-                    0 ? (
-
-                      doctors.map(
-                        (doctor) => (
-
-                          <option
-                            key={
-                              doctor.id ||
-                              doctor.name
-                            }
-                            value={
-                              `Dr. ${doctor.name}`
-                            }
-                          >
-
-                            Dr.{" "}
-                            {doctor.name}
-
-                            {doctor.qualification
-                              ? ` - ${doctor.qualification}`
-                              : ""}
-
-                            {doctor.specialization
-                              ? ` - ${doctor.specialization}`
-                              : ""}
-
-                          </option>
-
-                        )
-                      )
-
-                    ) : (
-
-                      <option
-                        value=""
-                        disabled
-                      >
-                        No doctor saved
-                      </option>
-
-                    )}
-
-                  </select>
-
-                  {/* DOCTOR STATUS */}
-
                   {doctors.length >
                   0 ? (
 
-                    <div className="doctorLoaded">
+                    <select
+                      name="doctor"
+                      value={
+                        patient.doctor
+                      }
+                      onChange={
+                        change
+                      }
+                    >
 
-                      ✓{" "}
-                      {doctors.length} doctor
-                      {doctors.length >
-                      1
-                        ? "s"
-                        : ""}{" "}
-                      available
+                      <option value="">
+                        Select Doctor
+                      </option>
 
-                    </div>
+                      {doctors.map(
+                        (
+                          doctor,
+                          index
+                        ) => {
+
+                          const name =
+                            doctor.name ||
+                            doctor.doctor_name ||
+                            "";
+
+                          const qualification =
+                            doctor.qualification ||
+                            doctor.qualification_name ||
+                            "";
+
+                          const key =
+                            doctor.id ||
+                            doctor.doctor_id ||
+                            `${name}-${index}`;
+
+                          return (
+
+                            <option
+                              key={
+                                key
+                              }
+                              value={
+                                name
+                              }
+                            >
+                              Dr.{" "}
+                              {name}
+                              {qualification
+                                ? ` (${qualification})`
+                                : ""}
+                            </option>
+
+                          );
+                        }
+                      )}
+
+                    </select>
 
                   ) : (
 
-                    <button
-                      type="button"
-                      className="doctorHelp"
-                      onClick={
-                        goDoctors
-                      }
-                    >
-                      + Add Doctor
-                    </button>
+                    <div>
+
+                      <input
+                        name="doctor"
+                        value={
+                          patient.doctor
+                        }
+                        onChange={
+                          change
+                        }
+                        placeholder="Doctor name"
+                      />
+
+                      <small className="doctorHint">
+                        No doctor found.
+                        Add doctor from
+                        Doctors menu.
+                      </small>
+
+                    </div>
 
                   )}
 
@@ -1484,7 +1685,6 @@ export default function Home() {
                       change
                     }
                     placeholder="Patient address"
-                    rows="4"
                   />
 
                 </div>
@@ -1512,11 +1712,9 @@ export default function Home() {
                     saving
                   }
                 >
-
                   {saving
                     ? "Saving..."
                     : "Save & Select Tests →"}
-
                 </button>
 
               </div>
@@ -1524,13 +1722,12 @@ export default function Home() {
             </form>
 
           </div>
-
         )}
 
       </main>
 
       {/* =====================================================
-          CSS
+          STYLE
       ===================================================== */}
 
       <style jsx global>{`
@@ -1539,661 +1736,953 @@ export default function Home() {
           box-sizing: border-box;
         }
 
-        html,
         body {
           margin: 0;
-          padding: 0;
           font-family:
             Arial,
             Helvetica,
             sans-serif;
-          background: #f4f7fb;
-          color: #172033;
+          background:
+            #f4f7fb;
+          color:
+            #1e293b;
         }
 
         button,
         input,
         select,
         textarea {
-          font-family: inherit;
+          font-family:
+            inherit;
         }
 
         button {
-          cursor: pointer;
+          cursor:
+            pointer;
         }
 
-        /* ================= APP ================= */
+        button:disabled {
+          opacity:
+            0.65;
+          cursor:
+            not-allowed;
+        }
+
+        /* =====================================================
+           APP
+        ===================================================== */
 
         .labApp {
-          min-height: 100vh;
-          display: flex;
-          background: #f4f7fb;
+          min-height:
+            100vh;
+          display:
+            flex;
+          background:
+            #f4f7fb;
         }
 
-        /* ================= SIDEBAR ================= */
+        /* =====================================================
+           SIDEBAR
+        ===================================================== */
 
         .sidebar {
-          width: 235px;
-          min-height: 100vh;
-          background: #092638;
-          color: white;
-          padding: 18px 12px;
-          position: fixed;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          overflow-y: auto;
-          z-index: 100;
+          width:
+            230px;
+          min-height:
+            100vh;
+          background:
+            #09263a;
+          color:
+            white;
+          padding:
+            18px 12px;
+          position:
+            fixed;
+          left:
+            0;
+          top:
+            0;
+          bottom:
+            0;
+          overflow-y:
+            auto;
+          z-index:
+            20;
         }
 
         .brand {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 4px 5px 25px;
+          display:
+            flex;
+          align-items:
+            center;
+          gap:
+            10px;
+          padding:
+            5px 6px 22px;
         }
 
         .brandLogo {
-          width: 38px;
-          height: 38px;
-          border-radius: 9px;
-          background: #10a7a3;
-          display: grid;
-          place-items: center;
-          font-size: 17px;
-          font-weight: 800;
+          width:
+            38px;
+          height:
+            38px;
+          border-radius:
+            10px;
+          background:
+            #0fa5a1;
+          display:
+            grid;
+          place-items:
+            center;
+          font-weight:
+            bold;
+          font-size:
+            17px;
         }
 
         .brand h2 {
-          margin: 0;
-          font-size: 16px;
-          letter-spacing: .5px;
+          margin:
+            0;
+          font-size:
+            17px;
+          letter-spacing:
+            .5px;
         }
 
         .brand p {
-          margin: 2px 0 0;
-          color: #91a6b5;
-          font-size: 8px;
-          letter-spacing: .8px;
+          margin:
+            2px 0 0;
+          font-size:
+            8px;
+          opacity:
+            .65;
+          letter-spacing:
+            .5px;
         }
 
         .menuLabel {
-          color: #718b9b;
-          font-size: 9px;
-          font-weight: 700;
-          letter-spacing: 1.5px;
-          padding: 7px 9px;
-          margin-top: 3px;
+          font-size:
+            9px;
+          letter-spacing:
+            1.5px;
+          color:
+            #7e98a9;
+          padding:
+            12px 8px 7px;
+          font-weight:
+            bold;
         }
 
         .menuLabel.second {
-          margin-top: 20px;
+          margin-top:
+            10px;
         }
 
         .menu {
-          width: 100%;
-          border: 0;
-          background: transparent;
-          color: #d4e0e7;
-          padding: 11px 10px;
-          border-radius: 7px;
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          text-align: left;
-          font-size: 13px;
-          margin: 2px 0;
+          width:
+            100%;
+          border:
+            0;
+          background:
+            transparent;
+          color:
+            #d9e5ec;
+          padding:
+            10px 10px;
+          border-radius:
+            7px;
+          display:
+            flex;
+          align-items:
+            center;
+          gap:
+            12px;
+          text-align:
+            left;
+          font-size:
+            12px;
+          margin:
+            2px 0;
         }
 
         .menu span {
-          width: 18px;
-          text-align: center;
+          width:
+            18px;
+          text-align:
+            center;
         }
 
         .menu:hover {
-          background: #103c51;
+          background:
+            rgba(255,255,255,.08);
         }
 
         .menu.active {
-          background: #0e5369;
-          color: white;
+          background:
+            #105d72;
+          color:
+            white;
           box-shadow:
-            inset 3px 0 0 #13b4ad;
+            inset 3px 0 0 #18b4ad;
         }
 
-        /* ================= MAIN ================= */
+        /* =====================================================
+           MAIN
+        ===================================================== */
 
         .mainArea {
-          width: calc(100% - 235px);
-          margin-left: 235px;
-          min-height: 100vh;
+          margin-left:
+            230px;
+          width:
+            calc(100% - 230px);
+          min-height:
+            100vh;
         }
 
-        /* ================= TOPBAR ================= */
-
         .topbar {
-          min-height: 72px;
-          background: white;
-          border-bottom: 1px solid #e4e9ee;
-          padding: 15px 25px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+          min-height:
+            70px;
+          background:
+            white;
+          border-bottom:
+            1px solid #e5eaf0;
+          padding:
+            14px 24px;
+          display:
+            flex;
+          justify-content:
+            space-between;
+          align-items:
+            center;
         }
 
         .topbar h3 {
-          margin: 0;
-          font-size: 16px;
+          margin:
+            0 0 3px;
+          font-size:
+            16px;
         }
 
         .topbar p {
-          margin: 4px 0 0;
-          color: #84919e;
-          font-size: 10px;
+          margin:
+            0;
+          font-size:
+            11px;
+          color:
+            #7b8794;
         }
 
         .topRight {
-          color: #526273;
-          font-size: 11px;
-          display: flex;
-          align-items: center;
-          gap: 6px;
+          font-size:
+            11px;
+          color:
+            #64748b;
+          display:
+            flex;
+          align-items:
+            center;
+          gap:
+            7px;
         }
 
         .statusDot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #20b56c;
+          width:
+            7px;
+          height:
+            7px;
+          border-radius:
+            50%;
+          background:
+            #20b779;
         }
 
-        /* ================= CONTENT ================= */
-
         .content {
-          padding: 25px;
-          max-width: 1450px;
-          margin: auto;
+          padding:
+            22px;
+        }
+
+        /* =====================================================
+           WELCOME
+        ===================================================== */
+
+        .welcome {
+          background:
+            white;
+          border:
+            1px solid #e5eaf0;
+          border-radius:
+            14px;
+          padding:
+            24px;
+          display:
+            flex;
+          justify-content:
+            space-between;
+          align-items:
+            center;
+          gap:
+            20px;
         }
 
         .smallTitle {
-          color: #119b98;
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 1.3px;
+          display:
+            inline-block;
+          font-size:
+            10px;
+          letter-spacing:
+            1.3px;
+          color:
+            #0f9d9a;
+          font-weight:
+            bold;
         }
 
-        .welcome,
-        .pageHeading {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          margin-bottom: 20px;
+        .welcome h1 {
+          margin:
+            6px 0;
+          font-size:
+            26px;
         }
 
-        .welcome h1,
-        .pageHeading h1 {
-          margin: 5px 0;
-          font-size: 26px;
+        .welcome p {
+          margin:
+            0;
+          color:
+            #718096;
+          font-size:
+            13px;
+          max-width:
+            700px;
         }
 
-        .welcome p,
-        .pageHeading p {
-          margin: 0;
-          color: #718096;
-          font-size: 13px;
+        .primaryBtn,
+        .continueBtn {
+          border:
+            0;
+          background:
+            #0f9d9a;
+          color:
+            white;
+          border-radius:
+            8px;
+          padding:
+            11px 16px;
+          font-weight:
+            bold;
         }
 
-        .welcomeActions {
-          display: flex;
-          gap: 8px;
-          align-items: center;
+        .primaryBtn:hover,
+        .continueBtn:hover {
+          background:
+            #0b8582;
         }
 
-        /* ================= BUTTONS ================= */
-
-        .primaryBtn {
-          border: 0;
-          background: #0d9f9b;
-          color: white;
-          font-weight: 700;
-          border-radius: 8px;
-          padding: 12px 17px;
-          white-space: nowrap;
-        }
-
-        .primaryBtn:hover {
-          background: #078b88;
-        }
-
-        .primaryBtn:disabled {
-          opacity: .6;
-          cursor: not-allowed;
-        }
-
-        .refreshBtn {
-          border: 1px solid #d9e1e7;
-          background: white;
-          color: #526273;
-          border-radius: 8px;
-          padding: 11px 14px;
-        }
-
-        .backBtn {
-          border: 1px solid #d8e0e7;
-          background: white;
-          padding: 11px 15px;
-          border-radius: 8px;
-          color: #526273;
-        }
-
-        .cancelBtn {
-          border: 1px solid #d8e0e7;
-          background: white;
-          color: #526273;
-          padding: 11px 16px;
-          border-radius: 8px;
-        }
-
-        /* ================= STATS ================= */
+        /* =====================================================
+           STATS
+        ===================================================== */
 
         .stats {
-          display: grid;
+          display:
+            grid;
           grid-template-columns:
-            repeat(4, minmax(0, 1fr));
-          gap: 14px;
-          margin-bottom: 18px;
+            repeat(4, 1fr);
+          gap:
+            14px;
+          margin-top:
+            16px;
         }
 
         .statCard {
-          background: white;
-          border: 1px solid #e4e9ee;
-          border-radius: 13px;
-          padding: 17px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
+          background:
+            white;
+          border:
+            1px solid #e4e9ef;
+          border-radius:
+            12px;
+          padding:
+            18px;
+          display:
+            flex;
+          align-items:
+            center;
+          gap:
+            13px;
+          min-height:
+            95px;
         }
 
         .statIcon {
-          width: 42px;
-          height: 42px;
-          border-radius: 11px;
-          background: #e7f8f7;
-          color: #079b97;
-          display: grid;
-          place-items: center;
-          font-size: 19px;
+          width:
+            44px;
+          height:
+            44px;
+          border-radius:
+            11px;
+          background:
+            #e5f8f7;
+          color:
+            #078d89;
+          display:
+            grid;
+          place-items:
+            center;
+          font-size:
+            20px;
+          font-weight:
+            bold;
         }
 
         .statCard p {
-          margin: 0 0 5px;
-          color: #81909d;
-          font-size: 11px;
+          margin:
+            0 0 5px;
+          color:
+            #64748b;
+          font-size:
+            12px;
         }
 
         .statCard h2 {
-          margin: 0;
-          font-size: 22px;
+          margin:
+            0;
+          font-size:
+            22px;
+          color:
+            #172033;
         }
 
-        /* ================= GRID ================= */
+        /* =====================================================
+           DASHBOARD GRID
+        ===================================================== */
 
         .dashboardGrid {
-          display: grid;
+          display:
+            grid;
           grid-template-columns:
-            minmax(0, 1.7fr)
-            minmax(280px, .8fr);
-          gap: 18px;
+            1.5fr 1fr;
+          gap:
+            16px;
+          margin-top:
+            16px;
         }
 
         .panel {
-          background: white;
-          border: 1px solid #e3e8ed;
-          border-radius: 14px;
-          overflow: hidden;
+          background:
+            white;
+          border:
+            1px solid #e4e9ef;
+          border-radius:
+            12px;
+          overflow:
+            hidden;
         }
 
         .panelHead {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 17px 18px;
-          border-bottom: 1px solid #edf1f4;
+          padding:
+            18px;
+          display:
+            flex;
+          justify-content:
+            space-between;
+          align-items:
+            center;
+          border-bottom:
+            1px solid #edf1f5;
         }
 
         .panelHead h2 {
-          margin: 0;
-          font-size: 15px;
+          margin:
+            0 0 4px;
+          font-size:
+            16px;
         }
 
         .panelHead p {
-          margin: 4px 0 0;
-          font-size: 11px;
-          color: #8794a1;
+          margin:
+            0;
+          font-size:
+            11px;
+          color:
+            #718096;
         }
 
         .panelHead button {
-          border: 0;
-          background: #edf9f8;
-          color: #079b97;
-          padding: 7px 10px;
-          border-radius: 6px;
-          font-size: 11px;
+          border:
+            0;
+          background:
+            #e8f7f6;
+          color:
+            #078d89;
+          border-radius:
+            7px;
+          padding:
+            8px 11px;
+          font-weight:
+            bold;
+          font-size:
+            11px;
         }
-
-        /* ================= RECENT PATIENTS ================= */
 
         .recentPatient {
-          padding: 12px 18px;
-          border-bottom: 1px solid #edf1f5;
-          display: flex;
-          justify-content: space-between;
-          gap: 15px;
-        }
-
-        .recentPatient:last-child {
-          border-bottom: 0;
+          padding:
+            12px 18px;
+          border-bottom:
+            1px solid #edf1f5;
         }
 
         .recentPatient b {
-          font-size: 13px;
+          font-size:
+            13px;
         }
 
-        .patientNumber {
-          color: #0c9895;
-          font-size: 10px;
-          margin-top: 3px;
+        .recentPatient div {
+          font-size:
+            10px;
+          color:
+            #0f9d9a;
+          margin-top:
+            3px;
         }
 
         .recentPatient small {
-          display: block;
-          color: #718096;
-          font-size: 10px;
-          margin-top: 4px;
+          color:
+            #64748b;
+          font-size:
+            10px;
         }
-
-        .recentDoctor {
-          font-size: 10px;
-          color: #64748b;
-          text-align: right;
-          max-width: 180px;
-        }
-
-        /* ================= EMPTY ================= */
 
         .emptyState {
-          text-align: center;
-          padding: 45px 20px;
-          color: #718096;
+          text-align:
+            center;
+          padding:
+            35px 20px;
         }
 
         .emptyState > div {
-          font-size: 32px;
-          margin-bottom: 10px;
+          font-size:
+            30px;
+          color:
+            #0f9d9a;
         }
 
         .emptyState h3 {
-          margin: 0 0 6px;
-          color: #27364a;
-          font-size: 15px;
+          margin:
+            8px 0;
         }
 
         .emptyState p {
-          font-size: 12px;
-          max-width: 380px;
-          margin: 0 auto 15px;
+          color:
+            #718096;
+          font-size:
+            12px;
         }
 
         .emptyState button {
-          border: 0;
-          background: #0d9f9b;
-          color: white;
-          padding: 10px 14px;
-          border-radius: 7px;
+          border:
+            0;
+          background:
+            #0f9d9a;
+          color:
+            white;
+          padding:
+            10px 15px;
+          border-radius:
+            7px;
+          font-weight:
+            bold;
         }
 
-        /* ================= QUICK ================= */
+        /* =====================================================
+           QUICK ACTIONS
+        ===================================================== */
+
+        .quickPanel {
+          padding-bottom:
+            10px;
+        }
 
         .quickPanel > button {
-          width: calc(100% - 28px);
-          margin: 7px 14px;
-          border: 1px solid #edf0f3;
-          background: white;
-          border-radius: 9px;
-          padding: 11px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          text-align: left;
+          width:
+            calc(100% - 28px);
+          margin:
+            7px 14px;
+          padding:
+            11px;
+          background:
+            #f8fafc;
+          border:
+            1px solid #e7edf2;
+          border-radius:
+            9px;
+          display:
+            flex;
+          align-items:
+            center;
+          gap:
+            11px;
+          text-align:
+            left;
         }
 
         .quickPanel > button:hover {
-          background: #f8fbfc;
+          border-color:
+            #0f9d9a;
+          background:
+            #f0fdfa;
         }
 
         .quickPanel > button > span {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          background: #edf9f8;
-          color: #079b97;
-          display: grid;
-          place-items: center;
+          width:
+            34px;
+          height:
+            34px;
+          display:
+            grid;
+          place-items:
+            center;
+          background:
+            #e5f8f7;
+          color:
+            #078d89;
+          border-radius:
+            8px;
+          font-weight:
+            bold;
         }
 
         .quickPanel b {
-          display: block;
-          font-size: 12px;
+          display:
+            block;
+          font-size:
+            12px;
         }
 
         .quickPanel small {
-          display: block;
-          color: #82909c;
-          font-size: 9px;
-          margin-top: 3px;
+          display:
+            block;
+          margin-top:
+            3px;
+          color:
+            #718096;
+          font-size:
+            10px;
         }
 
-        /* ================= STEPS ================= */
+        /* =====================================================
+           PAGE HEADING
+        ===================================================== */
+
+        .pageHeading {
+          display:
+            flex;
+          justify-content:
+            space-between;
+          align-items:
+            center;
+          gap:
+            15px;
+          margin-bottom:
+            16px;
+        }
+
+        .pageHeading h1 {
+          margin:
+            5px 0;
+          font-size:
+            24px;
+        }
+
+        .pageHeading p {
+          margin:
+            0;
+          color:
+            #718096;
+          font-size:
+            12px;
+        }
+
+        .backBtn,
+        .cancelBtn {
+          border:
+            1px solid #d9e1e8;
+          background:
+            white;
+          color:
+            #475569;
+          border-radius:
+            8px;
+          padding:
+            10px 14px;
+          font-weight:
+            bold;
+        }
+
+        /* =====================================================
+           STEPS
+        ===================================================== */
 
         .steps {
-          background: white;
-          border: 1px solid #e3e8ed;
-          border-radius: 13px;
-          padding: 14px;
-          display: grid;
+          background:
+            white;
+          border:
+            1px solid #e4e9ef;
+          border-radius:
+            12px;
+          padding:
+            12px;
+          display:
+            grid;
           grid-template-columns:
             repeat(5, 1fr);
-          margin-bottom: 15px;
+          gap:
+            8px;
+          margin-bottom:
+            16px;
         }
 
         .step {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: #8895a1;
+          display:
+            flex;
+          align-items:
+            center;
+          gap:
+            8px;
+          padding:
+            8px;
+          border-radius:
+            8px;
+          color:
+            #64748b;
         }
 
-        .step span {
-          width: 27px;
-          height: 27px;
-          border-radius: 50%;
-          background: #edf1f4;
-          display: grid;
-          place-items: center;
-          font-size: 11px;
-          font-weight: 700;
+        .step > span {
+          width:
+            24px;
+          height:
+            24px;
+          border-radius:
+            50%;
+          display:
+            grid;
+          place-items:
+            center;
+          background:
+            #eef2f6;
+          font-size:
+            11px;
+          font-weight:
+            bold;
         }
 
         .step b {
-          display: block;
-          font-size: 11px;
+          display:
+            block;
+          font-size:
+            11px;
         }
 
         .step small {
-          display: block;
-          font-size: 8px;
-          margin-top: 2px;
+          display:
+            block;
+          font-size:
+            8px;
+          margin-top:
+            2px;
         }
 
-        .step.activeStep {
-          color: #0c9d99;
+        .activeStep {
+          background:
+            #eefaf9;
+          color:
+            #087e7b;
         }
 
-        .step.activeStep span {
-          background: #0c9d99;
-          color: white;
+        .activeStep > span {
+          background:
+            #0f9d9a;
+          color:
+            white;
         }
 
-        /* ================= REGISTRATION ================= */
+        /* =====================================================
+           REGISTRATION CARD
+        ===================================================== */
 
         .registrationCard {
-          background: white;
-          border: 1px solid #e3e8ed;
-          border-radius: 14px;
-          overflow: hidden;
+          background:
+            white;
+          border:
+            1px solid #e4e9ef;
+          border-radius:
+            14px;
+          overflow:
+            hidden;
         }
 
         .formHeader {
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          padding: 18px;
-          border-bottom: 1px solid #edf1f4;
+          padding:
+            18px;
+          display:
+            flex;
+          align-items:
+            center;
+          gap:
+            12px;
+          border-bottom:
+            1px solid #edf1f5;
         }
 
         .formIcon {
-          width: 38px;
-          height: 38px;
-          border-radius: 10px;
-          background: #e7f8f7;
-          color: #079b97;
-          display: grid;
-          place-items: center;
+          width:
+            38px;
+          height:
+            38px;
+          border-radius:
+            10px;
+          background:
+            #e7f8f7;
+          color:
+            #078d89;
+          display:
+            grid;
+          place-items:
+            center;
         }
 
         .formHeader h2 {
-          margin: 0;
-          font-size: 16px;
+          margin:
+            0 0 3px;
+          font-size:
+            15px;
         }
 
         .formHeader p {
-          margin: 4px 0 0;
-          color: #8794a1;
-          font-size: 10px;
+          margin:
+            0;
+          color:
+            #718096;
+          font-size:
+            10px;
         }
 
         .formGrid {
-          padding: 20px;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 15px;
-        }
-
-        .field {
-          display: flex;
-          flex-direction: column;
+          padding:
+            20px;
+          display:
+            grid;
+          grid-template-columns:
+            1fr 1fr;
+          gap:
+            15px;
         }
 
         .field label {
-          font-size: 11px;
-          font-weight: 700;
-          color: #344256;
-          margin-bottom: 6px;
+          display:
+            block;
+          font-size:
+            11px;
+          font-weight:
+            bold;
+          margin-bottom:
+            6px;
+          color:
+            #334155;
         }
 
         .field label b {
-          color: #e34c4c;
+          color:
+            #dc2626;
         }
 
         .field input,
         .field select,
         .field textarea {
-          width: 100%;
-          border: 1px solid #d8e0e7;
-          border-radius: 8px;
-          padding: 11px;
-          background: white;
-          color: #27364a;
-          outline: none;
-          font-size: 12px;
+          width:
+            100%;
+          border:
+            1px solid #d7e0e8;
+          border-radius:
+            8px;
+          padding:
+            11px;
+          font-size:
+            12px;
+          outline:
+            none;
+          background:
+            white;
         }
 
         .field input:focus,
         .field select:focus,
         .field textarea:focus {
-          border-color: #0ca09c;
+          border-color:
+            #0f9d9a;
           box-shadow:
             0 0 0 2px
-            rgba(12,160,156,.08);
+            rgba(15,157,154,.08);
         }
 
         .field textarea {
-          resize: vertical;
-          min-height: 85px;
+          min-height:
+            80px;
+          resize:
+            vertical;
         }
 
-        .field .readonly {
-          background: #f2f5f7;
-          color: #73808c;
-        }
-
-        .ageField {
-          display: grid;
-          grid-template-columns:
-            1fr 110px;
-          gap: 7px;
+        .readonly {
+          background:
+            #f1f4f7 !important;
+          color:
+            #64748b;
         }
 
         .full {
-          grid-column: span 2;
+          grid-column:
+            span 2;
         }
 
-        /* =================================================
-           DOCTOR STATUS
-        ================================================= */
-
-        .doctorLoaded {
-          margin-top: 6px;
-          color: #15945f;
-          font-size: 10px;
-          font-weight: 600;
+        .ageField {
+          display:
+            grid;
+          grid-template-columns:
+            1fr 100px;
+          gap:
+            8px;
         }
 
-        .doctorHelp {
-          margin-top: 6px;
-          border: 0;
-          background: #eaf9f8;
-          color: #079b97;
-          padding: 7px 9px;
-          border-radius: 6px;
-          text-align: left;
-          font-size: 10px;
-          width: fit-content;
+        .doctorHint {
+          display:
+            block;
+          margin-top:
+            5px;
+          font-size:
+            9px;
+          color:
+            #dc8a00;
         }
-
-        /* ================= FOOTER ================= */
 
         .formFooter {
-          padding: 15px 20px;
-          border-top: 1px solid #edf1f4;
-          display: flex;
-          justify-content: flex-end;
-          gap: 9px;
+          padding:
+            14px 20px;
+          background:
+            #fbfcfd;
+          border-top:
+            1px solid #edf1f5;
+          display:
+            flex;
+          justify-content:
+            flex-end;
+          gap:
+            10px;
         }
 
-        /* ================= TABLET ================= */
+        /* =====================================================
+           MOBILE
+        ===================================================== */
 
-        @media (max-width: 900px) {
-
-          .sidebar {
-            width: 190px;
-          }
-
-          .mainArea {
-            width: calc(100% - 190px);
-            margin-left: 190px;
-          }
+        @media (
+          max-width: 900px
+        ) {
 
           .stats {
             grid-template-columns:
@@ -2201,117 +2690,151 @@ export default function Home() {
           }
 
           .dashboardGrid {
-            grid-template-columns: 1fr;
+            grid-template-columns:
+              1fr;
           }
 
         }
 
-        /* ================= MOBILE ================= */
-
-        @media (max-width: 650px) {
+        @media (
+          max-width: 700px
+        ) {
 
           .sidebar {
-            position: fixed;
-            width: 70px;
-            padding: 10px 7px;
-          }
-
-          .brand {
-            justify-content: center;
-            padding-bottom: 15px;
-          }
-
-          .brand > div:last-child,
-          .menuLabel {
-            display: none;
-          }
-
-          .menu {
-            justify-content: center;
-            padding: 12px 5px;
-          }
-
-          .menu span {
-            width: auto;
-            font-size: 16px;
-          }
-
-          .menu {
-            font-size: 0;
+            width:
+              180px;
           }
 
           .mainArea {
-            width: calc(100% - 70px);
-            margin-left: 70px;
-          }
-
-          .topbar {
-            padding: 12px;
-          }
-
-          .topRight {
-            display: none;
+            margin-left:
+              180px;
+            width:
+              calc(100% - 180px);
           }
 
           .content {
-            padding: 12px;
+            padding:
+              12px;
           }
 
-          .welcome,
-          .pageHeading {
-            align-items: flex-start;
-            flex-direction: column;
+          .welcome {
+            flex-direction:
+              column;
+            align-items:
+              flex-start;
           }
 
-          .welcome h1,
-          .pageHeading h1 {
-            font-size: 21px;
-          }
-
-          .welcomeActions {
-            width: 100%;
-          }
-
-          .welcomeActions button {
-            flex: 1;
+          .welcome h1 {
+            font-size:
+              21px;
           }
 
           .stats {
             grid-template-columns:
               1fr 1fr;
-            gap: 8px;
-          }
-
-          .statCard {
-            padding: 12px;
-          }
-
-          .statIcon {
-            width: 34px;
-            height: 34px;
-          }
-
-          .statCard h2 {
-            font-size: 18px;
           }
 
           .steps {
-            overflow-x: auto;
-            display: flex;
-            gap: 20px;
+            overflow-x:
+              auto;
+            grid-template-columns:
+              repeat(5, 150px);
           }
 
-          .step {
-            min-width: 105px;
+        }
+
+        @media (
+          max-width: 560px
+        ) {
+
+          .sidebar {
+            width:
+              70px;
+            padding:
+              10px 7px;
+          }
+
+          .brand {
+            justify-content:
+              center;
+          }
+
+          .brand > div:last-child {
+            display:
+              none;
+          }
+
+          .menuLabel {
+            display:
+              none;
+          }
+
+          .menu {
+            justify-content:
+              center;
+            padding:
+              12px 5px;
+          }
+
+          .menu span {
+            margin:
+              0;
+          }
+
+          .menu {
+            font-size:
+              0;
+          }
+
+          .menu span {
+            font-size:
+              16px;
+          }
+
+          .mainArea {
+            margin-left:
+              70px;
+            width:
+              calc(100% - 70px);
+          }
+
+          .topbar {
+            padding:
+              12px;
+          }
+
+          .topRight {
+            display:
+              none;
+          }
+
+          .content {
+            padding:
+              9px;
+          }
+
+          .stats {
+            grid-template-columns:
+              1fr;
+          }
+
+          .pageHeading {
+            align-items:
+              flex-start;
+            flex-direction:
+              column;
           }
 
           .formGrid {
-            grid-template-columns: 1fr;
-            padding: 14px;
+            grid-template-columns:
+              1fr;
+            padding:
+              14px;
           }
 
           .full {
-            grid-column: auto;
+            grid-column:
+              auto;
           }
 
           .ageField {
@@ -2320,20 +2843,8 @@ export default function Home() {
           }
 
           .formFooter {
-            padding: 12px 14px;
-          }
-
-          .formFooter button {
-            flex: 1;
-          }
-
-          .recentPatient {
-            flex-direction: column;
-            gap: 5px;
-          }
-
-          .recentDoctor {
-            text-align: left;
+            padding:
+              12px;
           }
 
         }
