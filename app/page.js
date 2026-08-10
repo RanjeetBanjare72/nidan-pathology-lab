@@ -7,6 +7,10 @@ import { supabase } from "../lib/supabase";
 export default function Home() {
   const router = useRouter();
 
+  // =========================================================
+  // STATE
+  // =========================================================
+
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
 
@@ -25,12 +29,29 @@ export default function Home() {
   });
 
   // =========================================================
-  // INITIAL LOAD
+  // PAGE LOAD
   // =========================================================
 
   useEffect(() => {
     fetchPatients();
     loadDoctors();
+
+    // Browser storage change listener
+    function handleStorageChange() {
+      loadDoctors();
+    }
+
+    window.addEventListener(
+      "storage",
+      handleStorageChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        handleStorageChange
+      );
+    };
   }, []);
 
   // =========================================================
@@ -42,64 +63,116 @@ export default function Home() {
       const { data, error } = await supabase
         .from("patients")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (error) {
-        console.error("Patients load error:", error);
+        console.error(
+          "Patients load error:",
+          error
+        );
+
+        setPatients([]);
         return;
       }
 
       setPatients(data || []);
     } catch (error) {
-      console.error("Patients load error:", error);
+      console.error(
+        "Patients load error:",
+        error
+      );
+
+      setPatients([]);
     }
   }
 
   // =========================================================
-  // LOAD DOCTORS
+  // LOAD DOCTORS FROM LOCAL STORAGE
   // =========================================================
 
   function loadDoctors() {
     try {
-      const savedDoctors = JSON.parse(
-        localStorage.getItem("nidanDoctors") || "[]"
-      );
+      const raw =
+        localStorage.getItem(
+          "nidanDoctors"
+        );
 
-      const activeDoctors = savedDoctors.filter(
-        (doctor) => doctor.active !== false
-      );
+      if (!raw) {
+        setDoctors([]);
+        return;
+      }
+
+      const savedDoctors =
+        JSON.parse(raw);
+
+      if (!Array.isArray(savedDoctors)) {
+        setDoctors([]);
+        return;
+      }
+
+      // Only active doctors
+      const activeDoctors =
+        savedDoctors.filter(
+          (doctor) =>
+            doctor &&
+            doctor.name &&
+            doctor.active !== false
+        );
 
       setDoctors(activeDoctors);
+
+      console.log(
+        "NIDAN Doctors loaded:",
+        activeDoctors
+      );
     } catch (error) {
-      console.error("Doctors load error:", error);
+      console.error(
+        "Doctors load error:",
+        error
+      );
+
       setDoctors([]);
     }
   }
 
   // =========================================================
-  // PATIENT ID
+  // GENERATE PATIENT ID
   // =========================================================
 
   function generatePatientId() {
     const now = new Date();
 
-    const y = now.getFullYear();
+    const year =
+      now.getFullYear();
 
-    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const month =
+      String(
+        now.getMonth() + 1
+      ).padStart(2, "0");
 
-    const d = String(now.getDate()).padStart(2, "0");
+    const day =
+      String(
+        now.getDate()
+      ).padStart(2, "0");
 
-    const n = Math.floor(1000 + Math.random() * 9000);
+    const randomNumber =
+      Math.floor(
+        1000 +
+          Math.random() * 9000
+      );
 
-    return `NPL-${y}${m}${d}-${n}`;
+    return `NPL-${year}${month}${day}-${randomNumber}`;
   }
 
   // =========================================================
-  // NEW PATIENT
+  // OPEN NEW PATIENT
   // =========================================================
 
   function openNewPatient() {
-    // Doctor list ko fresh load karenge
+    // IMPORTANT:
+    // Doctor list ko fresh load karna
     loadDoctors();
 
     setPatient({
@@ -121,7 +194,10 @@ export default function Home() {
   // =========================================================
 
   function change(e) {
-    const { name, value } = e.target;
+    const {
+      name,
+      value,
+    } = e.target;
 
     setPatient((previous) => ({
       ...previous,
@@ -130,89 +206,163 @@ export default function Home() {
   }
 
   // =========================================================
-  // SAVE PATIENT + CONTINUE TO TESTS
+  // DOCTOR CHANGE
+  // =========================================================
+
+  function changeDoctor(e) {
+    const value =
+      e.target.value;
+
+    setPatient((previous) => ({
+      ...previous,
+      doctor: value,
+    }));
+  }
+
+  // =========================================================
+  // SAVE PATIENT
   // =========================================================
 
   async function continueToTests(e) {
     e.preventDefault();
 
+    // Patient name
     if (!patient.name.trim()) {
-      alert("Patient Name enter karein.");
+      alert(
+        "Patient Name enter karein."
+      );
       return;
     }
 
+    // Age
     if (!patient.age) {
-      alert("Patient Age enter karein.");
+      alert(
+        "Patient Age enter karein."
+      );
       return;
     }
 
+    // Patient ID
     if (!patient.id) {
-      alert("Patient ID generate nahi hua.");
+      alert(
+        "Patient ID generate nahi hua."
+      );
       return;
     }
 
     try {
       setSaving(true);
 
-      const { error } = await supabase
-        .from("patients")
-        .insert([
-          {
-            patient_id: patient.id,
-            name: patient.name.trim(),
-            age: Number(patient.age),
-            age_unit: patient.ageUnit,
-            gender: patient.gender,
-            mobile: patient.mobile || "",
-            referring_doctor: patient.doctor || "",
-            address: patient.address || "",
-          },
-        ]);
+      // =====================================================
+      // SUPABASE INSERT
+      // =====================================================
+
+      const { error } =
+        await supabase
+          .from("patients")
+          .insert([
+            {
+              patient_id:
+                patient.id,
+
+              name:
+                patient.name.trim(),
+
+              age:
+                Number(
+                  patient.age
+                ),
+
+              age_unit:
+                patient.ageUnit,
+
+              gender:
+                patient.gender,
+
+              mobile:
+                patient.mobile ||
+                "",
+
+              referring_doctor:
+                patient.doctor ||
+                "",
+
+              address:
+                patient.address ||
+                "",
+            },
+          ]);
 
       if (error) {
-        console.error("Patient save error:", error);
+        console.error(
+          "Patient save error:",
+          error
+        );
 
         alert(
           "Patient save nahi hua:\n\n" +
             error.message
         );
 
-        setSaving(false);
         return;
       }
 
       // =====================================================
-      // SAVE CURRENT PATIENT FOR TESTS / BILLING / RESULTS
+      // SAVE CURRENT PATIENT FOR OTHER PAGES
       // =====================================================
+
+      const currentPatient = {
+        ...patient,
+
+        patientId:
+          patient.id,
+
+        refDoctor:
+          patient.doctor,
+
+        sex:
+          patient.gender,
+      };
 
       localStorage.setItem(
         "nidanPatient",
-        JSON.stringify({
-          ...patient,
-
-          patientId: patient.id,
-
-          refDoctor: patient.doctor,
-
-          sex: patient.gender,
-        })
+        JSON.stringify(
+          currentPatient
+        )
       );
 
       // =====================================================
-      // CLEAR OLD VISIT DATA
+      // CLEAR PREVIOUS VISIT DATA
       // =====================================================
 
-      localStorage.removeItem("nidanSelectedTests");
-      localStorage.removeItem("nidanBilling");
-      localStorage.removeItem("nidanResults");
+      localStorage.removeItem(
+        "nidanSelectedTests"
+      );
 
-      // Refresh dashboard data
+      localStorage.removeItem(
+        "nidanBilling"
+      );
+
+      localStorage.removeItem(
+        "nidanResults"
+      );
+
+      // =====================================================
+      // REFRESH PATIENTS
+      // =====================================================
+
       await fetchPatients();
 
-      // Go to tests
+      // =====================================================
+      // GO TO TEST SELECTION
+      // =====================================================
+
       router.push("/tests");
     } catch (error) {
-      console.error("Patient save error:", error);
+      console.error(
+        "Patient save error:",
+        error
+      );
 
       alert(
         "Patient save karte waqt error aaya:\n\n" +
@@ -233,10 +383,6 @@ export default function Home() {
 
   function goPatients() {
     router.push("/patients");
-  }
-
-  function goTests() {
-    router.push("/tests");
   }
 
   function goBilling() {
@@ -268,7 +414,7 @@ export default function Home() {
   }
 
   // =========================================================
-  // REFRESH DASHBOARD
+  // REFRESH
   // =========================================================
 
   async function refreshDashboard() {
@@ -277,7 +423,7 @@ export default function Home() {
   }
 
   // =========================================================
-  // DASHBOARD
+  // RENDER
   // =========================================================
 
   return (
@@ -289,8 +435,6 @@ export default function Home() {
 
       <aside className="sidebar">
 
-        {/* BRAND */}
-
         <div className="brand">
 
           <div className="brandLogo">
@@ -299,16 +443,18 @@ export default function Home() {
 
           <div>
             <h2>NIDAN</h2>
-            <p>PATHOLOGY LAB</p>
+            <p>
+              PATHOLOGY LAB
+            </p>
           </div>
 
         </div>
 
-        {/* MAIN MENU */}
-
         <div className="menuLabel">
           MAIN MENU
         </div>
+
+        {/* DASHBOARD */}
 
         <button
           className={
@@ -316,11 +462,15 @@ export default function Home() {
               ? "menu active"
               : "menu"
           }
-          onClick={goDashboard}
+          onClick={
+            goDashboard
+          }
         >
           <span>▦</span>
           Dashboard
         </button>
+
+        {/* NEW PATIENT */}
 
         <button
           className={
@@ -328,77 +478,109 @@ export default function Home() {
               ? "menu active"
               : "menu"
           }
-          onClick={openNewPatient}
+          onClick={
+            openNewPatient
+          }
         >
           <span>＋</span>
           New Patient
         </button>
 
+        {/* PATIENTS */}
+
         <button
           className="menu"
-          onClick={goPatients}
+          onClick={
+            goPatients
+          }
         >
           <span>♙</span>
           Patients
         </button>
 
+        {/* BILLING */}
+
         <button
           className="menu"
-          onClick={goBilling}
+          onClick={
+            goBilling
+          }
         >
           <span>₹</span>
           Billing
         </button>
 
+        {/* SAMPLES */}
+
         <button
           className="menu"
-          onClick={goSamples}
+          onClick={
+            goSamples
+          }
         >
           <span>⌁</span>
           Samples
         </button>
 
+        {/* RESULT */}
+
         <button
           className="menu"
-          onClick={goResults}
+          onClick={
+            goResults
+          }
         >
           <span>▤</span>
           Result Entry
         </button>
 
+        {/* REPORT */}
+
         <button
           className="menu"
-          onClick={goReports}
+          onClick={
+            goReports
+          }
         >
           <span>▣</span>
           Reports
         </button>
 
-        {/* MANAGEMENT */}
-
         <div className="menuLabel second">
           MANAGEMENT
         </div>
 
+        {/* TEST MASTER */}
+
         <button
           className="menu"
-          onClick={goTestMaster}
+          onClick={
+            goTestMaster
+          }
         >
           <span>⚗</span>
           Test Master
         </button>
 
+        {/* DOCTORS */}
+
         <button
           className="menu"
-          onClick={goDoctors}
+          onClick={
+            goDoctors
+          }
         >
           <span>♧</span>
           Doctors
         </button>
 
+        {/* SETTINGS */}
+
         <button
           className="menu"
-          onClick={goSettings}
+          onClick={
+            goSettings
+          }
         >
           <span>⚙</span>
           Settings
@@ -419,13 +601,15 @@ export default function Home() {
           <div>
 
             <h3>
-              {active === "dashboard"
+              {active ===
+              "dashboard"
                 ? "Dashboard"
                 : "New Patient Registration"}
             </h3>
 
             <p>
-              NIDAN Pathology Laboratory Management System
+              NIDAN Pathology Laboratory
+              Management System
             </p>
 
           </div>
@@ -444,7 +628,8 @@ export default function Home() {
             DASHBOARD
         =================================================== */}
 
-        {active === "dashboard" && (
+        {active ===
+          "dashboard" && (
 
           <div className="content">
 
@@ -459,13 +644,16 @@ export default function Home() {
                 </span>
 
                 <h1>
-                  Welcome to NIDAN Pathology Lab
+                  Welcome to NIDAN
+                  Pathology Lab
                 </h1>
 
                 <p>
-                  Patients, billing, samples, test results
-                  aur laboratory reports ko ek jagah
-                  manage karein.
+                  Patients, billing,
+                  samples, test results
+                  aur laboratory reports
+                  ko ek jagah manage
+                  karein.
                 </p>
 
               </div>
@@ -474,14 +662,18 @@ export default function Home() {
 
                 <button
                   className="refreshBtn"
-                  onClick={refreshDashboard}
+                  onClick={
+                    refreshDashboard
+                  }
                 >
                   ↻ Refresh
                 </button>
 
                 <button
                   className="primaryBtn"
-                  onClick={openNewPatient}
+                  onClick={
+                    openNewPatient
+                  }
                 >
                   + New Patient
                 </button>
@@ -490,13 +682,9 @@ export default function Home() {
 
             </div>
 
-            {/* =================================================
-                STAT CARDS
-            ================================================= */}
+            {/* STAT CARDS */}
 
             <div className="stats">
-
-              {/* TOTAL PATIENTS */}
 
               <div className="statCard">
 
@@ -505,13 +693,18 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <p>Total Patients</p>
-                  <h2>{patients.length}</h2>
+
+                  <p>
+                    Total Patients
+                  </p>
+
+                  <h2>
+                    {patients.length}
+                  </h2>
+
                 </div>
 
               </div>
-
-              {/* TODAY COLLECTION */}
 
               <div className="statCard">
 
@@ -520,28 +713,38 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <p>Today's Collection</p>
-                  <h2>₹0</h2>
+
+                  <p>
+                    Today's Collection
+                  </p>
+
+                  <h2>
+                    ₹0
+                  </h2>
+
                 </div>
 
               </div>
-
-              {/* TOTAL PATIENTS */}
 
               <div className="statCard">
 
                 <div className="statIcon">
-                  ⌁
+                  ♧
                 </div>
 
                 <div>
-                  <p>Total Patients</p>
-                  <h2>{patients.length}</h2>
+
+                  <p>
+                    Total Doctors
+                  </p>
+
+                  <h2>
+                    {doctors.length}
+                  </h2>
+
                 </div>
 
               </div>
-
-              {/* PENDING REPORTS */}
 
               <div className="statCard">
 
@@ -550,17 +753,22 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <p>Pending Reports</p>
-                  <h2>0</h2>
+
+                  <p>
+                    Pending Reports
+                  </p>
+
+                  <h2>
+                    0
+                  </h2>
+
                 </div>
 
               </div>
 
             </div>
 
-            {/* =================================================
-                DASHBOARD GRID
-            ================================================= */}
+            {/* DASHBOARD GRID */}
 
             <div className="dashboardGrid">
 
@@ -577,34 +785,47 @@ export default function Home() {
                     </h2>
 
                     <p>
-                      Latest registered patients
+                      Latest registered
+                      patients
                     </p>
 
                   </div>
 
-                  <button onClick={goPatients}>
+                  <button
+                    onClick={
+                      goPatients
+                    }
+                  >
                     View All
                   </button>
 
                 </div>
 
-                {patients.length === 0 ? (
+                {patients.length ===
+                0 ? (
 
                   <div className="emptyState">
 
-                    <div>♙</div>
+                    <div>
+                      ♙
+                    </div>
 
                     <h3>
-                      No registered patients
+                      No registered
+                      patients
                     </h3>
 
                     <p>
-                      Patient registration shuru karne
-                      ke liye New Patient par click karein.
+                      Patient registration
+                      shuru karne ke liye
+                      New Patient par
+                      click karein.
                     </p>
 
                     <button
-                      onClick={openNewPatient}
+                      onClick={
+                        openNewPatient
+                      }
                     >
                       Register Patient
                     </button>
@@ -617,57 +838,59 @@ export default function Home() {
 
                     {patients
                       .slice(0, 5)
-                      .map((p) => (
+                      .map(
+                        (p) => (
 
-                        <div
-                          key={
-                            p.id ||
-                            p.patient_id
-                          }
-                          className="recentPatient"
-                        >
+                          <div
+                            key={
+                              p.id ||
+                              p.patient_id
+                            }
+                            className="recentPatient"
+                          >
 
-                          <div>
+                            <div>
 
-                            <b>
-                              {p.name}
-                            </b>
+                              <b>
+                                {p.name}
+                              </b>
 
-                            <div className="patientNumber">
-                              {p.patient_id ||
-                                p.id ||
-                                "-"}
+                              <div className="patientNumber">
+                                {p.patient_id ||
+                                  p.id ||
+                                  "-"}
+                              </div>
+
+                              <small>
+
+                                {p.mobile ||
+                                  "No mobile"}
+
+                                {" • "}
+
+                                {p.age ||
+                                  "-"}
+
+                                {" "}
+
+                                {p.age_unit ||
+                                  "Years"}
+
+                              </small>
+
                             </div>
 
-                            <small>
+                            <div className="recentDoctor">
 
-                              {p.mobile ||
-                                "No mobile"}
+                              {p.referring_doctor ||
+                                "No doctor"}
 
-                              {" • "}
-
-                              {p.age || "-"}
-
-                              {" "}
-
-                              {p.age_unit ||
-                                "Years"}
-
-                            </small>
+                            </div>
 
                           </div>
 
-                          <div className="recentDoctor">
-
-                            {p.referring_doctor ||
-                              p.doctor ||
-                              "No doctor"}
-
-                          </div>
-
-                        </div>
-
-                      ))}
+                        )
+                      )}
 
                   </div>
 
@@ -688,7 +911,8 @@ export default function Home() {
                     </h2>
 
                     <p>
-                      Frequently used options
+                      Frequently used
+                      options
                     </p>
 
                   </div>
@@ -696,29 +920,42 @@ export default function Home() {
                 </div>
 
                 <button
-                  onClick={openNewPatient}
+                  onClick={
+                    openNewPatient
+                  }
                 >
 
-                  <span>＋</span>
+                  <span>
+                    ＋
+                  </span>
 
                   <div>
-                    <b>New Patient</b>
+                    <b>
+                      New Patient
+                    </b>
 
                     <small>
-                      Register new patient
+                      Register new
+                      patient
                     </small>
                   </div>
 
                 </button>
 
                 <button
-                  onClick={goBilling}
+                  onClick={
+                    goBilling
+                  }
                 >
 
-                  <span>₹</span>
+                  <span>
+                    ₹
+                  </span>
 
                   <div>
-                    <b>Create Bill</b>
+                    <b>
+                      Create Bill
+                    </b>
 
                     <small>
                       Patient billing
@@ -728,13 +965,19 @@ export default function Home() {
                 </button>
 
                 <button
-                  onClick={goResults}
+                  onClick={
+                    goResults
+                  }
                 >
 
-                  <span>▤</span>
+                  <span>
+                    ▤
+                  </span>
 
                   <div>
-                    <b>Result Entry</b>
+                    <b>
+                      Result Entry
+                    </b>
 
                     <small>
                       Enter test results
@@ -744,13 +987,19 @@ export default function Home() {
                 </button>
 
                 <button
-                  onClick={goReports}
+                  onClick={
+                    goReports
+                  }
                 >
 
-                  <span>▣</span>
+                  <span>
+                    ▣
+                  </span>
 
                   <div>
-                    <b>Reports</b>
+                    <b>
+                      Reports
+                    </b>
 
                     <small>
                       View final reports
@@ -760,16 +1009,23 @@ export default function Home() {
                 </button>
 
                 <button
-                  onClick={goDoctors}
+                  onClick={
+                    goDoctors
+                  }
                 >
 
-                  <span>♧</span>
+                  <span>
+                    ♧
+                  </span>
 
                   <div>
-                    <b>Doctors</b>
+                    <b>
+                      Doctors
+                    </b>
 
                     <small>
-                      Manage referring doctors
+                      Manage referring
+                      doctors
                     </small>
                   </div>
 
@@ -787,7 +1043,8 @@ export default function Home() {
             NEW PATIENT
         =================================================== */}
 
-        {active === "newPatient" && (
+        {active ===
+          "newPatient" && (
 
           <div className="content">
 
@@ -806,104 +1063,131 @@ export default function Home() {
                 </h1>
 
                 <p>
-                  Patient ki basic details enter karein.
-                  Iske baad tests select kiye jayenge.
+                  Patient ki basic
+                  details enter karein.
+                  Iske baad tests
+                  select kiye jayenge.
                 </p>
 
               </div>
 
               <button
                 className="backBtn"
-                onClick={goDashboard}
+                onClick={
+                  goDashboard
+                }
               >
                 ← Dashboard
               </button>
 
             </div>
 
-            {/* =================================================
-                STEPS
-            ================================================= */}
+            {/* STEPS */}
 
             <div className="steps">
 
-              {/* STEP 1 */}
-
               <div className="step activeStep">
 
-                <span>1</span>
+                <span>
+                  1
+                </span>
 
                 <div>
-                  <b>Patient</b>
-                  <small>Registration</small>
+                  <b>
+                    Patient
+                  </b>
+
+                  <small>
+                    Registration
+                  </small>
                 </div>
 
               </div>
 
-              {/* STEP 2 */}
-
               <div className="step">
 
-                <span>2</span>
+                <span>
+                  2
+                </span>
 
                 <div>
-                  <b>Tests</b>
-                  <small>Select tests</small>
+                  <b>
+                    Tests
+                  </b>
+
+                  <small>
+                    Select tests
+                  </small>
                 </div>
 
               </div>
 
-              {/* STEP 3 */}
-
               <div className="step">
 
-                <span>3</span>
+                <span>
+                  3
+                </span>
 
                 <div>
-                  <b>Billing</b>
-                  <small>Create bill</small>
+                  <b>
+                    Billing
+                  </b>
+
+                  <small>
+                    Create bill
+                  </small>
                 </div>
 
               </div>
 
-              {/* STEP 4 */}
-
               <div className="step">
 
-                <span>4</span>
+                <span>
+                  4
+                </span>
 
                 <div>
-                  <b>Results</b>
-                  <small>Enter results</small>
+                  <b>
+                    Results
+                  </b>
+
+                  <small>
+                    Enter results
+                  </small>
                 </div>
 
               </div>
 
-              {/* STEP 5 */}
-
               <div className="step">
 
-                <span>5</span>
+                <span>
+                  5
+                </span>
 
                 <div>
-                  <b>Report</b>
-                  <small>Print / PDF</small>
+                  <b>
+                    Report
+                  </b>
+
+                  <small>
+                    Print / PDF
+                  </small>
                 </div>
 
               </div>
 
             </div>
 
-            {/* =================================================
-                REGISTRATION FORM
-            ================================================= */}
+            {/* REGISTRATION CARD */}
 
             <form
               className="registrationCard"
-              onSubmit={continueToTests}
+              onSubmit={
+                continueToTests
+              }
             >
 
-              {/* FORM HEADER */}
+              {/* HEADER */}
 
               <div className="formHeader">
 
@@ -918,14 +1202,15 @@ export default function Home() {
                   </h2>
 
                   <p>
-                    Fields marked with * are required.
+                    Fields marked with *
+                    are required.
                   </p>
 
                 </div>
 
               </div>
 
-              {/* FORM GRID */}
+              {/* FORM */}
 
               <div className="formGrid">
 
@@ -938,25 +1223,32 @@ export default function Home() {
                   </label>
 
                   <input
-                    value={patient.id}
+                    value={
+                      patient.id
+                    }
                     readOnly
                     className="readonly"
                   />
 
                 </div>
 
-                {/* NAME */}
+                {/* PATIENT NAME */}
 
                 <div className="field">
 
                   <label>
-                    Patient Name <b>*</b>
+                    Patient Name
+                    <b>*</b>
                   </label>
 
                   <input
                     name="name"
-                    value={patient.name}
-                    onChange={change}
+                    value={
+                      patient.name
+                    }
+                    onChange={
+                      change
+                    }
                     placeholder="Enter patient full name"
                     required
                   />
@@ -968,7 +1260,8 @@ export default function Home() {
                 <div className="field">
 
                   <label>
-                    Age <b>*</b>
+                    Age
+                    <b>*</b>
                   </label>
 
                   <div className="ageField">
@@ -977,17 +1270,26 @@ export default function Home() {
                       type="number"
                       name="age"
                       min="0"
-                      value={patient.age}
-                      onChange={change}
+                      value={
+                        patient.age
+                      }
+                      onChange={
+                        change
+                      }
                       placeholder="Age"
                       required
                     />
 
                     <select
                       name="ageUnit"
-                      value={patient.ageUnit}
-                      onChange={change}
+                      value={
+                        patient.ageUnit
+                      }
+                      onChange={
+                        change
+                      }
                     >
+
                       <option value="Years">
                         Years
                       </option>
@@ -999,6 +1301,7 @@ export default function Home() {
                       <option value="Days">
                         Days
                       </option>
+
                     </select>
 
                   </div>
@@ -1015,8 +1318,12 @@ export default function Home() {
 
                   <select
                     name="gender"
-                    value={patient.gender}
-                    onChange={change}
+                    value={
+                      patient.gender
+                    }
+                    onChange={
+                      change
+                    }
                   >
 
                     <option value="Male">
@@ -1046,8 +1353,12 @@ export default function Home() {
                   <input
                     type="tel"
                     name="mobile"
-                    value={patient.mobile}
-                    onChange={change}
+                    value={
+                      patient.mobile
+                    }
+                    onChange={
+                      change
+                    }
                     placeholder="Enter mobile number"
                   />
 
@@ -1055,6 +1366,7 @@ export default function Home() {
 
                 {/* =================================================
                     REFERRING DOCTOR
+                    IMPORTANT FIX
                 ================================================= */}
 
                 <div className="field">
@@ -1065,15 +1377,51 @@ export default function Home() {
 
                   <select
                     name="doctor"
-                    value={patient.doctor}
-                    onChange={change}
+                    value={
+                      patient.doctor
+                    }
+                    onChange={
+                      changeDoctor
+                    }
                   >
 
                     <option value="">
                       Select Referring Doctor
                     </option>
 
-                    {doctors.length === 0 ? (
+                    {doctors.length >
+                    0 ? (
+
+                      doctors.map(
+                        (doctor) => (
+
+                          <option
+                            key={
+                              doctor.id ||
+                              doctor.name
+                            }
+                            value={
+                              `Dr. ${doctor.name}`
+                            }
+                          >
+
+                            Dr.{" "}
+                            {doctor.name}
+
+                            {doctor.qualification
+                              ? ` - ${doctor.qualification}`
+                              : ""}
+
+                            {doctor.specialization
+                              ? ` - ${doctor.specialization}`
+                              : ""}
+
+                          </option>
+
+                        )
+                      )
+
+                    ) : (
 
                       <option
                         value=""
@@ -1082,37 +1430,35 @@ export default function Home() {
                         No doctor saved
                       </option>
 
-                    ) : (
-
-                      doctors.map((doctor) => (
-
-                        <option
-                          key={doctor.id}
-                          value={`Dr. ${doctor.name}`}
-                        >
-
-                          Dr. {doctor.name}
-
-                          {doctor.specialization
-                            ? ` - ${doctor.specialization}`
-                            : ""}
-
-                        </option>
-
-                      ))
-
                     )}
 
                   </select>
 
-                  {/* DOCTOR COUNT */}
+                  {/* DOCTOR STATUS */}
 
-                  {doctors.length === 0 && (
+                  {doctors.length >
+                  0 ? (
+
+                    <div className="doctorLoaded">
+
+                      ✓{" "}
+                      {doctors.length} doctor
+                      {doctors.length >
+                      1
+                        ? "s"
+                        : ""}{" "}
+                      available
+
+                    </div>
+
+                  ) : (
 
                     <button
                       type="button"
                       className="doctorHelp"
-                      onClick={goDoctors}
+                      onClick={
+                        goDoctors
+                      }
                     >
                       + Add Doctor
                     </button>
@@ -1131,8 +1477,12 @@ export default function Home() {
 
                   <textarea
                     name="address"
-                    value={patient.address}
-                    onChange={change}
+                    value={
+                      patient.address
+                    }
+                    onChange={
+                      change
+                    }
                     placeholder="Patient address"
                     rows="4"
                   />
@@ -1141,14 +1491,16 @@ export default function Home() {
 
               </div>
 
-              {/* FORM FOOTER */}
+              {/* FOOTER */}
 
               <div className="formFooter">
 
                 <button
                   type="button"
                   className="cancelBtn"
-                  onClick={goDashboard}
+                  onClick={
+                    goDashboard
+                  }
                 >
                   Cancel
                 </button>
@@ -1156,7 +1508,9 @@ export default function Home() {
                 <button
                   type="submit"
                   className="primaryBtn"
-                  disabled={saving}
+                  disabled={
+                    saving
+                  }
                 >
 
                   {saving
@@ -1176,7 +1530,7 @@ export default function Home() {
       </main>
 
       {/* =====================================================
-          GLOBAL CSS
+          CSS
       ===================================================== */}
 
       <style jsx global>{`
@@ -1208,9 +1562,7 @@ export default function Home() {
           cursor: pointer;
         }
 
-        /* ===================================================
-           APP
-        =================================================== */
+        /* ================= APP ================= */
 
         .labApp {
           min-height: 100vh;
@@ -1218,9 +1570,7 @@ export default function Home() {
           background: #f4f7fb;
         }
 
-        /* ===================================================
-           SIDEBAR
-        =================================================== */
+        /* ================= SIDEBAR ================= */
 
         .sidebar {
           width: 235px;
@@ -1311,9 +1661,7 @@ export default function Home() {
             inset 3px 0 0 #13b4ad;
         }
 
-        /* ===================================================
-           MAIN
-        =================================================== */
+        /* ================= MAIN ================= */
 
         .mainArea {
           width: calc(100% - 235px);
@@ -1321,9 +1669,7 @@ export default function Home() {
           min-height: 100vh;
         }
 
-        /* ===================================================
-           TOP BAR
-        =================================================== */
+        /* ================= TOPBAR ================= */
 
         .topbar {
           min-height: 72px;
@@ -1361,9 +1707,7 @@ export default function Home() {
           background: #20b56c;
         }
 
-        /* ===================================================
-           CONTENT
-        =================================================== */
+        /* ================= CONTENT ================= */
 
         .content {
           padding: 25px;
@@ -1406,9 +1750,7 @@ export default function Home() {
           align-items: center;
         }
 
-        /* ===================================================
-           BUTTONS
-        =================================================== */
+        /* ================= BUTTONS ================= */
 
         .primaryBtn {
           border: 0;
@@ -1453,9 +1795,7 @@ export default function Home() {
           border-radius: 8px;
         }
 
-        /* ===================================================
-           STATS
-        =================================================== */
+        /* ================= STATS ================= */
 
         .stats {
           display: grid;
@@ -1497,9 +1837,7 @@ export default function Home() {
           font-size: 22px;
         }
 
-        /* ===================================================
-           DASHBOARD GRID
-        =================================================== */
+        /* ================= GRID ================= */
 
         .dashboardGrid {
           display: grid;
@@ -1544,9 +1882,7 @@ export default function Home() {
           font-size: 11px;
         }
 
-        /* ===================================================
-           RECENT PATIENTS
-        =================================================== */
+        /* ================= RECENT PATIENTS ================= */
 
         .recentPatient {
           padding: 12px 18px;
@@ -1584,9 +1920,7 @@ export default function Home() {
           max-width: 180px;
         }
 
-        /* ===================================================
-           EMPTY
-        =================================================== */
+        /* ================= EMPTY ================= */
 
         .emptyState {
           text-align: center;
@@ -1619,9 +1953,7 @@ export default function Home() {
           border-radius: 7px;
         }
 
-        /* ===================================================
-           QUICK ACTIONS
-        =================================================== */
+        /* ================= QUICK ================= */
 
         .quickPanel > button {
           width: calc(100% - 28px);
@@ -1662,9 +1994,7 @@ export default function Home() {
           margin-top: 3px;
         }
 
-        /* ===================================================
-           STEPS
-        =================================================== */
+        /* ================= STEPS ================= */
 
         .steps {
           background: white;
@@ -1682,7 +2012,6 @@ export default function Home() {
           align-items: center;
           gap: 8px;
           color: #8895a1;
-          position: relative;
         }
 
         .step span {
@@ -1716,9 +2045,7 @@ export default function Home() {
           color: white;
         }
 
-        /* ===================================================
-           REGISTRATION CARD
-        =================================================== */
+        /* ================= REGISTRATION ================= */
 
         .registrationCard {
           background: white;
@@ -1797,7 +2124,8 @@ export default function Home() {
         .field textarea:focus {
           border-color: #0ca09c;
           box-shadow:
-            0 0 0 2px rgba(12,160,156,.08);
+            0 0 0 2px
+            rgba(12,160,156,.08);
         }
 
         .field textarea {
@@ -1812,7 +2140,8 @@ export default function Home() {
 
         .ageField {
           display: grid;
-          grid-template-columns: 1fr 110px;
+          grid-template-columns:
+            1fr 110px;
           gap: 7px;
         }
 
@@ -1820,15 +2149,30 @@ export default function Home() {
           grid-column: span 2;
         }
 
+        /* =================================================
+           DOCTOR STATUS
+        ================================================= */
+
+        .doctorLoaded {
+          margin-top: 6px;
+          color: #15945f;
+          font-size: 10px;
+          font-weight: 600;
+        }
+
         .doctorHelp {
-          margin-top: 5px;
+          margin-top: 6px;
           border: 0;
-          background: transparent;
+          background: #eaf9f8;
           color: #079b97;
-          padding: 3px 0;
+          padding: 7px 9px;
+          border-radius: 6px;
           text-align: left;
           font-size: 10px;
+          width: fit-content;
         }
+
+        /* ================= FOOTER ================= */
 
         .formFooter {
           padding: 15px 20px;
@@ -1838,9 +2182,7 @@ export default function Home() {
           gap: 9px;
         }
 
-        /* ===================================================
-           MOBILE
-        =================================================== */
+        /* ================= TABLET ================= */
 
         @media (max-width: 900px) {
 
@@ -1863,6 +2205,8 @@ export default function Home() {
           }
 
         }
+
+        /* ================= MOBILE ================= */
 
         @media (max-width: 650px) {
 
@@ -1933,7 +2277,8 @@ export default function Home() {
           }
 
           .stats {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns:
+              1fr 1fr;
             gap: 8px;
           }
 
@@ -1970,7 +2315,8 @@ export default function Home() {
           }
 
           .ageField {
-            grid-template-columns: 1fr 100px;
+            grid-template-columns:
+              1fr 100px;
           }
 
           .formFooter {
