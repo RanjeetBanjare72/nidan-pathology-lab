@@ -2,11 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 /* =========================================================
    NIDAN PATHOLOGY LAB
-   RESULT ENTRY PAGE
-   DESKTOP + TABLET + MOBILE RESPONSIVE
+   COMPLETE RESULT ENTRY PAGE
+
+   FIXES:
+   1. Blank result can be saved
+   2. Pending report is created in Supabase
+   3. Existing pending report is updated
+   4. Duplicate report protection
+   5. LocalStorage backup
+   6. Result editing
+   7. Reference range
+   8. HIGH / LOW / NORMAL flag
+   9. Mobile + Desktop
    ========================================================= */
 
 export default function ResultsPage() {
@@ -17,6 +28,7 @@ export default function ResultsPage() {
   const [results, setResults] = useState({});
   const [activeTest, setActiveTest] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   /* =========================================================
      LOAD DATA
@@ -36,21 +48,39 @@ export default function ResultsPage() {
         localStorage.getItem("nidanResults") || "{}"
       );
 
-      setPatient(patientData);
-      setSelectedTests(
-        Array.isArray(testData) ? testData : []
+      setPatient(
+        patientData &&
+          typeof patientData === "object"
+          ? patientData
+          : {}
       );
+
+      setSelectedTests(
+        Array.isArray(testData)
+          ? testData
+          : []
+      );
+
       setResults(
-        resultData && typeof resultData === "object"
+        resultData &&
+          typeof resultData === "object"
           ? resultData
           : {}
       );
 
-      if (Array.isArray(testData) && testData.length > 0) {
-        setActiveTest(testData[0].id);
+      if (
+        Array.isArray(testData) &&
+        testData.length > 0
+      ) {
+        setActiveTest(
+          testData[0].id
+        );
       }
     } catch (error) {
-      console.error("Result page load error:", error);
+      console.error(
+        "Result page load error:",
+        error
+      );
     }
   }, []);
 
@@ -61,16 +91,22 @@ export default function ResultsPage() {
   const currentTest = useMemo(() => {
     return selectedTests.find(
       (test) =>
-        String(test.id) === String(activeTest)
+        String(test.id) ===
+        String(activeTest)
     );
-  }, [selectedTests, activeTest]);
+  }, [
+    selectedTests,
+    activeTest,
+  ]);
 
   /* =========================================================
-     PATIENT AGE
+     AGE
      ========================================================= */
 
   function getPatientAge() {
-    const age = parseFloat(patient.age);
+    const age = parseFloat(
+      patient?.age
+    );
 
     if (Number.isNaN(age)) {
       return null;
@@ -80,12 +116,14 @@ export default function ResultsPage() {
   }
 
   /* =========================================================
-     PATIENT GENDER
+     GENDER
      ========================================================= */
 
   function getPatientGender() {
     const gender = String(
-      patient.gender || patient.sex || ""
+      patient?.gender ||
+        patient?.sex ||
+        ""
     )
       .trim()
       .toLowerCase();
@@ -110,10 +148,12 @@ export default function ResultsPage() {
   }
 
   /* =========================================================
-     PARAMETER NAME NORMALIZER
+     NORMALIZE
      ========================================================= */
 
-  function normalizeParameterName(name = "") {
+  function normalizeParameterName(
+    name = ""
+  ) {
     return String(name)
       .toLowerCase()
       .replace(/[()]/g, "")
@@ -126,21 +166,31 @@ export default function ResultsPage() {
      DEFAULT REFERENCE DATABASE
      ========================================================= */
 
-  function getDefaultReference(parameterName) {
+  function getDefaultReference(
+    parameterName
+  ) {
     const name =
-      normalizeParameterName(parameterName);
+      normalizeParameterName(
+        parameterName
+      );
 
-    const gender = getPatientGender();
-    const age = getPatientAge();
+    const gender =
+      getPatientGender();
 
-    /* ================= CBC ================= */
+    const age =
+      getPatientAge();
+
+    /* CBC */
 
     if (
       name === "hemoglobin" ||
       name === "haemoglobin" ||
       name === "hb"
     ) {
-      if (age !== null && age < 12) {
+      if (
+        age !== null &&
+        age < 12
+      ) {
         return {
           min: 11,
           max: 15,
@@ -149,7 +199,9 @@ export default function ResultsPage() {
         };
       }
 
-      if (gender === "female") {
+      if (
+        gender === "female"
+      ) {
         return {
           min: 12,
           max: 15,
@@ -167,8 +219,12 @@ export default function ResultsPage() {
     }
 
     if (
-      name.includes("total leucocyte") ||
-      name.includes("total leukocyte") ||
+      name.includes(
+        "total leucocyte"
+      ) ||
+      name.includes(
+        "total leukocyte"
+      ) ||
       name === "tlc" ||
       name.includes("wbc")
     ) {
@@ -180,7 +236,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "neutrophils") {
+    if (
+      name === "neutrophils"
+    ) {
       return {
         min: 40,
         max: 75,
@@ -189,7 +247,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "lymphocytes") {
+    if (
+      name === "lymphocytes"
+    ) {
       return {
         min: 20,
         max: 40,
@@ -198,7 +258,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "eosinophils") {
+    if (
+      name === "eosinophils"
+    ) {
       return {
         min: 1,
         max: 6,
@@ -207,7 +269,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "monocytes") {
+    if (
+      name === "monocytes"
+    ) {
       return {
         min: 1,
         max: 10,
@@ -216,7 +280,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "basophils") {
+    if (
+      name === "basophils"
+    ) {
       return {
         min: 0,
         max: 1,
@@ -229,9 +295,11 @@ export default function ResultsPage() {
       name === "rbc count" ||
       name === "total rbc count"
     ) {
-      if (gender === "female") {
+      if (
+        gender === "female"
+      ) {
         return {
-          min: 4.0,
+          min: 4,
           max: 5.5,
           unit: "million/cumm",
           range: "4.0 - 5.5",
@@ -240,7 +308,7 @@ export default function ResultsPage() {
 
       return {
         min: 4.5,
-        max: 6.0,
+        max: 6,
         unit: "million/cumm",
         range: "4.5 - 6.0",
       };
@@ -251,7 +319,9 @@ export default function ResultsPage() {
       name.includes("haematocrit") ||
       name.includes("hematocrit")
     ) {
-      if (gender === "female") {
+      if (
+        gender === "female"
+      ) {
         return {
           min: 36,
           max: 46,
@@ -295,7 +365,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "rdw cv") {
+    if (
+      name === "rdw cv"
+    ) {
       return {
         min: 11.5,
         max: 14.5,
@@ -343,7 +415,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* ================= ESR ================= */
+    /* ESR */
 
     if (
       name === "esr" ||
@@ -365,12 +437,16 @@ export default function ResultsPage() {
       };
     }
 
-    /* ================= BLOOD SUGAR ================= */
+    /* BLOOD SUGAR */
 
     if (
-      name.includes("fasting blood sugar") ||
+      name.includes(
+        "fasting blood sugar"
+      ) ||
       name === "fbs" ||
-      name.includes("fasting glucose")
+      name.includes(
+        "fasting glucose"
+      )
     ) {
       return {
         min: 70,
@@ -381,9 +457,13 @@ export default function ResultsPage() {
     }
 
     if (
-      name.includes("post prandial") ||
+      name.includes(
+        "post prandial"
+      ) ||
       name === "ppbs" ||
-      name.includes("postprandial")
+      name.includes(
+        "postprandial"
+      )
     ) {
       return {
         min: 70,
@@ -394,9 +474,13 @@ export default function ResultsPage() {
     }
 
     if (
-      name.includes("random blood sugar") ||
+      name.includes(
+        "random blood sugar"
+      ) ||
       name === "rbs" ||
-      name.includes("random glucose")
+      name.includes(
+        "random glucose"
+      )
     ) {
       return {
         min: 70,
@@ -406,7 +490,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* ================= KFT ================= */
+    /* KFT */
 
     if (
       name === "blood urea" ||
@@ -432,11 +516,15 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "uric acid") {
-      if (gender === "female") {
+    if (
+      name === "uric acid"
+    ) {
+      if (
+        gender === "female"
+      ) {
         return {
           min: 2.4,
-          max: 6.0,
+          max: 6,
           unit: "mg/dL",
           range: "2.4 - 6.0",
         };
@@ -444,7 +532,7 @@ export default function ResultsPage() {
 
       return {
         min: 3.4,
-        max: 7.0,
+        max: 7,
         unit: "mg/dL",
         range: "3.4 - 7.0",
       };
@@ -459,7 +547,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "potassium") {
+    if (
+      name === "potassium"
+    ) {
       return {
         min: 3.5,
         max: 5.1,
@@ -468,7 +558,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "chloride") {
+    if (
+      name === "chloride"
+    ) {
       return {
         min: 98,
         max: 107,
@@ -486,9 +578,11 @@ export default function ResultsPage() {
       };
     }
 
-    /* ================= LFT ================= */
+    /* LFT */
 
-    if (name === "total bilirubin") {
+    if (
+      name === "total bilirubin"
+    ) {
       return {
         min: 0.2,
         max: 1.2,
@@ -497,7 +591,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "direct bilirubin") {
+    if (
+      name === "direct bilirubin"
+    ) {
       return {
         min: 0,
         max: 0.3,
@@ -544,37 +640,45 @@ export default function ResultsPage() {
       };
     }
 
-    if (name === "total protein") {
+    if (
+      name === "total protein"
+    ) {
       return {
-        min: 6.0,
+        min: 6,
         max: 8.3,
         unit: "g/dL",
         range: "6.0 - 8.3",
       };
     }
 
-    if (name === "albumin") {
+    if (
+      name === "albumin"
+    ) {
       return {
         min: 3.5,
-        max: 5.0,
+        max: 5,
         unit: "g/dL",
         range: "3.5 - 5.0",
       };
     }
 
-    if (name === "globulin") {
+    if (
+      name === "globulin"
+    ) {
       return {
-        min: 2.0,
+        min: 2,
         max: 3.5,
         unit: "g/dL",
         range: "2.0 - 3.5",
       };
     }
 
-    /* ================= LIPID ================= */
+    /* LIPID */
 
     if (
-      name.includes("total cholesterol")
+      name.includes(
+        "total cholesterol"
+      )
     ) {
       return {
         min: 0,
@@ -585,7 +689,9 @@ export default function ResultsPage() {
     }
 
     if (
-      name.includes("triglyceride")
+      name.includes(
+        "triglyceride"
+      )
     ) {
       return {
         min: 0,
@@ -595,7 +701,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name.includes("hdl")) {
+    if (
+      name.includes("hdl")
+    ) {
       return {
         min: 40,
         max: null,
@@ -604,7 +712,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name.includes("ldl")) {
+    if (
+      name.includes("ldl")
+    ) {
       return {
         min: 0,
         max: 100,
@@ -613,7 +723,9 @@ export default function ResultsPage() {
       };
     }
 
-    if (name.includes("vldl")) {
+    if (
+      name.includes("vldl")
+    ) {
       return {
         min: 5,
         max: 40,
@@ -622,7 +734,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* ================= HBA1C ================= */
+    /* HbA1c */
 
     if (
       name === "hba1c" ||
@@ -636,7 +748,7 @@ export default function ResultsPage() {
       };
     }
 
-    /* ================= THYROID ================= */
+    /* THYROID */
 
     if (name === "t3") {
       return {
@@ -659,7 +771,7 @@ export default function ResultsPage() {
     if (name === "tsh") {
       return {
         min: 0.4,
-        max: 4.0,
+        max: 4,
         unit: "µIU/mL",
         range: "0.4 - 4.0",
       };
@@ -672,7 +784,9 @@ export default function ResultsPage() {
      RESOLVE PARAMETER
      ========================================================= */
 
-  function resolveParameter(parameter) {
+  function resolveParameter(
+    parameter
+  ) {
     const parameterName =
       parameter?.name ||
       parameter?.testName ||
@@ -684,8 +798,11 @@ export default function ResultsPage() {
         parameterName
       );
 
-    let min = parameter?.min;
-    let max = parameter?.max;
+    let min =
+      parameter?.min;
+
+    let max =
+      parameter?.max;
 
     let unit =
       parameter?.unit ||
@@ -700,25 +817,33 @@ export default function ResultsPage() {
       "";
 
     if (
-      (min === undefined ||
+      (
+        min === undefined ||
         min === null ||
-        min === "") &&
+        min === ""
+      ) &&
       defaultData
     ) {
       min = defaultData.min;
     }
 
     if (
-      (max === undefined ||
+      (
+        max === undefined ||
         max === null ||
-        max === "") &&
+        max === ""
+      ) &&
       defaultData
     ) {
       max = defaultData.max;
     }
 
-    if (!range && defaultData) {
-      range = defaultData.range;
+    if (
+      !range &&
+      defaultData
+    ) {
+      range =
+        defaultData.range;
     }
 
     if (!range) {
@@ -730,19 +855,22 @@ export default function ResultsPage() {
         max !== null &&
         max !== ""
       ) {
-        range = `${min} - ${max}`;
+        range =
+          `${min} - ${max}`;
       } else if (
         max !== undefined &&
         max !== null &&
         max !== ""
       ) {
-        range = `< ${max}`;
+        range =
+          `< ${max}`;
       } else if (
         min !== undefined &&
         min !== null &&
         min !== ""
       ) {
-        range = `> ${min}`;
+        range =
+          `> ${min}`;
       } else {
         range = "-";
       }
@@ -785,23 +913,29 @@ export default function ResultsPage() {
     index,
     value
   ) {
-    const key = getParameterKey(
-      testId,
-      parameter,
-      index
-    );
+    const key =
+      getParameterKey(
+        testId,
+        parameter,
+        index
+      );
 
-    setResults((previous) => ({
-      ...previous,
-      [key]: value,
-    }));
+    setResults(
+      (previous) => ({
+        ...previous,
+        [key]: value,
+      })
+    );
   }
 
   /* =========================================================
      FLAG
      ========================================================= */
 
-  function getFlag(value, parameter) {
+  function getFlag(
+    value,
+    parameter
+  ) {
     if (
       value === "" ||
       value === undefined ||
@@ -811,30 +945,43 @@ export default function ResultsPage() {
     }
 
     const resolved =
-      resolveParameter(parameter);
+      resolveParameter(
+        parameter
+      );
 
-    const numericValue = Number(
-      String(value).replace(/,/g, "")
-    );
+    const numericValue =
+      Number(
+        String(value)
+          .replace(/,/g, "")
+      );
 
-    if (Number.isNaN(numericValue)) {
+    if (
+      Number.isNaN(
+        numericValue
+      )
+    ) {
       return "";
     }
 
     const hasMin =
-      resolved.min !== undefined &&
-      resolved.min !== null &&
+      resolved.min !==
+        undefined &&
+      resolved.min !==
+        null &&
       resolved.min !== "";
 
     const hasMax =
-      resolved.max !== undefined &&
-      resolved.max !== null &&
+      resolved.max !==
+        undefined &&
+      resolved.max !==
+        null &&
       resolved.max !== "";
 
     if (hasMin) {
-      const min = Number(
-        resolved.min
-      );
+      const min =
+        Number(
+          resolved.min
+        );
 
       if (
         !Number.isNaN(min) &&
@@ -845,9 +992,10 @@ export default function ResultsPage() {
     }
 
     if (hasMax) {
-      const max = Number(
-        resolved.max
-      );
+      const max =
+        Number(
+          resolved.max
+        );
 
       if (
         !Number.isNaN(max) &&
@@ -857,7 +1005,10 @@ export default function ResultsPage() {
       }
     }
 
-    if (hasMin || hasMax) {
+    if (
+      hasMin ||
+      hasMax
+    ) {
       return "NORMAL";
     }
 
@@ -868,17 +1019,23 @@ export default function ResultsPage() {
      OPTIONS
      ========================================================= */
 
-  function getOptions(parameter) {
+  function getOptions(
+    parameter
+  ) {
     if (
-      Array.isArray(parameter?.options) &&
-      parameter.options.length > 0
+      Array.isArray(
+        parameter?.options
+      ) &&
+      parameter.options.length >
+        0
     ) {
       return parameter.options;
     }
 
     const name =
       normalizeParameterName(
-        parameter?.name || ""
+        parameter?.name ||
+          ""
       );
 
     if (
@@ -920,7 +1077,9 @@ export default function ResultsPage() {
       ];
     }
 
-    if (name === "appearance") {
+    if (
+      name === "appearance"
+    ) {
       return [
         "Clear",
         "Slightly Turbid",
@@ -932,24 +1091,343 @@ export default function ResultsPage() {
   }
 
   /* =========================================================
+     BUILD REPORT DATA
+     ========================================================= */
+
+  function buildReportData() {
+    const patientId =
+      patient?.id ||
+      patient?.patient_id ||
+      null;
+
+    const patientNumber =
+      patient?.patientId ||
+      patient?.patient_id_number ||
+      patient?.number ||
+      patient?.id ||
+      "";
+
+    const tests =
+      selectedTests.map(
+        (test) => ({
+          id: test.id,
+          name:
+            test.name ||
+            test.short ||
+            "",
+          short:
+            test.short ||
+            test.name ||
+            "",
+          category:
+            test.category ||
+            "",
+          price:
+            test.price ||
+            test.rate ||
+            0,
+          parameters:
+            test.tests ||
+            test.parameters ||
+            [],
+        })
+      );
+
+    return {
+      patient_id:
+        patientId,
+
+      patient_number:
+        patientNumber,
+
+      patient_name:
+        patient?.name ||
+        "",
+
+      age:
+        patient?.age ??
+        null,
+
+      gender:
+        patient?.gender ||
+        patient?.sex ||
+        "",
+
+      referring_doctor:
+        patient?.doctor ||
+        patient?.refDoctor ||
+        patient?.referring_doctor ||
+        "",
+
+      tests:
+        tests,
+
+      results:
+        results,
+
+      status:
+        "Pending",
+    };
+  }
+
+  /* =========================================================
+     SAVE REPORT TO SUPABASE
+     ========================================================= */
+
+  async function saveReportToSupabase() {
+    const report =
+      buildReportData();
+
+    const databasePatientId =
+      report.patient_id;
+
+    /*
+      अगर patient database ID available है,
+      तो उसी patient की latest report check होगी.
+    */
+
+    if (
+      databasePatientId
+    ) {
+      const {
+        data: existing,
+        error: findError,
+      } = await supabase
+        .from("reports")
+        .select("*")
+        .eq(
+          "patient_id",
+          databasePatientId
+        )
+        .order(
+          "created_at",
+          {
+            ascending: false,
+          }
+        )
+        .limit(1);
+
+      if (
+        findError
+      ) {
+        console.warn(
+          "Report search:",
+          findError.message
+        );
+      }
+
+      if (
+        existing &&
+        existing.length > 0
+      ) {
+        const existingReport =
+          existing[0];
+
+        const {
+          data: updated,
+          error:
+            updateError,
+        } = await supabase
+          .from("reports")
+          .update({
+            patient_number:
+              report.patient_number,
+
+            patient_name:
+              report.patient_name,
+
+            age:
+              report.age,
+
+            gender:
+              report.gender,
+
+            referring_doctor:
+              report.referring_doctor,
+
+            tests:
+              report.tests,
+
+            results:
+              report.results,
+
+            status:
+              "Pending",
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            existingReport.id
+          )
+          .select()
+          .single();
+
+        if (
+          updateError
+        ) {
+          throw updateError;
+        }
+
+        localStorage.setItem(
+          "nidanReportId",
+          String(
+            updated?.id ||
+              existingReport.id
+          )
+        );
+
+        return updated;
+      }
+    }
+
+    /*
+      NEW REPORT
+    */
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("reports")
+      .insert([
+        report,
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    if (data?.id) {
+      localStorage.setItem(
+        "nidanReportId",
+        String(data.id)
+      );
+    }
+
+    return data;
+  }
+
+  /* =========================================================
      SAVE RESULTS
      ========================================================= */
 
-  function saveResults(showAlert = true) {
+  async function saveResults(
+    showMessage = true
+  ) {
+    if (saving) {
+      return false;
+    }
+
+    setSaving(true);
+
     try {
+      /*
+        ALWAYS save result locally.
+      */
+
       localStorage.setItem(
         "nidanResults",
-        JSON.stringify(results)
+        JSON.stringify(
+          results
+        )
       );
 
-      if (showAlert) {
-        setSavedMessage(
-          "✓ Results saved successfully"
+      /*
+        Save current patient/tests too.
+      */
+
+      localStorage.setItem(
+        "nidanPatient",
+        JSON.stringify(
+          patient
+        )
+      );
+
+      localStorage.setItem(
+        "nidanSelectedTests",
+        JSON.stringify(
+          selectedTests
+        )
+      );
+
+      /*
+        SUPABASE REPORT
+      */
+
+      let reportData = null;
+
+      try {
+        reportData =
+          await saveReportToSupabase();
+      } catch (
+        supabaseError
+      ) {
+        console.error(
+          "Supabase report error:",
+          supabaseError
         );
 
-        setTimeout(() => {
-          setSavedMessage("");
-        }, 2500);
+        /*
+          Local pending backup
+          रहेगा.
+        */
+
+        localStorage.setItem(
+          "nidanPendingReport",
+          JSON.stringify({
+            ...buildReportData(),
+            savedAt:
+              new Date().toISOString(),
+          })
+        );
+
+        alert(
+          "Result local में save हो गया, लेकिन Supabase report save नहीं हुई.\n\n" +
+            supabaseError.message
+        );
+
+        return false;
+      }
+
+      /*
+        LOCAL PENDING BACKUP
+      */
+
+      localStorage.setItem(
+        "nidanPendingReport",
+        JSON.stringify({
+          ...buildReportData(),
+          reportId:
+            reportData?.id ||
+            localStorage.getItem(
+              "nidanReportId"
+            ),
+          savedAt:
+            new Date().toISOString(),
+        })
+      );
+
+      /*
+        SUCCESS
+      */
+
+      if (showMessage) {
+        setSavedMessage(
+          "✓ Results saved — Report Pending"
+        );
+
+        setTimeout(
+          () => {
+            setSavedMessage(
+              ""
+            );
+          },
+          3000
+        );
       }
 
       return true;
@@ -960,10 +1438,13 @@ export default function ResultsPage() {
       );
 
       alert(
-        "Results save nahi ho paye."
+        "Result save नहीं हो पाया.\n\n" +
+          error.message
       );
 
       return false;
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -974,45 +1455,52 @@ export default function ResultsPage() {
   function getMissingResults() {
     const missing = [];
 
-    selectedTests.forEach((test) => {
-      const parameters =
-        test.tests ||
-        test.parameters ||
-        [];
+    selectedTests.forEach(
+      (test) => {
+        const parameters =
+          test.tests ||
+          test.parameters ||
+          [];
 
-      parameters.forEach(
-        (parameter, index) => {
-          const key =
-            getParameterKey(
-              test.id,
-              parameter,
-              index
-            );
+        parameters.forEach(
+          (
+            parameter,
+            index
+          ) => {
+            const key =
+              getParameterKey(
+                test.id,
+                parameter,
+                index
+              );
 
-          const value =
-            results[key];
+            const value =
+              results[key];
 
-          if (
-            value === undefined ||
-            value === null ||
-            String(value).trim() === ""
-          ) {
-            missing.push({
-              test:
-                test.short ||
-                test.name ||
-                "Test",
+            if (
+              value ===
+                undefined ||
+              value === null ||
+              String(value).trim() ===
+                ""
+            ) {
+              missing.push({
+                test:
+                  test.short ||
+                  test.name ||
+                  "Test",
 
-              parameter:
-                parameter?.name ||
-                parameter?.testName ||
-                parameter?.investigation ||
-                "Parameter",
-            });
+                parameter:
+                  parameter?.name ||
+                  parameter?.testName ||
+                  parameter?.investigation ||
+                  "Parameter",
+              });
+            }
           }
-        }
-      );
-    });
+        );
+      }
+    );
 
     return missing;
   }
@@ -1021,9 +1509,10 @@ export default function ResultsPage() {
      FINAL REPORT
      ========================================================= */
 
-  function continueReport() {
+  async function continueReport() {
     if (
-      selectedTests.length === 0
+      selectedTests.length ===
+      0
     ) {
       alert(
         "Koi test selected nahi hai."
@@ -1034,14 +1523,17 @@ export default function ResultsPage() {
     const missing =
       getMissingResults();
 
-    if (missing.length > 0) {
-      const preview = missing
-        .slice(0, 5)
-        .map(
-          (item) =>
-            `${item.test}: ${item.parameter}`
-        )
-        .join("\n");
+    if (
+      missing.length > 0
+    ) {
+      const preview =
+        missing
+          .slice(0, 5)
+          .map(
+            (item) =>
+              `${item.test}: ${item.parameter}`
+          )
+          .join("\n");
 
       const more =
         missing.length > 5
@@ -1060,16 +1552,25 @@ export default function ResultsPage() {
       }
     }
 
-    saveResults(false);
+    const saved =
+      await saveResults(
+        false
+      );
 
-    router.push("/report");
+    if (!saved) {
+      return;
+    }
+
+    router.push(
+      "/report"
+    );
   }
 
   /* =========================================================
      NEXT TEST
      ========================================================= */
 
-  function nextTest() {
+  async function nextTest() {
     const index =
       selectedTests.findIndex(
         (test) =>
@@ -1083,7 +1584,9 @@ export default function ResultsPage() {
         selectedTests.length - 1
     ) {
       setActiveTest(
-        selectedTests[index + 1].id
+        selectedTests[
+          index + 1
+        ].id
       );
 
       window.scrollTo({
@@ -1091,7 +1594,7 @@ export default function ResultsPage() {
         behavior: "smooth",
       });
     } else {
-      continueReport();
+      await continueReport();
     }
   }
 
@@ -1109,7 +1612,9 @@ export default function ResultsPage() {
 
     if (index > 0) {
       setActiveTest(
-        selectedTests[index - 1].id
+        selectedTests[
+          index - 1
+        ].id
       );
 
       window.scrollTo({
@@ -1120,12 +1625,15 @@ export default function ResultsPage() {
   }
 
   /* =========================================================
-     PARAMETER COUNTS
+     COUNTS
      ========================================================= */
 
   const totalParameters =
     selectedTests.reduce(
-      (total, test) =>
+      (
+        total,
+        test
+      ) =>
         total +
         (
           test.tests ||
@@ -1137,7 +1645,10 @@ export default function ResultsPage() {
 
   const completedResults =
     selectedTests.reduce(
-      (total, test) => {
+      (
+        total,
+        test
+      ) => {
         const parameters =
           test.tests ||
           test.parameters ||
@@ -1145,7 +1656,10 @@ export default function ResultsPage() {
 
         const completed =
           parameters.filter(
-            (parameter, index) => {
+            (
+              parameter,
+              index
+            ) => {
               const key =
                 getParameterKey(
                   test.id,
@@ -1160,13 +1674,16 @@ export default function ResultsPage() {
                 value !==
                   undefined &&
                 value !== null &&
-                String(value).trim() !==
-                  ""
+                String(
+                  value
+                ).trim() !== ""
               );
             }
           ).length;
 
-        return total + completed;
+        return (
+          total + completed
+        );
       },
       0
     );
@@ -1187,6 +1704,13 @@ export default function ResultsPage() {
         []
       : [];
 
+  const currentIndex =
+    selectedTests.findIndex(
+      (test) =>
+        String(test.id) ===
+        String(activeTest)
+    );
+
   /* =========================================================
      UI
      ========================================================= */
@@ -1195,9 +1719,7 @@ export default function ResultsPage() {
     <>
       <div className="resultPageApp">
 
-        {/* =====================================================
-            SIDEBAR
-        ===================================================== */}
+        {/* SIDEBAR */}
 
         <aside className="resultSidebar">
 
@@ -1208,7 +1730,9 @@ export default function ResultsPage() {
 
             <div>
               <h2>NIDAN</h2>
-              <p>PATHOLOGY LAB</p>
+              <p>
+                PATHOLOGY LAB
+              </p>
             </div>
           </div>
 
@@ -1229,7 +1753,21 @@ export default function ResultsPage() {
           <button
             className="resultMenu"
             onClick={() =>
-              router.push("/patients")
+              router.push(
+                "/new-patient"
+              )
+            }
+          >
+            <span>+</span>
+            New Patient
+          </button>
+
+          <button
+            className="resultMenu"
+            onClick={() =>
+              router.push(
+                "/patients"
+              )
             }
           >
             <span>♙</span>
@@ -1239,7 +1777,9 @@ export default function ResultsPage() {
           <button
             className="resultMenu"
             onClick={() =>
-              router.push("/tests")
+              router.push(
+                "/tests"
+              )
             }
           >
             <span>🧪</span>
@@ -1249,7 +1789,9 @@ export default function ResultsPage() {
           <button
             className="resultMenu"
             onClick={() =>
-              router.push("/billing")
+              router.push(
+                "/billing"
+              )
             }
           >
             <span>₹</span>
@@ -1264,27 +1806,69 @@ export default function ResultsPage() {
           <button
             className="resultMenu"
             onClick={() =>
-              router.push("/reports")
+              router.push(
+                "/reports"
+              )
             }
           >
             <span>▤</span>
             Reports
           </button>
 
+          <div className="resultMenuLabel managementLabel">
+            MANAGEMENT
+          </div>
+
+          <button
+            className="resultMenu"
+            onClick={() =>
+              router.push(
+                "/test-master"
+              )
+            }
+          >
+            <span>⚙</span>
+            Test Master
+          </button>
+
+          <button
+            className="resultMenu"
+            onClick={() =>
+              router.push(
+                "/doctors"
+              )
+            }
+          >
+            <span>♟</span>
+            Doctors
+          </button>
+
+          <button
+            className="resultMenu"
+            onClick={() =>
+              router.push(
+                "/settings"
+              )
+            }
+          >
+            <span>⚙</span>
+            Settings
+          </button>
+
         </aside>
 
-        {/* =====================================================
-            MAIN AREA
-        ===================================================== */}
+        {/* MAIN */}
 
         <main className="resultMain">
 
-          {/* TOP BAR */}
+          {/* TOPBAR */}
 
           <header className="resultTopbar">
 
             <div>
-              <h3>Result Entry</h3>
+              <h3>
+                Result Entry
+              </h3>
 
               <p>
                 Enter laboratory
@@ -1299,13 +1883,9 @@ export default function ResultsPage() {
 
           </header>
 
-          {/* CONTENT */}
-
           <div className="resultContent">
 
-            {/* =================================================
-                PAGE HEADING
-            ================================================= */}
+            {/* HEADING */}
 
             <div className="resultPageHeading">
 
@@ -1319,15 +1899,17 @@ export default function ResultsPage() {
                 </h1>
 
                 <p>
-                  Selected tests ke results
-                  enter karein.
+                  Selected tests ke
+                  results enter karein.
                 </p>
               </div>
 
               <button
                 className="resultBackButton"
                 onClick={() =>
-                  router.push("/billing")
+                  router.push(
+                    "/billing"
+                  )
                 }
               >
                 ← Back to Billing
@@ -1335,9 +1917,7 @@ export default function ResultsPage() {
 
             </div>
 
-            {/* =================================================
-                STEPS
-            ================================================= */}
+            {/* STEPS */}
 
             <div className="resultSteps">
 
@@ -1345,7 +1925,9 @@ export default function ResultsPage() {
                 <span>✓</span>
                 <div>
                   Patient
-                  <small>Registered</small>
+                  <small>
+                    Registered
+                  </small>
                 </div>
               </div>
 
@@ -1353,7 +1935,9 @@ export default function ResultsPage() {
                 <span>✓</span>
                 <div>
                   Tests
-                  <small>Selected</small>
+                  <small>
+                    Selected
+                  </small>
                 </div>
               </div>
 
@@ -1361,7 +1945,9 @@ export default function ResultsPage() {
                 <span>✓</span>
                 <div>
                   Billing
-                  <small>Completed</small>
+                  <small>
+                    Completed
+                  </small>
                 </div>
               </div>
 
@@ -1369,7 +1955,9 @@ export default function ResultsPage() {
                 <span>4</span>
                 <div>
                   Results
-                  <small>Enter Results</small>
+                  <small>
+                    Enter Results
+                  </small>
                 </div>
               </div>
 
@@ -1377,62 +1965,73 @@ export default function ResultsPage() {
                 <span>5</span>
                 <div>
                   Report
-                  <small>Print / PDF</small>
+                  <small>
+                    Print / PDF
+                  </small>
                 </div>
               </div>
 
             </div>
 
-            {/* =================================================
-                PATIENT CARD
-            ================================================= */}
+            {/* PATIENT */}
 
             <div className="resultPatientCard">
 
               <div>
-                <small>PATIENT ID</small>
+                <small>
+                  PATIENT ID
+                </small>
 
                 <strong>
-                  {patient.patientId ||
-                    patient.id ||
+                  {patient?.patientId ||
+                    patient?.patient_id ||
+                    patient?.id ||
                     "-"}
                 </strong>
               </div>
 
               <div>
-                <small>PATIENT NAME</small>
+                <small>
+                  PATIENT NAME
+                </small>
 
                 <strong>
-                  {patient.name || "-"}
-                </strong>
-              </div>
-
-              <div>
-                <small>AGE / SEX</small>
-
-                <strong>
-                  {patient.age || "-"} /{" "}
-                  {patient.gender ||
-                    patient.sex ||
+                  {patient?.name ||
                     "-"}
                 </strong>
               </div>
 
               <div>
-                <small>REF. DOCTOR</small>
+                <small>
+                  AGE / SEX
+                </small>
 
                 <strong>
-                  {patient.doctor ||
-                    patient.refDoctor ||
+                  {patient?.age ||
+                    "-"}{" "}
+                  /{" "}
+                  {patient?.gender ||
+                    patient?.sex ||
+                    "-"}
+                </strong>
+              </div>
+
+              <div>
+                <small>
+                  REF. DOCTOR
+                </small>
+
+                <strong>
+                  {patient?.doctor ||
+                    patient?.refDoctor ||
+                    patient?.referring_doctor ||
                     "-"}
                 </strong>
               </div>
 
             </div>
 
-            {/* =================================================
-                PROGRESS
-            ================================================= */}
+            {/* PROGRESS */}
 
             <div className="resultProgressCard">
 
@@ -1444,7 +2043,8 @@ export default function ResultsPage() {
                   </strong>
 
                   <small>
-                    {completedResults} of{" "}
+                    {completedResults}{" "}
+                    of{" "}
                     {totalParameters}{" "}
                     parameters entered
                   </small>
@@ -1460,7 +2060,8 @@ export default function ResultsPage() {
                 <div
                   className="resultProgressFill"
                   style={{
-                    width: `${progress}%`,
+                    width:
+                      `${progress}%`,
                   }}
                 />
               </div>
@@ -1475,9 +2076,7 @@ export default function ResultsPage() {
               </div>
             )}
 
-            {/* =================================================
-                MOBILE SELECTED TESTS
-            ================================================= */}
+            {/* MOBILE TESTS */}
 
             <div className="mobileSelectedTests">
 
@@ -1488,19 +2087,29 @@ export default function ResultsPage() {
               <div className="mobileTestScroller">
 
                 {selectedTests.map(
-                  (test, index) => {
+                  (
+                    test,
+                    index
+                  ) => {
+
                     const parameters =
                       test.tests ||
                       test.parameters ||
                       [];
 
                     const active =
-                      String(activeTest) ===
-                      String(test.id);
+                      String(
+                        activeTest
+                      ) ===
+                      String(
+                        test.id
+                      );
 
                     return (
                       <button
-                        key={test.id}
+                        key={
+                          test.id
+                        }
                         className={
                           active
                             ? "mobileTestButton mobileTestActive"
@@ -1512,7 +2121,6 @@ export default function ResultsPage() {
                           )
                         }
                       >
-
                         <span>
                           {index + 1}
                         </span>
@@ -1523,10 +2131,11 @@ export default function ResultsPage() {
                         </strong>
 
                         <small>
-                          {parameters.length}{" "}
+                          {
+                            parameters.length
+                          }{" "}
                           parameters
                         </small>
-
                       </button>
                     );
                   }
@@ -1536,15 +2145,11 @@ export default function ResultsPage() {
 
             </div>
 
-            {/* =================================================
-                MAIN WORKSPACE
-            ================================================= */}
+            {/* WORKSPACE */}
 
             <div className="resultWorkspace">
 
-              {/* =================================================
-                  DESKTOP TEST NAV
-              ================================================= */}
+              {/* TEST NAV */}
 
               <aside className="desktopTestNav">
 
@@ -1579,7 +2184,9 @@ export default function ResultsPage() {
 
                       return (
                         <button
-                          key={test.id}
+                          key={
+                            test.id
+                          }
                           className={
                             active
                               ? "desktopTestButton desktopTestButtonActive"
@@ -1591,7 +2198,6 @@ export default function ResultsPage() {
                             )
                           }
                         >
-
                           <span className="desktopTestNumber">
                             {index + 1}
                           </span>
@@ -1609,7 +2215,6 @@ export default function ResultsPage() {
                               parameters
                             </small>
                           </div>
-
                         </button>
                       );
                     }
@@ -1618,9 +2223,7 @@ export default function ResultsPage() {
 
               </aside>
 
-              {/* =================================================
-                  RESULT ENTRY CARD
-              ================================================= */}
+              {/* RESULT CARD */}
 
               <section className="resultEntryCard">
 
@@ -1637,15 +2240,18 @@ export default function ResultsPage() {
                     </h2>
 
                     <p>
-                      Test Selection page
-                      se investigation
+                      Test Selection
+                      page se
+                      investigation
                       select karein.
                     </p>
 
                     <button
                       className="resultContinueButton"
                       onClick={() =>
-                        router.push("/tests")
+                        router.push(
+                          "/tests"
+                        )
                       }
                     >
                       Select Tests
@@ -1657,9 +2263,7 @@ export default function ResultsPage() {
 
                   <>
 
-                    {/* =================================================
-                        TEST HEADER
-                    ================================================= */}
+                    {/* TEST HEADER */}
 
                     <div className="resultCardHeader">
 
@@ -1676,35 +2280,29 @@ export default function ResultsPage() {
 
                         <p>
                           Enter patient
-                          laboratory results.
+                          laboratory
+                          results.
                         </p>
 
                       </div>
 
                       <div className="parameterBadge">
-                        {currentParameters.length}{" "}
+                        {
+                          currentParameters.length
+                        }{" "}
                         Parameters
                       </div>
 
                     </div>
 
-                    {/* =================================================
-                        DESKTOP TABLE
-                    ================================================= */}
+                    {/* DESKTOP TABLE */}
 
                     <div className="desktopResultTable">
 
                       <table className="resultTable">
 
-                        <colgroup>
-                          <col className="investigationColumn" />
-                          <col className="resultColumn" />
-                          <col className="unitColumn" />
-                          <col className="referenceColumn" />
-                          <col className="flagColumn" />
-                        </colgroup>
-
                         <thead>
+
                           <tr>
                             <th>
                               INVESTIGATION
@@ -1726,6 +2324,7 @@ export default function ResultsPage() {
                               FLAG
                             </th>
                           </tr>
+
                         </thead>
 
                         <tbody>
@@ -1744,8 +2343,9 @@ export default function ResultsPage() {
                                 );
 
                               const value =
-                                results[key] ??
-                                "";
+                                results[
+                                  key
+                                ] ?? "";
 
                               const resolved =
                                 resolveParameter(
@@ -1771,12 +2371,16 @@ export default function ResultsPage() {
 
                               return (
                                 <tr
-                                  key={key}
+                                  key={
+                                    key
+                                  }
                                 >
 
                                   <td className="investigationCell">
                                     <strong>
-                                      {parameterName}
+                                      {
+                                        parameterName
+                                      }
                                     </strong>
                                   </td>
 
@@ -1787,8 +2391,12 @@ export default function ResultsPage() {
 
                                       <select
                                         className="resultInput"
-                                        value={value}
-                                        onChange={(e) =>
+                                        value={
+                                          value
+                                        }
+                                        onChange={(
+                                          e
+                                        ) =>
                                           updateResult(
                                             currentTest.id,
                                             parameter,
@@ -1814,7 +2422,9 @@ export default function ResultsPage() {
                                                 option
                                               }
                                             >
-                                              {option}
+                                              {
+                                                option
+                                              }
                                             </option>
                                           )
                                         )}
@@ -1835,8 +2445,12 @@ export default function ResultsPage() {
                                             : "text"
                                         }
                                         placeholder="Enter result"
-                                        value={value}
-                                        onChange={(e) =>
+                                        value={
+                                          value
+                                        }
+                                        onChange={(
+                                          e
+                                        ) =>
                                           updateResult(
                                             currentTest.id,
                                             parameter,
@@ -1851,13 +2465,17 @@ export default function ResultsPage() {
                                   </td>
 
                                   <td className="unitCell">
-                                    {resolved.unit ||
-                                      "-"}
+                                    {
+                                      resolved.unit ||
+                                      "-"
+                                    }
                                   </td>
 
                                   <td className="referenceCell">
-                                    {resolved.range ||
-                                      "-"}
+                                    {
+                                      resolved.range ||
+                                      "-"
+                                    }
                                   </td>
 
                                   <td className="flagCell">
@@ -1874,7 +2492,9 @@ export default function ResultsPage() {
                                             : "flagNormal"
                                         }`}
                                       >
-                                        {flag}
+                                        {
+                                          flag
+                                        }
                                       </span>
                                     )}
 
@@ -1891,9 +2511,7 @@ export default function ResultsPage() {
 
                     </div>
 
-                    {/* =================================================
-                        MOBILE PARAMETER CARDS
-                    ================================================= */}
+                    {/* MOBILE */}
 
                     <div className="mobileParameterList">
 
@@ -1911,8 +2529,9 @@ export default function ResultsPage() {
                             );
 
                           const value =
-                            results[key] ??
-                            "";
+                            results[
+                              key
+                            ] ?? "";
 
                           const resolved =
                             resolveParameter(
@@ -1939,7 +2558,9 @@ export default function ResultsPage() {
                           return (
                             <div
                               className="mobileParameterCard"
-                              key={key}
+                              key={
+                                key
+                              }
                             >
 
                               <div className="mobileParameterName">
@@ -1949,7 +2570,9 @@ export default function ResultsPage() {
                                 </span>
 
                                 <strong>
-                                  {parameterName}
+                                  {
+                                    parameterName
+                                  }
                                 </strong>
 
                               </div>
@@ -1965,8 +2588,12 @@ export default function ResultsPage() {
 
                                   <select
                                     className="mobileResultInput"
-                                    value={value}
-                                    onChange={(e) =>
+                                    value={
+                                      value
+                                    }
+                                    onChange={(
+                                      e
+                                    ) =>
                                       updateResult(
                                         currentTest.id,
                                         parameter,
@@ -1992,7 +2619,9 @@ export default function ResultsPage() {
                                             option
                                           }
                                         >
-                                          {option}
+                                          {
+                                            option
+                                          }
                                         </option>
                                       )
                                     )}
@@ -2013,8 +2642,12 @@ export default function ResultsPage() {
                                         : "text"
                                     }
                                     placeholder="Enter result"
-                                    value={value}
-                                    onChange={(e) =>
+                                    value={
+                                      value
+                                    }
+                                    onChange={(
+                                      e
+                                    ) =>
                                       updateResult(
                                         currentTest.id,
                                         parameter,
@@ -2036,19 +2669,23 @@ export default function ResultsPage() {
                                   </small>
 
                                   <strong>
-                                    {resolved.unit ||
-                                      "-"}
+                                    {
+                                      resolved.unit ||
+                                      "-"
+                                    }
                                   </strong>
                                 </div>
 
                                 <div>
                                   <small>
-                                    Reference Range
+                                    Reference
                                   </small>
 
                                   <strong>
-                                    {resolved.range ||
-                                      "-"}
+                                    {
+                                      resolved.range ||
+                                      "-"
+                                    }
                                   </strong>
                                 </div>
 
@@ -2058,6 +2695,7 @@ export default function ResultsPage() {
                                   </small>
 
                                   <strong>
+
                                     {flag ? (
                                       <span
                                         className={`resultFlag ${
@@ -2070,11 +2708,14 @@ export default function ResultsPage() {
                                             : "flagNormal"
                                         }`}
                                       >
-                                        {flag}
+                                        {
+                                          flag
+                                        }
                                       </span>
                                     ) : (
                                       "-"
                                     )}
+
                                   </strong>
                                 </div>
 
@@ -2087,9 +2728,7 @@ export default function ResultsPage() {
 
                     </div>
 
-                    {/* =================================================
-                        RESULT FOOTER
-                    ================================================= */}
+                    {/* FOOTER */}
 
                     <div className="resultFooter">
 
@@ -2099,15 +2738,8 @@ export default function ResultsPage() {
                           previousTest
                         }
                         disabled={
-                          selectedTests.findIndex(
-                            (test) =>
-                              String(
-                                test.id
-                              ) ===
-                              String(
-                                activeTest
-                              )
-                          ) === 0
+                          currentIndex <=
+                          0
                         }
                       >
                         ← Previous Test
@@ -2118,10 +2750,17 @@ export default function ResultsPage() {
                         <button
                           className="saveResultButton"
                           onClick={() =>
-                            saveResults(true)
+                            saveResults(
+                              true
+                            )
+                          }
+                          disabled={
+                            saving
                           }
                         >
-                          Save Results
+                          {saving
+                            ? "Saving..."
+                            : "Save Results"}
                         </button>
 
                         <button
@@ -2129,16 +2768,11 @@ export default function ResultsPage() {
                           onClick={
                             nextTest
                           }
+                          disabled={
+                            saving
+                          }
                         >
-                          {selectedTests.findIndex(
-                            (test) =>
-                              String(
-                                test.id
-                              ) ===
-                              String(
-                                activeTest
-                              )
-                          ) ===
+                          {currentIndex ===
                           selectedTests.length -
                             1
                             ? "Final Report →"
@@ -2156,9 +2790,7 @@ export default function ResultsPage() {
 
             </div>
 
-            {/* =================================================
-                BOTTOM ACTION
-            ================================================= */}
+            {/* BOTTOM */}
 
             <div className="resultBottomActions">
 
@@ -2178,6 +2810,9 @@ export default function ResultsPage() {
                 onClick={
                   continueReport
                 }
+                disabled={
+                  saving
+                }
               >
                 Generate Final Report →
               </button>
@@ -2191,14 +2826,10 @@ export default function ResultsPage() {
       </div>
 
       {/* =========================================================
-          COMPLETE PAGE CSS
+          CSS
           ========================================================= */}
 
       <style jsx global>{`
-
-        /* =====================================================
-           GLOBAL RESET
-        ===================================================== */
 
         * {
           box-sizing: border-box;
@@ -2232,36 +2863,29 @@ export default function ResultsPage() {
           cursor: pointer;
         }
 
-        /* =====================================================
-           IMPORTANT DESKTOP PAGE GRID
-           
-           THIS IS THE MAIN FIX
-        ===================================================== */
+        button:disabled {
+          opacity: .6;
+          cursor: not-allowed;
+        }
+
+        /* APP */
 
         .resultPageApp {
           width: 100%;
           min-height: 100vh;
-          min-width: 0;
 
           display: grid;
-
-          /*
-             Desktop:
-             Sidebar = 230px
-             Main = remaining complete width
-          */
 
           grid-template-columns:
             230px
             minmax(0, 1fr);
 
           background: #f1f5f9;
+
           overflow-x: hidden;
         }
 
-        /* =====================================================
-           SIDEBAR
-        ===================================================== */
+        /* SIDEBAR */
 
         .resultSidebar {
           width: 230px;
@@ -2276,18 +2900,21 @@ export default function ResultsPage() {
           padding: 18px 12px;
 
           background: #092437;
-          color: #ffffff;
+          color: white;
 
           overflow-y: auto;
+
           z-index: 20;
         }
 
         .resultBrand {
           display: flex;
           align-items: center;
+
           gap: 10px;
 
-          padding: 2px 6px 22px;
+          padding:
+            2px 6px 22px;
         }
 
         .resultBrandLogo {
@@ -2301,7 +2928,8 @@ export default function ResultsPage() {
           border-radius: 10px;
 
           background: #10a6a3;
-          color: #ffffff;
+
+          color: white;
 
           font-size: 17px;
           font-weight: 900;
@@ -2310,30 +2938,37 @@ export default function ResultsPage() {
         .resultBrand h2 {
           margin: 0;
 
-          font-size: 15px;
-          line-height: 1;
+          color: white;
 
-          color: #ffffff;
+          font-size: 15px;
         }
 
         .resultBrand p {
-          margin: 4px 0 0;
-
-          font-size: 7px;
-          letter-spacing: 0.6px;
+          margin:
+            4px 0 0;
 
           color: #94a8b6;
+
+          font-size: 7px;
+
+          letter-spacing: .6px;
         }
 
         .resultMenuLabel {
-          margin: 4px 8px 10px;
+          margin:
+            4px 8px 10px;
+
+          color: #78909f;
 
           font-size: 8px;
+
           font-weight: 800;
 
           letter-spacing: 1.5px;
+        }
 
-          color: #78909f;
+        .managementLabel {
+          margin-top: 22px;
         }
 
         .resultMenu {
@@ -2346,15 +2981,20 @@ export default function ResultsPage() {
           gap: 10px;
 
           margin-bottom: 4px;
-          padding: 10px 11px;
+
+          padding:
+            10px 11px;
 
           border: 0;
+
           border-radius: 7px;
 
           background: transparent;
+
           color: #cbd5df;
 
           font-size: 12px;
+
           font-weight: 600;
 
           text-align: left;
@@ -2364,79 +3004,77 @@ export default function ResultsPage() {
           width: 20px;
 
           display: inline-flex;
-          align-items: center;
+
           justify-content: center;
 
           font-size: 14px;
         }
 
         .resultMenu:hover {
-          background: rgba(255,255,255,.06);
-          color: #ffffff;
+          background:
+            rgba(255,255,255,.06);
+
+          color: white;
         }
 
         .resultMenuActive {
-          background: #12465e !important;
-          color: #ffffff !important;
+          background:
+            #12465e !important;
+
+          color: white !important;
 
           box-shadow:
             inset 3px 0 0 #10a6a3;
         }
 
-        /* =====================================================
-           MAIN AREA
-           
-           IMPORTANT:
-           width:auto + min-width:0 prevents narrow desktop
-           ===================================================== */
+        /* MAIN */
 
         .resultMain {
-          width: auto !important;
-          min-width: 0 !important;
-          max-width: none !important;
+          width: auto;
 
-          margin: 0 !important;
-          padding: 0 !important;
+          min-width: 0;
+
+          max-width: none;
+
+          margin: 0;
+
+          padding: 0;
 
           overflow-x: hidden;
         }
 
-        /* =====================================================
-           TOP BAR
-        ===================================================== */
+        /* TOPBAR */
 
         .resultTopbar {
           width: 100%;
           min-height: 72px;
 
-          padding: 13px 24px;
+          padding:
+            13px 24px;
 
           display: flex;
+
           align-items: center;
+
           justify-content: space-between;
 
           gap: 20px;
 
-          background: #ffffff;
+          background: white;
 
           border-bottom:
             1px solid #e2e8f0;
-
-          box-shadow:
-            0 1px 4px rgba(15,23,42,.03);
         }
 
         .resultTopbar h3 {
           margin: 0;
 
-          color: #172033;
-
           font-size: 15px;
-          line-height: 1.2;
         }
 
         .resultTopbar p {
-          margin: 3px 0 0;
+          margin:
+            3px 0 0;
 
           color: #64748b;
 
@@ -2445,6 +3083,7 @@ export default function ResultsPage() {
 
         .resultSystemStatus {
           display: flex;
+
           align-items: center;
 
           gap: 7px;
@@ -2452,9 +3091,8 @@ export default function ResultsPage() {
           color: #64748b;
 
           font-size: 10px;
-          font-weight: 600;
 
-          white-space: nowrap;
+          font-weight: 600;
         }
 
         .resultSystemStatus span {
@@ -2466,33 +3104,26 @@ export default function ResultsPage() {
           background: #16a36a;
         }
 
-        /* =====================================================
-           CONTENT
-        ===================================================== */
+        /* CONTENT */
 
         .resultContent {
           width: 100%;
+
           min-width: 0;
 
-          max-width: none;
-
           padding:
-            22px 26px
-            40px;
-
-          margin: 0;
+            22px 26px 40px;
         }
 
-        /* =====================================================
-           PAGE HEADING
-        ===================================================== */
+        /* HEADING */
 
         .resultPageHeading {
           width: 100%;
-          min-width: 0;
 
           display: flex;
+
           align-items: flex-start;
+
           justify-content: space-between;
 
           gap: 20px;
@@ -2504,18 +3135,17 @@ export default function ResultsPage() {
           color: #0d8e8b;
 
           font-size: 9px;
+
           font-weight: 900;
 
           letter-spacing: 1.4px;
         }
 
         .resultPageHeading h1 {
-          margin: 4px 0 3px;
-
-          color: #172033;
+          margin:
+            4px 0 3px;
 
           font-size: 23px;
-          line-height: 1.2;
         }
 
         .resultPageHeading p {
@@ -2527,59 +3157,51 @@ export default function ResultsPage() {
         }
 
         .resultBackButton {
-          flex: 0 0 auto;
-
           min-height: 38px;
 
-          padding: 8px 14px;
+          padding:
+            8px 14px;
 
           border:
             1px solid #dbe3ea;
 
           border-radius: 7px;
 
-          background: #ffffff;
+          background: white;
+
           color: #334155;
 
           font-size: 11px;
+
           font-weight: 700;
         }
 
-        .resultBackButton:hover {
-          background: #f8fafc;
-        }
-
-        /* =====================================================
-           STEPS
-        ===================================================== */
+        /* STEPS */
 
         .resultSteps {
           width: 100%;
-          min-width: 0;
 
           display: grid;
 
           grid-template-columns:
-            repeat(5, minmax(0, 1fr));
+            repeat(5,minmax(0,1fr));
 
           margin-bottom: 14px;
 
-          padding: 10px 12px;
+          padding:
+            10px 12px;
 
-          background: #ffffff;
+          background: white;
 
           border:
             1px solid #e2e8f0;
 
           border-radius: 9px;
-
-          overflow: hidden;
         }
 
         .resultStep {
-          min-width: 0;
-
           display: flex;
+
           align-items: center;
 
           gap: 7px;
@@ -2587,6 +3209,7 @@ export default function ResultsPage() {
           color: #94a3b8;
 
           font-size: 9px;
+
           font-weight: 700;
         }
 
@@ -2594,10 +3217,10 @@ export default function ResultsPage() {
           width: 25px;
           height: 25px;
 
-          flex: 0 0 auto;
-
           display: flex;
+
           align-items: center;
+
           justify-content: center;
 
           border-radius: 50%;
@@ -2607,6 +3230,7 @@ export default function ResultsPage() {
           color: #94a3b8;
 
           font-size: 10px;
+
           font-weight: 900;
         }
 
@@ -2618,7 +3242,6 @@ export default function ResultsPage() {
           color: #a0acb8;
 
           font-size: 7px;
-          font-weight: 500;
         }
 
         .resultStepActive {
@@ -2627,20 +3250,18 @@ export default function ResultsPage() {
 
         .resultStepActive span {
           background: #0d9e9a;
-          color: #ffffff;
+
+          color: white;
         }
 
         .resultStepActive small {
           color: #0d9e9a;
         }
 
-        /* =====================================================
-           PATIENT CARD
-        ===================================================== */
+        /* PATIENT */
 
         .resultPatientCard {
           width: 100%;
-          min-width: 0;
 
           display: grid;
 
@@ -2652,7 +3273,7 @@ export default function ResultsPage() {
 
           margin-bottom: 12px;
 
-          background: #ffffff;
+          background: white;
 
           border:
             1px solid #e2e8f0;
@@ -2663,9 +3284,8 @@ export default function ResultsPage() {
         }
 
         .resultPatientCard > div {
-          min-width: 0;
-
-          padding: 11px 13px;
+          padding:
+            11px 13px;
 
           border-right:
             1px solid #e2e8f0;
@@ -2683,9 +3303,8 @@ export default function ResultsPage() {
           color: #7b8795;
 
           font-size: 7px;
-          font-weight: 800;
 
-          letter-spacing: .3px;
+          font-weight: 800;
         }
 
         .resultPatientCard strong {
@@ -2698,18 +3317,17 @@ export default function ResultsPage() {
           word-break: break-word;
         }
 
-        /* =====================================================
-           PROGRESS
-        ===================================================== */
+        /* PROGRESS */
 
         .resultProgressCard {
           width: 100%;
 
           margin-bottom: 14px;
 
-          padding: 12px 14px;
+          padding:
+            12px 14px;
 
-          background: #ffffff;
+          background: white;
 
           border:
             1px solid #e2e8f0;
@@ -2721,15 +3339,12 @@ export default function ResultsPage() {
           display: flex;
 
           align-items: center;
-          justify-content: space-between;
 
-          gap: 20px;
+          justify-content: space-between;
         }
 
         .resultProgressTop strong {
           display: block;
-
-          color: #172033;
 
           font-size: 11px;
         }
@@ -2766,7 +3381,7 @@ export default function ResultsPage() {
         .resultProgressFill {
           height: 100%;
 
-          border-radius: inherit;
+          border-radius: 20px;
 
           background: #0d9e9a;
 
@@ -2774,16 +3389,13 @@ export default function ResultsPage() {
             width .25s ease;
         }
 
-        /* =====================================================
-           SAVE MESSAGE
-        ===================================================== */
+        /* MESSAGE */
 
         .resultSavedMessage {
-          width: 100%;
-
           margin-bottom: 14px;
 
-          padding: 10px 14px;
+          padding:
+            10px 14px;
 
           border:
             1px solid #a7f3d0;
@@ -2795,79 +3407,65 @@ export default function ResultsPage() {
           color: #047857;
 
           font-size: 11px;
+
           font-weight: 700;
         }
 
-        /* =====================================================
-           MOBILE SELECTED TESTS
-        ===================================================== */
-
-        .mobileSelectedTests {
-          display: none;
-        }
-
-        /* =====================================================
-           WORKSPACE
-           
-           DESKTOP:
-           200px test nav
-           + remaining full width result card
-        ===================================================== */
+        /* WORKSPACE */
 
         .resultWorkspace {
           width: 100%;
+
           min-width: 0;
 
           display: grid;
 
           grid-template-columns:
             200px
-            minmax(0, 1fr);
+            minmax(0,1fr);
 
           gap: 14px;
 
           align-items: start;
         }
 
-        /* =====================================================
-           DESKTOP TEST NAV
-        ===================================================== */
+        /* TEST NAV */
 
         .desktopTestNav {
           width: 200px;
-          min-width: 200px;
 
           padding: 9px;
 
-          background: #ffffff;
+          background: white;
 
           border:
             1px solid #e2e8f0;
 
           border-radius: 9px;
-
-          overflow: hidden;
         }
 
         .desktopTestNavTitle {
-          padding: 6px 7px 10px;
-
-          color: #334155;
+          padding:
+            6px 7px 10px;
 
           font-size: 10px;
+
           font-weight: 900;
         }
 
         .desktopTestButton {
           width: 100%;
+
           min-height: 55px;
 
           display: flex;
+
           align-items: center;
 
           gap: 8px;
 
           margin-bottom: 5px;
+
           padding: 8px;
 
           border:
@@ -2875,7 +3473,8 @@ export default function ResultsPage() {
 
           border-radius: 7px;
 
-          background: #ffffff;
+          background: white;
+
           color: #334155;
 
           text-align: left;
@@ -2889,7 +3488,8 @@ export default function ResultsPage() {
         }
 
         .desktopTestButtonActive {
-          background: #eaf9f8 !important;
+          background:
+            #eaf9f8 !important;
 
           border-color:
             #0d9e9a !important;
@@ -2905,7 +3505,9 @@ export default function ResultsPage() {
           flex: 0 0 auto;
 
           display: flex;
+
           align-items: center;
+
           justify-content: center;
 
           border-radius: 50%;
@@ -2915,22 +3517,14 @@ export default function ResultsPage() {
           color: #087f7d;
 
           font-size: 10px;
-          font-weight: 900;
-        }
 
-        .desktopTestButtonActive
-        .desktopTestNumber {
-          background: #d8f2f0;
+          font-weight: 900;
         }
 
         .desktopTestButton strong {
           display: block;
 
-          color: #172033;
-
           font-size: 10px;
-
-          line-height: 1.2;
 
           word-break: break-word;
         }
@@ -2955,16 +3549,14 @@ export default function ResultsPage() {
           text-align: center;
         }
 
-        /* =====================================================
-           RESULT ENTRY CARD
-        ===================================================== */
+        /* RESULT CARD */
 
         .resultEntryCard {
           width: 100%;
-          min-width: 0;
-          max-width: none;
 
-          background: #ffffff;
+          min-width: 0;
+
+          background: white;
 
           border:
             1px solid #e2e8f0;
@@ -2974,38 +3566,27 @@ export default function ResultsPage() {
           overflow: hidden;
         }
 
-        /* =====================================================
-           RESULT CARD HEADER
-        ===================================================== */
-
         .resultCardHeader {
-          width: 100%;
-          min-width: 0;
-
           display: flex;
 
           align-items: center;
+
           justify-content: space-between;
 
           gap: 18px;
 
-          padding: 16px 18px;
+          padding:
+            16px 18px;
 
           border-bottom:
             1px solid #e2e8f0;
         }
 
-        .resultCardHeader > div:first-child {
-          min-width: 0;
-        }
-
         .resultCardHeader h2 {
-          margin: 3px 0 3px;
-
-          color: #172033;
+          margin:
+            3px 0;
 
           font-size: 19px;
-          line-height: 1.2;
 
           word-break: break-word;
         }
@@ -3021,7 +3602,8 @@ export default function ResultsPage() {
         .parameterBadge {
           flex: 0 0 auto;
 
-          padding: 8px 10px;
+          padding:
+            8px 10px;
 
           border-radius: 20px;
 
@@ -3030,61 +3612,33 @@ export default function ResultsPage() {
           color: #087f7d;
 
           font-size: 8px;
-          font-weight: 800;
 
-          white-space: nowrap;
+          font-weight: 800;
         }
 
-        /* =====================================================
-           DESKTOP TABLE
-           
-           IMPORTANT:
-           Table has NO fixed 760px minimum.
-           It fills the complete desktop card.
-        ===================================================== */
+        /* TABLE */
 
         .desktopResultTable {
-          display: block;
-
           width: 100%;
-          min-width: 0;
 
-          overflow-x: visible;
+          overflow-x: auto;
         }
 
         .resultTable {
           width: 100%;
-          min-width: 0;
+
+          min-width: 650px;
 
           table-layout: fixed;
 
           border-collapse: collapse;
         }
 
-        .resultTable col.investigationColumn {
-          width: 32%;
-        }
-
-        .resultTable col.resultColumn {
-          width: 23%;
-        }
-
-        .resultTable col.unitColumn {
-          width: 12%;
-        }
-
-        .resultTable col.referenceColumn {
-          width: 23%;
-        }
-
-        .resultTable col.flagColumn {
-          width: 10%;
-        }
-
         .resultTable th {
           height: 34px;
 
-          padding: 8px 10px;
+          padding:
+            8px 10px;
 
           border:
             1px solid #e1e7ec;
@@ -3094,22 +3648,18 @@ export default function ResultsPage() {
           color: #526170;
 
           font-size: 8px;
+
           font-weight: 900;
 
           text-align: left;
-
-          letter-spacing: .2px;
         }
 
         .resultTable td {
-          min-width: 0;
-
-          padding: 8px 10px;
+          padding:
+            8px 10px;
 
           border:
             1px solid #e5e9ed;
-
-          color: #172033;
 
           font-size: 9px;
 
@@ -3118,53 +3668,32 @@ export default function ResultsPage() {
           word-break: break-word;
         }
 
-        .resultTable tbody tr:hover {
-          background: #fbfdfd;
+        .resultTable th:nth-child(1) {
+          width: 32%;
         }
 
-        .investigationCell strong {
-          display: block;
-
-          color: #172033;
-
-          font-size: 9px;
-
-          line-height: 1.35;
+        .resultTable th:nth-child(2) {
+          width: 23%;
         }
 
-        .resultCell {
-          min-width: 0;
+        .resultTable th:nth-child(3) {
+          width: 12%;
         }
 
-        .unitCell {
-          color: #475569 !important;
-
-          font-size: 8.5px !important;
-
-          white-space: normal;
+        .resultTable th:nth-child(4) {
+          width: 23%;
         }
 
-        .referenceCell {
-          color: #475569 !important;
-
-          font-size: 8.5px !important;
+        .resultTable th:nth-child(5) {
+          width: 10%;
         }
 
-        .flagCell {
-          text-align: center;
-
-          white-space: nowrap;
-        }
-
-        /* =====================================================
-           RESULT INPUT
-        ===================================================== */
+        /* INPUT */
 
         .resultInput {
           display: block;
 
           width: 100%;
-          min-width: 0;
 
           height: 38px;
 
@@ -3176,96 +3705,104 @@ export default function ResultsPage() {
 
           border-radius: 7px;
 
-          background: #ffffff;
+          background: white;
 
           color: #172033;
 
           font-size: 12px;
 
           outline: none;
-
-          transition:
-            border-color .15s ease,
-            box-shadow .15s ease;
-        }
-
-        .resultInput::placeholder {
-          color: #a1aab4;
         }
 
         .resultInput:focus {
-          border-color: #0d9e9a;
+          border-color:
+            #0d9e9a;
 
           box-shadow:
             0 0 0 3px
             rgba(13,158,154,.10);
         }
 
-        /* =====================================================
-           FLAGS
-        ===================================================== */
+        .unitCell,
+        .referenceCell {
+          color: #475569;
+        }
+
+        .flagCell {
+          text-align: center;
+        }
+
+        /* FLAGS */
 
         .resultFlag {
           display: inline-flex;
 
           align-items: center;
+
           justify-content: center;
 
           min-width: 44px;
+
           min-height: 20px;
 
-          padding: 2px 6px;
+          padding:
+            2px 6px;
 
           border-radius: 5px;
 
           font-size: 7px;
-          font-weight: 900;
 
-          letter-spacing: .2px;
+          font-weight: 900;
         }
 
         .flagHigh {
           background: #fee2e2;
+
           color: #b91c1c;
         }
 
         .flagLow {
           background: #dbeafe;
+
           color: #1d4ed8;
         }
 
         .flagNormal {
           background: #dcfce7;
+
           color: #15803d;
         }
 
-        /* =====================================================
-           MOBILE PARAMETER LIST
-        ===================================================== */
+        /* MOBILE TESTS */
+
+        .mobileSelectedTests {
+          display: none;
+        }
+
+        /* MOBILE PARAMETERS */
 
         .mobileParameterList {
           display: none;
         }
 
-        /* =====================================================
-           FOOTER BUTTONS
-        ===================================================== */
+        /* FOOTER */
 
         .resultFooter {
           width: 100%;
 
           display: flex;
+
           align-items: center;
+
           justify-content: space-between;
 
           gap: 12px;
 
-          padding: 12px 14px;
+          padding:
+            12px 14px;
 
           border-top:
             1px solid #e2e8f0;
-
-          background: #ffffff;
         }
 
         .secondaryResultButton,
@@ -3279,6 +3816,7 @@ export default function ResultsPage() {
           border-radius: 7px;
 
           font-size: 10px;
+
           font-weight: 800;
         }
 
@@ -3286,34 +3824,18 @@ export default function ResultsPage() {
           border:
             1px solid #dbe3ea;
 
-          background: #ffffff;
+          background: white;
+
           color: #64748b;
-        }
-
-        .secondaryResultButton:disabled {
-          opacity: .45;
-
-          cursor: not-allowed;
-        }
-
-        .resultFooterRight {
-          display: flex;
-
-          align-items: center;
-
-          gap: 8px;
         }
 
         .saveResultButton {
           border:
             1px solid #0d9e9a;
 
-          background: #ffffff;
-          color: #087f7d;
-        }
+          background: white;
 
-        .saveResultButton:hover {
-          background: #effcfb;
+          color: #087f7d;
         }
 
         .nextResultButton {
@@ -3321,16 +3843,17 @@ export default function ResultsPage() {
             1px solid #172033;
 
           background: #172033;
-          color: #ffffff;
+
+          color: white;
         }
 
-        .nextResultButton:hover {
-          background: #263247;
+        .resultFooterRight {
+          display: flex;
+
+          gap: 8px;
         }
 
-        /* =====================================================
-           EMPTY PAGE
-        ===================================================== */
+        /* EMPTY */
 
         .emptyResultPage {
           padding: 50px 20px;
@@ -3343,15 +3866,15 @@ export default function ResultsPage() {
         }
 
         .emptyResultPage h2 {
-          margin: 10px 0 5px;
-
-          color: #172033;
+          margin:
+            10px 0 5px;
 
           font-size: 18px;
         }
 
         .emptyResultPage p {
-          margin: 0 0 15px;
+          margin:
+            0 0 15px;
 
           color: #64748b;
 
@@ -3369,15 +3892,15 @@ export default function ResultsPage() {
           border-radius: 7px;
 
           background: #0d9e9a;
-          color: #ffffff;
+
+          color: white;
 
           font-size: 10px;
+
           font-weight: 800;
         }
 
-        /* =====================================================
-           BOTTOM ACTION
-        ===================================================== */
+        /* BOTTOM */
 
         .resultBottomActions {
           width: 100%;
@@ -3385,14 +3908,17 @@ export default function ResultsPage() {
           display: flex;
 
           align-items: center;
+
           justify-content: space-between;
 
           gap: 20px;
 
           margin-top: 16px;
-          padding: 15px 17px;
 
-          background: #ffffff;
+          padding:
+            15px 17px;
+
+          background: white;
 
           border:
             1px solid #e2e8f0;
@@ -3401,13 +3927,12 @@ export default function ResultsPage() {
         }
 
         .resultBottomActions strong {
-          color: #172033;
-
           font-size: 11px;
         }
 
         .resultBottomActions p {
-          margin: 3px 0 0;
+          margin:
+            3px 0 0;
 
           color: #64748b;
 
@@ -3415,8 +3940,6 @@ export default function ResultsPage() {
         }
 
         .generateReportButton {
-          flex: 0 0 auto;
-
           min-height: 40px;
 
           padding:
@@ -3427,166 +3950,39 @@ export default function ResultsPage() {
           border-radius: 7px;
 
           background: #087f7d;
-          color: #ffffff;
+
+          color: white;
 
           font-size: 10px;
+
           font-weight: 800;
         }
 
-        .generateReportButton:hover {
-          background: #076f6d;
-        }
-
         /* =====================================================
-           LARGE DESKTOP
-        ===================================================== */
-
-        @media (min-width: 1200px) {
-
-          .resultContent {
-            padding-left: 30px;
-            padding-right: 30px;
-          }
-
-          .resultWorkspace {
-            grid-template-columns:
-              215px
-              minmax(0, 1fr);
-
-            gap: 16px;
-          }
-
-          .desktopTestNav {
-            width: 215px;
-            min-width: 215px;
-          }
-
-          .resultCardHeader {
-            padding:
-              18px 20px;
-          }
-
-          .resultTable th {
-            padding:
-              9px 12px;
-          }
-
-          .resultTable td {
-            padding:
-              9px 12px;
-          }
-
-          .resultInput {
-            height: 40px;
-          }
-        }
-
-        /* =====================================================
-           TABLET
-        ===================================================== */
-
-        @media (max-width: 1000px) and (min-width: 901px) {
-
-          .resultPageApp {
-            grid-template-columns:
-              190px
-              minmax(0, 1fr);
-          }
-
-          .resultSidebar {
-            width: 190px;
-            min-width: 190px;
-          }
-
-          .resultContent {
-            padding:
-              18px 16px 30px;
-          }
-
-          .resultWorkspace {
-            grid-template-columns:
-              170px
-              minmax(0, 1fr);
-
-            gap: 10px;
-          }
-
-          .desktopTestNav {
-            width: 170px;
-            min-width: 170px;
-          }
-
-          .desktopTestButton {
-            padding: 7px;
-          }
-
-          .resultTable th,
-          .resultTable td {
-            padding:
-              7px 6px;
-          }
-
-          .resultTable th {
-            font-size: 7px;
-          }
-
-          .resultTable td {
-            font-size: 8px;
-          }
-
-          .resultInput {
-            height: 36px;
-
-            padding:
-              6px 7px;
-
-            font-size: 11px;
-          }
-        }
-
-        /* =====================================================
-           MOBILE <= 900px
-        ===================================================== */
+           MOBILE
+           ===================================================== */
 
         @media (max-width: 900px) {
 
-          html,
-          body {
+          .resultPageApp {
+            display: block;
+
             width: 100%;
+
             min-width: 0;
           }
 
-          .resultPageApp {
-            display: block !important;
-
-            width: 100% !important;
-            min-width: 0 !important;
-
-            min-height: 100vh;
-          }
-
-          /* Hide desktop sidebar */
-
           .resultSidebar {
-            display: none !important;
+            display: none;
           }
-
-          /* Main */
 
           .resultMain {
-            display: block !important;
+            width: 100%;
 
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: none !important;
-
-            margin: 0 !important;
-            padding: 0 !important;
+            min-width: 0;
           }
 
           .resultTopbar {
-            width: 100%;
-
             min-height: 60px;
 
             padding:
@@ -3606,54 +4002,30 @@ export default function ResultsPage() {
           }
 
           .resultContent {
-            width: 100% !important;
-            max-width: none !important;
-
             padding:
               13px 12px 25px;
           }
-
-          /* Heading */
 
           .resultPageHeading {
             flex-direction: column;
 
             gap: 9px;
-
-            margin-bottom: 12px;
           }
 
           .resultPageHeading h1 {
             font-size: 22px;
           }
 
-          .resultPageHeading p {
-            font-size: 10px;
-          }
-
           .resultBackButton {
             width: 100%;
-
-            min-height: 40px;
           }
-
-          /* Steps */
 
           .resultSteps {
             display: flex;
 
-            width: 100%;
-
             overflow-x: auto;
 
             gap: 7px;
-
-            padding:
-              8px;
-
-            margin-bottom: 12px;
-
-            -webkit-overflow-scrolling: touch;
 
             scrollbar-width: none;
           }
@@ -3664,68 +4036,37 @@ export default function ResultsPage() {
 
           .resultStep {
             flex: 0 0 105px;
-
-            min-width: 105px;
-
-            padding: 4px;
           }
-
-          /* Patient */
 
           .resultPatientCard {
             grid-template-columns:
               1fr 1fr;
-
-            gap: 0;
-
-            border-radius: 10px;
           }
 
           .resultPatientCard > div {
-            min-width: 0;
-
-            border-right:
-              1px solid #e2e8f0;
+            padding:
+              9px 10px;
 
             border-bottom:
               1px solid #e2e8f0;
-
-            padding:
-              9px 10px;
           }
-
-          .resultPatientCard > div:nth-child(2n) {
-            border-right: 0;
-          }
-
-          .resultPatientCard > div:nth-last-child(-n + 2) {
-            border-bottom: 0;
-          }
-
-          /* Workspace */
 
           .resultWorkspace {
-            display: block !important;
-
-            width: 100% !important;
-            min-width: 0 !important;
+            display: block;
           }
 
           .desktopTestNav {
-            display: none !important;
+            display: none;
           }
-
-          /* Mobile selected tests */
 
           .mobileSelectedTests {
             display: block;
 
-            width: 100%;
-
             margin-bottom: 12px;
+
             padding: 12px;
 
-            background: #ffffff;
+            background: white;
 
             border:
               1px solid #e2e8f0;
@@ -3736,9 +4077,8 @@ export default function ResultsPage() {
           .mobileSelectedTitle {
             margin-bottom: 9px;
 
-            color: #172033;
-
             font-size: 13px;
+
             font-weight: 900;
           }
 
@@ -3749,10 +4089,6 @@ export default function ResultsPage() {
 
             overflow-x: auto;
 
-            padding-bottom: 2px;
-
-            -webkit-overflow-scrolling: touch;
-
             scrollbar-width: none;
           }
 
@@ -3761,7 +4097,8 @@ export default function ResultsPage() {
           }
 
           .mobileTestButton {
-            flex: 0 0 auto;
+            flex:
+              0 0 auto;
 
             min-width: 125px;
 
@@ -3769,6 +4106,7 @@ export default function ResultsPage() {
               9px 10px;
 
             display: flex;
+
             flex-direction: column;
 
             gap: 3px;
@@ -3778,7 +4116,7 @@ export default function ResultsPage() {
 
             border-radius: 10px;
 
-            background: #ffffff;
+            background: white;
 
             text-align: left;
           }
@@ -3788,7 +4126,9 @@ export default function ResultsPage() {
             height: 25px;
 
             display: flex;
+
             align-items: center;
+
             justify-content: center;
 
             border-radius: 50%;
@@ -3798,12 +4138,11 @@ export default function ResultsPage() {
             color: #087f7d;
 
             font-size: 11px;
+
             font-weight: 900;
           }
 
           .mobileTestButton strong {
-            color: #172033;
-
             font-size: 13px;
           }
 
@@ -3821,55 +4160,34 @@ export default function ResultsPage() {
               #effcfb !important;
           }
 
-          /* Result Card */
-
           .resultEntryCard {
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: none !important;
-
-            border-radius: 12px;
+            width: 100%;
           }
 
           .resultCardHeader {
-            align-items: flex-start;
+            align-items:
+              flex-start;
 
             padding:
               14px;
-
-            gap: 10px;
           }
 
           .resultCardHeader h2 {
             font-size: 20px;
-
-            line-height: 1.25;
           }
-
-          .resultCardHeader p {
-            font-size: 9px;
-          }
-
-          /* Hide desktop table */
 
           .desktopResultTable {
-            display: none !important;
+            display: none;
           }
-
-          /* Mobile cards */
 
           .mobileParameterList {
             display: block;
-
-            width: 100%;
 
             padding:
               10px 9px;
           }
 
           .mobileParameterCard {
-            width: 100%;
-
             margin-bottom: 11px;
 
             padding:
@@ -3880,7 +4198,7 @@ export default function ResultsPage() {
 
             border-radius: 12px;
 
-            background: #ffffff;
+            background: white;
 
             box-shadow:
               0 2px 8px
@@ -3901,10 +4219,10 @@ export default function ResultsPage() {
             width: 28px;
             height: 28px;
 
-            flex: 0 0 auto;
-
             display: flex;
+
             align-items: center;
+
             justify-content: center;
 
             border-radius: 50%;
@@ -3914,20 +4232,15 @@ export default function ResultsPage() {
             color: #087f7d;
 
             font-size: 11px;
+
             font-weight: 900;
           }
 
           .mobileParameterName strong {
-            color: #172033;
-
             font-size: 14px;
-
-            line-height: 1.3;
           }
 
           .mobileField {
-            width: 100%;
-
             margin-bottom: 11px;
           }
 
@@ -3939,6 +4252,7 @@ export default function ResultsPage() {
             color: #64748b;
 
             font-size: 11px;
+
             font-weight: 800;
           }
 
@@ -3955,7 +4269,7 @@ export default function ResultsPage() {
 
             border-radius: 9px;
 
-            background: #ffffff;
+            background: white;
 
             color: #172033;
 
@@ -3964,18 +4278,7 @@ export default function ResultsPage() {
             outline: none;
           }
 
-          .mobileResultInput:focus {
-            border-color:
-              #0d9e9a;
-
-            box-shadow:
-              0 0 0 3px
-              rgba(13,158,154,.10);
-          }
-
           .mobileInfoGrid {
-            width: 100%;
-
             display: grid;
 
             grid-template-columns:
@@ -3985,10 +4288,7 @@ export default function ResultsPage() {
           }
 
           .mobileInfoGrid > div {
-            min-width: 0;
-
-            padding:
-              9px;
+            padding: 9px;
 
             border-radius: 8px;
 
@@ -4008,30 +4308,20 @@ export default function ResultsPage() {
             color: #64748b;
 
             font-size: 9px;
+
             font-weight: 800;
           }
 
           .mobileInfoGrid strong {
-            display: block;
-
-            color: #172033;
-
             font-size: 11px;
-
-            line-height: 1.3;
 
             word-break: break-word;
           }
-
-          /* Footer */
 
           .resultFooter {
             flex-direction: column;
 
             align-items: stretch;
-
-            padding:
-              11px;
           }
 
           .secondaryResultButton {
@@ -4045,8 +4335,6 @@ export default function ResultsPage() {
 
             grid-template-columns:
               1fr 1fr;
-
-            gap: 7px;
           }
 
           .saveResultButton,
@@ -4054,45 +4342,22 @@ export default function ResultsPage() {
             width: 100%;
           }
 
-          /* Bottom */
-
           .resultBottomActions {
             flex-direction: column;
 
             align-items: stretch;
-
-            gap: 11px;
-
-            margin-top: 12px;
-
-            padding:
-              13px;
           }
 
           .generateReportButton {
             width: 100%;
           }
-
         }
-
-        /* =====================================================
-           SMALL MOBILE <= 600
-        ===================================================== */
 
         @media (max-width: 600px) {
 
           .resultContent {
             padding:
               10px 9px 22px;
-          }
-
-          .resultTopbar {
-            padding:
-              10px;
-          }
-
-          .resultTopbar {
-            align-items: flex-start;
           }
 
           .resultSystemStatus {
@@ -4103,11 +4368,6 @@ export default function ResultsPage() {
             font-size: 23px;
           }
 
-          .resultPatientCard {
-            grid-template-columns:
-              1fr 1fr;
-          }
-
           .resultPatientCard strong {
             font-size: 11px;
           }
@@ -4116,57 +4376,14 @@ export default function ResultsPage() {
             font-size: 8px;
           }
 
-          .resultProgressCard {
-            padding:
-              11px;
-          }
-
-          .resultProgressTop strong {
-            font-size: 10px;
-          }
-
-          .resultProgressTop small {
-            font-size: 7px;
-          }
-
-          .resultProgressNumber {
-            font-size: 16px !important;
+          .resultFooterRight {
+            grid-template-columns: 1fr;
           }
 
           .resultCardHeader h2 {
             font-size: 19px;
           }
-
-          .mobileParameterList {
-            padding:
-              9px 7px;
-          }
-
-          .mobileParameterCard {
-            padding:
-              12px 10px;
-          }
-
-          .mobileInfoGrid {
-            grid-template-columns:
-              1fr 1.25fr;
-          }
-
-          .resultFooterRight {
-            grid-template-columns:
-              1fr;
-          }
-
-          .resultBottomActions {
-            padding:
-              12px;
-          }
-
         }
-
-        /* =====================================================
-           VERY SMALL PHONE <= 380
-        ===================================================== */
 
         @media (max-width: 380px) {
 
@@ -4176,119 +4393,16 @@ export default function ResultsPage() {
           }
 
           .resultPatientCard {
-            grid-template-columns:
-              1fr;
+            grid-template-columns: 1fr;
           }
 
-          .resultPatientCard > div,
-          .resultPatientCard > div:nth-child(2n) {
+          .resultPatientCard > div {
             border-right: 0;
-            border-bottom:
-              1px solid #e2e8f0;
-          }
-
-          .resultPatientCard > div:last-child {
-            border-bottom: 0;
           }
 
           .mobileTestButton {
             min-width: 115px;
           }
-
-          .mobileParameterName strong {
-            font-size: 13px;
-          }
-
-          .mobileResultInput {
-            height: 44px;
-
-            font-size: 14px;
-          }
-
-        }
-
-        /* =====================================================
-           DESKTOP SAFETY OVERRIDES
-           
-           These rules intentionally override common global
-           .labApp / .mainArea / .content CSS from other pages.
-           
-           This is the important Desktop Mode fix.
-        ===================================================== */
-
-        @media (min-width: 901px) {
-
-          .resultPageApp {
-            display: grid !important;
-
-            width: 100vw !important;
-            min-width: 0 !important;
-
-            grid-template-columns:
-              230px
-              minmax(0, 1fr) !important;
-
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          .resultPageApp .resultSidebar {
-            width: 230px !important;
-            min-width: 230px !important;
-
-            grid-column: 1 !important;
-          }
-
-          .resultPageApp .resultMain {
-            width: auto !important;
-            min-width: 0 !important;
-            max-width: none !important;
-
-            grid-column: 2 !important;
-
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          .resultPageApp .resultContent {
-            width: 100% !important;
-            max-width: none !important;
-            min-width: 0 !important;
-
-            margin: 0 !important;
-          }
-
-          .resultPageApp .resultWorkspace {
-            width: 100% !important;
-            min-width: 0 !important;
-
-            grid-template-columns:
-              200px
-              minmax(0, 1fr) !important;
-          }
-
-          .resultPageApp .resultEntryCard {
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: none !important;
-          }
-
-          .resultPageApp .desktopResultTable {
-            width: 100% !important;
-            min-width: 0 !important;
-
-            overflow-x: visible !important;
-          }
-
-          .resultPageApp .resultTable {
-            width: 100% !important;
-            min-width: 0 !important;
-          }
-
-          .resultPageApp .resultInput {
-            min-width: 0 !important;
-          }
-
         }
 
       `}</style>
