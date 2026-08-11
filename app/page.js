@@ -1,73 +1,51 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
-
-const EMPTY_PATIENT = {
-  id: "",
-  name: "",
-  age: "",
-  ageUnit: "Years",
-  gender: "Male",
-  mobile: "",
-  doctor: "",
-  address: "",
-};
 
 export default function Home() {
   const router = useRouter();
 
+  // =========================================================
+  // DASHBOARD DATA
+  // =========================================================
+
   const [patients, setPatients] = useState([]);
-  const [doctors, setDoctors] = useState([]);
+
+  const [todayBills, setTodayBills] = useState(0);
+  const [todayCollection, setTodayCollection] = useState(0);
+  const [pendingReports, setPendingReports] = useState(0);
 
   const [active, setActive] = useState("dashboard");
-
   const [saving, setSaving] = useState(false);
 
-  const [todayCollection, setTodayCollection] =
-    useState(0);
+  const [dashboardLoading, setDashboardLoading] =
+    useState(false);
 
-  const [pendingReports, setPendingReports] =
-    useState(0);
+  // =========================================================
+  // PATIENT FORM
+  // =========================================================
 
-  const [loadingDashboard, setLoadingDashboard] =
-    useState(true);
-
-  const [patient, setPatient] =
-    useState(EMPTY_PATIENT);
+  const [patient, setPatient] = useState({
+    id: "",
+    name: "",
+    age: "",
+    ageUnit: "Years",
+    gender: "Male",
+    mobile: "",
+    doctor: "",
+    address: "",
+  });
 
   // =========================================================
   // INITIAL LOAD
   // =========================================================
 
   useEffect(() => {
-    loadDashboard();
-    loadDoctors();
+    fetchPatients();
+    fetchDashboardStats();
   }, []);
-
-  // =========================================================
-  // LOAD DASHBOARD DATA
-  // =========================================================
-
-  async function loadDashboard() {
-    setLoadingDashboard(true);
-
-    try {
-      await Promise.all([
-        fetchPatients(),
-        fetchTodayCollection(),
-        fetchPendingReports(),
-      ]);
-    } catch (error) {
-      console.error(
-        "Dashboard loading error:",
-        error
-      );
-    } finally {
-      setLoadingDashboard(false);
-    }
-  }
 
   // =========================================================
   // LOAD PATIENTS
@@ -88,8 +66,6 @@ export default function Home() {
           error
         );
 
-        setPatients([]);
-
         return;
       }
 
@@ -99,199 +75,142 @@ export default function Home() {
         "Patients load error:",
         error
       );
-
-      setPatients([]);
     }
   }
 
   // =========================================================
-  // TODAY'S COLLECTION
+  // DASHBOARD STATISTICS
   // =========================================================
 
-  async function fetchTodayCollection() {
-    try {
-      // Start of today
-      const start = new Date();
+  async function fetchDashboardStats() {
+    setDashboardLoading(true);
 
-      start.setHours(
+    try {
+      // -----------------------------------------------------
+      // TODAY DATE
+      // -----------------------------------------------------
+
+      const now = new Date();
+
+      const start = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
         0,
         0,
         0,
         0
       );
 
-      // Start of tomorrow
-      const end = new Date(start);
-
-      end.setDate(
-        end.getDate() + 1
+      const end = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+        0,
+        0,
+        0,
+        0
       );
 
-      const { data, error } =
-        await supabase
-          .from("bills")
-          .select(
-            "paid, bill_date, payment_status"
-          )
-          .gte(
-            "bill_date",
-            start.toISOString()
-          )
-          .lt(
-            "bill_date",
-            end.toISOString()
-          );
+      const startISO = start.toISOString();
+      const endISO = end.toISOString();
 
-      if (error) {
+      // -----------------------------------------------------
+      // TODAY'S BILLS
+      // -----------------------------------------------------
+
+      const {
+        data: billsData,
+        error: billsError,
+      } = await supabase
+        .from("bills")
+        .select(
+          "id, bill_no, bill_date, paid, net_amount, payment_status"
+        )
+        .gte("bill_date", startISO)
+        .lt("bill_date", endISO);
+
+      if (billsError) {
         console.error(
-          "Today's collection error:",
-          error
+          "Today's bills error:",
+          billsError
         );
 
+        setTodayBills(0);
         setTodayCollection(0);
+      } else {
+        const bills = billsData || [];
 
-        return;
-      }
+        // Total bills created today
+        setTodayBills(bills.length);
 
-      const total = (data || []).reduce(
-        (sum, bill) => {
-          return (
-            sum +
-            Number(
-              bill.paid || 0
-            )
-          );
-        },
-        0
-      );
-
-      setTodayCollection(total);
-    } catch (error) {
-      console.error(
-        "Today's collection error:",
-        error
-      );
-
-      setTodayCollection(0);
-    }
-  }
-
-  // =========================================================
-  // PENDING REPORTS
-  // =========================================================
-
-  async function fetchPendingReports() {
-    try {
-      /*
-       * Agar future me reports table me
-       * status column hoga to yahan se
-       * actual pending reports count kiya ja sakta hai.
-       *
-       * Abhi safe fallback = 0
-       */
-
-      setPendingReports(0);
-    } catch (error) {
-      console.error(
-        "Pending reports error:",
-        error
-      );
-
-      setPendingReports(0);
-    }
-  }
-
-  // =========================================================
-  // LOAD DOCTORS
-  // =========================================================
-
-  async function loadDoctors() {
-    let loadedDoctors = [];
-
-    // -------------------------------------------------------
-    // SUPABASE DOCTORS
-    // -------------------------------------------------------
-
-    try {
-      const { data, error } =
-        await supabase
-          .from("doctors")
-          .select("*")
-          .order("created_at", {
-            ascending: false,
-          });
-
-      if (!error && data) {
-        loadedDoctors = data;
-      }
-    } catch (error) {
-      console.error(
-        "Supabase doctors error:",
-        error
-      );
-    }
-
-    // -------------------------------------------------------
-    // LOCAL STORAGE DOCTORS
-    // -------------------------------------------------------
-
-    try {
-      const localDoctors =
-        JSON.parse(
-          localStorage.getItem(
-            "nidanDoctors"
-          ) || "[]"
+        // Today's actual collection
+        const collection = bills.reduce(
+          (total, bill) => {
+            return (
+              total +
+              Number(bill.paid || 0)
+            );
+          },
+          0
         );
 
-      if (
-        Array.isArray(localDoctors)
-      ) {
-        loadedDoctors = [
-          ...loadedDoctors,
-          ...localDoctors,
-        ];
+        setTodayCollection(collection);
+      }
+
+      // -----------------------------------------------------
+      // PENDING REPORTS
+      // -----------------------------------------------------
+      //
+      // Completed reports ko count nahi karenge.
+      // Pending / In Progress / blank status count honge.
+      //
+
+      const {
+        data: reportsData,
+        error: reportsError,
+      } = await supabase
+        .from("reports")
+        .select("id, status");
+
+      if (reportsError) {
+        console.error(
+          "Pending reports error:",
+          reportsError
+        );
+
+        setPendingReports(0);
+      } else {
+        const reports = reportsData || [];
+
+        const pending = reports.filter(
+          (report) => {
+            const status = String(
+              report.status || "Pending"
+            )
+              .trim()
+              .toLowerCase();
+
+            return status !== "completed";
+          }
+        );
+
+        setPendingReports(
+          pending.length
+        );
       }
     } catch (error) {
       console.error(
-        "Local doctors error:",
+        "Dashboard statistics error:",
         error
       );
+
+      setTodayBills(0);
+      setTodayCollection(0);
+      setPendingReports(0);
+    } finally {
+      setDashboardLoading(false);
     }
-
-    // -------------------------------------------------------
-    // REMOVE DUPLICATES
-    // -------------------------------------------------------
-
-    const uniqueDoctors = [];
-
-    const used = new Set();
-
-    loadedDoctors.forEach(
-      (doctor) => {
-        const name =
-          doctor.name ||
-          doctor.doctor_name ||
-          "";
-
-        if (!name) return;
-
-        const key =
-          `${name}-${doctor.registrationNo || doctor.registration_no || ""}`
-            .toLowerCase();
-
-        if (!used.has(key)) {
-          used.add(key);
-
-          uniqueDoctors.push(
-            doctor
-          );
-        }
-      }
-    );
-
-    setDoctors(
-      uniqueDoctors
-    );
   }
 
   // =========================================================
@@ -304,22 +223,18 @@ export default function Home() {
     const y =
       now.getFullYear();
 
-    const m =
-      String(
-        now.getMonth() + 1
-      ).padStart(2, "0");
+    const m = String(
+      now.getMonth() + 1
+    ).padStart(2, "0");
 
-    const d =
-      String(
-        now.getDate()
-      ).padStart(2, "0");
+    const d = String(
+      now.getDate()
+    ).padStart(2, "0");
 
-    const n =
-      Math.floor(
-        1000 +
-          Math.random() *
-            9000
-      );
+    const n = Math.floor(
+      1000 +
+        Math.random() * 9000
+    );
 
     return `NPL-${y}${m}${d}-${n}`;
   }
@@ -330,16 +245,17 @@ export default function Home() {
 
   function openNewPatient() {
     setPatient({
-      ...EMPTY_PATIENT,
       id: generatePatientId(),
+      name: "",
+      age: "",
+      ageUnit: "Years",
+      gender: "Male",
+      mobile: "",
+      doctor: "",
+      address: "",
     });
 
-    setActive(
-      "newPatient"
-    );
-
-    // Refresh doctors whenever form opens
-    loadDoctors();
+    setActive("newPatient");
   }
 
   // =========================================================
@@ -361,7 +277,7 @@ export default function Home() {
   }
 
   // =========================================================
-  // SAVE PATIENT
+  // SAVE PATIENT + CONTINUE
   // =========================================================
 
   async function continueToTests(e) {
@@ -375,10 +291,7 @@ export default function Home() {
       return;
     }
 
-    if (
-      patient.age === "" ||
-      patient.age === null
-    ) {
+    if (!patient.age) {
       alert(
         "Patient Age enter karein."
       );
@@ -398,7 +311,7 @@ export default function Home() {
       setSaving(true);
 
       // -----------------------------------------------------
-      // SAVE PATIENT TO SUPABASE
+      // SUPABASE PATIENT INSERT
       // -----------------------------------------------------
 
       const { error } =
@@ -410,7 +323,7 @@ export default function Home() {
                 patient.id,
 
               name:
-                patient.name.trim(),
+                patient.name,
 
               age:
                 Number(
@@ -441,7 +354,7 @@ export default function Home() {
         );
 
         alert(
-          "Patient save nahi hua:\n\n" +
+          "Patient save nahi hua: " +
             error.message
         );
 
@@ -460,13 +373,7 @@ export default function Home() {
         patientId:
           patient.id,
 
-        patient_id:
-          patient.id,
-
         refDoctor:
-          patient.doctor,
-
-        referring_doctor:
           patient.doctor,
 
         sex:
@@ -481,7 +388,7 @@ export default function Home() {
       );
 
       // -----------------------------------------------------
-      // CLEAR OLD VISIT DATA
+      // NEW PATIENT = CLEAN TEST/BILL/RESULT DATA
       // -----------------------------------------------------
 
       localStorage.removeItem(
@@ -497,7 +404,7 @@ export default function Home() {
       );
 
       // -----------------------------------------------------
-      // UPDATE DASHBOARD
+      // REFRESH DASHBOARD DATA
       // -----------------------------------------------------
 
       await fetchPatients();
@@ -506,9 +413,7 @@ export default function Home() {
       // GO TO TESTS
       // -----------------------------------------------------
 
-      router.push(
-        "/tests"
-      );
+      router.push("/tests");
     } catch (error) {
       console.error(
         "Patient save error:",
@@ -528,65 +433,46 @@ export default function Home() {
   // =========================================================
 
   function goDashboard() {
-    setActive(
-      "dashboard"
-    );
+    setActive("dashboard");
 
-    loadDashboard();
+    fetchPatients();
+    fetchDashboardStats();
   }
 
   function goPatients() {
-    router.push(
-      "/patients"
-    );
+    router.push("/patients");
   }
 
   function goTests() {
-    router.push(
-      "/tests"
-    );
+    router.push("/tests");
   }
 
   function goBilling() {
-    router.push(
-      "/billing"
-    );
+    router.push("/billing");
   }
 
   function goSamples() {
-    router.push(
-      "/samples"
-    );
+    router.push("/samples");
   }
 
   function goResults() {
-    router.push(
-      "/results"
-    );
+    router.push("/results");
   }
 
   function goReports() {
-    router.push(
-      "/reports"
-    );
+    router.push("/reports");
   }
 
   function goTestMaster() {
-    router.push(
-      "/test-master"
-    );
+    router.push("/test-master");
   }
 
   function goDoctors() {
-    router.push(
-      "/doctors"
-    );
+    router.push("/doctors");
   }
 
   function goSettings() {
-    router.push(
-      "/settings"
-    );
+    router.push("/settings");
   }
 
   // =========================================================
@@ -597,24 +483,9 @@ export default function Home() {
     return Number(
       amount || 0
     ).toLocaleString(
-      "en-IN",
-      {
-        maximumFractionDigits: 0,
-      }
+      "en-IN"
     );
   }
-
-  // =========================================================
-  // RECENT PATIENTS
-  // =========================================================
-
-  const recentPatients =
-    useMemo(() => {
-      return patients.slice(
-        0,
-        5
-      );
-    }, [patients]);
 
   // =========================================================
   // DASHBOARD
@@ -636,10 +507,7 @@ export default function Home() {
           </div>
 
           <div>
-            <h2>
-              NIDAN
-            </h2>
-
+            <h2>NIDAN</h2>
             <p>
               PATHOLOGY LAB
             </p>
@@ -655,8 +523,7 @@ export default function Home() {
 
         <button
           className={
-            active ===
-            "dashboard"
+            active === "dashboard"
               ? "menu active"
               : "menu"
           }
@@ -664,10 +531,7 @@ export default function Home() {
             goDashboard
           }
         >
-          <span>
-            ▦
-          </span>
-
+          <span>▦</span>
           Dashboard
         </button>
 
@@ -684,10 +548,7 @@ export default function Home() {
             openNewPatient
           }
         >
-          <span>
-            ＋
-          </span>
-
+          <span>＋</span>
           New Patient
         </button>
 
@@ -699,10 +560,7 @@ export default function Home() {
             goPatients
           }
         >
-          <span>
-            ♙
-          </span>
-
+          <span>♙</span>
           Patients
         </button>
 
@@ -714,10 +572,7 @@ export default function Home() {
             goBilling
           }
         >
-          <span>
-            ₹
-          </span>
-
+          <span>₹</span>
           Billing
         </button>
 
@@ -729,10 +584,7 @@ export default function Home() {
             goSamples
           }
         >
-          <span>
-            ⌁
-          </span>
-
+          <span>⌁</span>
           Samples
         </button>
 
@@ -744,10 +596,7 @@ export default function Home() {
             goResults
           }
         >
-          <span>
-            ▤
-          </span>
-
+          <span>▤</span>
           Result Entry
         </button>
 
@@ -759,12 +608,11 @@ export default function Home() {
             goReports
           }
         >
-          <span>
-            ▣
-          </span>
-
+          <span>▣</span>
           Reports
         </button>
+
+        {/* MANAGEMENT */}
 
         <div className="menuLabel second">
           MANAGEMENT
@@ -778,10 +626,7 @@ export default function Home() {
             goTestMaster
           }
         >
-          <span>
-            ⚗
-          </span>
-
+          <span>⚗</span>
           Test Master
         </button>
 
@@ -793,10 +638,7 @@ export default function Home() {
             goDoctors
           }
         >
-          <span>
-            ♧
-          </span>
-
+          <span>♧</span>
           Doctors
         </button>
 
@@ -808,10 +650,7 @@ export default function Home() {
             goSettings
           }
         >
-          <span>
-            ⚙
-          </span>
-
+          <span>⚙</span>
           Settings
         </button>
 
@@ -823,7 +662,9 @@ export default function Home() {
 
       <main className="mainArea">
 
-        {/* TOPBAR */}
+        {/* ===================================================
+            TOPBAR
+        =================================================== */}
 
         <header className="topbar">
 
@@ -862,7 +703,9 @@ export default function Home() {
 
           <div className="content">
 
-            {/* WELCOME */}
+            {/* =================================================
+                WELCOME
+            ================================================= */}
 
             <div className="welcome">
 
@@ -881,8 +724,7 @@ export default function Home() {
                   Patients, billing,
                   samples, test results
                   aur laboratory reports
-                  ko ek jagah manage
-                  karein.
+                  ko ek jagah manage karein.
                 </p>
 
               </div>
@@ -919,9 +761,7 @@ export default function Home() {
                   </p>
 
                   <h2>
-                    {loadingDashboard
-                      ? "..."
-                      : patients.length}
+                    {patients.length}
                   </h2>
 
                 </div>
@@ -930,7 +770,7 @@ export default function Home() {
 
               {/* TODAY COLLECTION */}
 
-              <div className="statCard collectionCard">
+              <div className="statCard">
 
                 <div className="statIcon">
                   ₹
@@ -944,23 +784,21 @@ export default function Home() {
 
                   <h2>
                     ₹
-                    {loadingDashboard
-                      ? "..."
-                      : formatMoney(
-                          todayCollection
-                        )}
+                    {formatMoney(
+                      todayCollection
+                    )}
                   </h2>
 
                 </div>
 
               </div>
 
-              {/* TODAY BILLS */}
+              {/* TODAY'S BILLS */}
 
               <div className="statCard">
 
                 <div className="statIcon">
-                  🧾
+                  ▣
                 </div>
 
                 <div>
@@ -970,9 +808,9 @@ export default function Home() {
                   </p>
 
                   <h2>
-                    {loadingDashboard
+                    {dashboardLoading
                       ? "..."
-                      : "—"}
+                      : todayBills}
                   </h2>
 
                 </div>
@@ -994,7 +832,9 @@ export default function Home() {
                   </p>
 
                   <h2>
-                    {pendingReports}
+                    {dashboardLoading
+                      ? "..."
+                      : pendingReports}
                   </h2>
 
                 </div>
@@ -1009,7 +849,9 @@ export default function Home() {
 
             <div className="dashboardGrid">
 
-              {/* RECENT PATIENTS */}
+              {/* =================================================
+                  RECENT PATIENTS
+              ================================================= */}
 
               <section className="panel">
 
@@ -1038,14 +880,14 @@ export default function Home() {
 
                 </div>
 
-                {recentPatients.length ===
+                {/* EMPTY */}
+
+                {patients.length ===
                 0 ? (
 
                   <div className="emptyState">
 
-                    <div>
-                      ♙
-                    </div>
+                    <div>♙</div>
 
                     <h3>
                       No registered
@@ -1055,8 +897,8 @@ export default function Home() {
                     <p>
                       Patient registration
                       shuru karne ke liye
-                      New Patient par
-                      click karein.
+                      New Patient par click
+                      karein.
                     </p>
 
                     <button
@@ -1073,61 +915,64 @@ export default function Home() {
 
                   <div>
 
-                    {recentPatients.map(
-                      (p) => {
-
-                        const patientId =
-                          p.patient_id ||
-                          p.patientId ||
-                          p.id ||
-                          "-";
-
-                        return (
+                    {patients
+                      .slice(0, 5)
+                      .map(
+                        (p) => (
 
                           <div
                             key={
-                              p.id ||
-                              patientId
+                              p.id
                             }
-                            className="recentPatient"
+                            style={{
+                              padding:
+                                "10px",
+                              borderBottom:
+                                "1px solid #edf1f5",
+                            }}
                           >
 
+                            <b>
+                              {
+                                p.name
+                              }
+                            </b>
+
                             <div>
-
-                              <b>
-                                {p.name ||
-                                  "Unknown Patient"}
-                              </b>
-
-                              <div>
-                                {patientId}
-                              </div>
-
-                              <small>
-
-                                {p.mobile ||
-                                  "No mobile"}
-
-                                {" • "}
-
-                                {p.age ??
-                                  "-"}
-
-                                {" "}
-
-                                {p.age_unit ||
-                                  p.ageUnit ||
-                                  "Years"}
-
-                              </small>
-
+                              {
+                                p.patient_id ||
+                                p.patientId ||
+                                p.id
+                              }
                             </div>
+
+                            <small>
+
+                              {
+                                p.mobile ||
+                                "No mobile"
+                              }
+
+                              {" • "}
+
+                              {
+                                p.age
+                              }
+
+                              {" "}
+
+                              {
+                                p.age_unit ||
+                                p.ageUnit ||
+                                "Years"
+                              }
+
+                            </small>
 
                           </div>
 
-                        );
-                      }
-                    )}
+                        )
+                      )}
 
                   </div>
 
@@ -1135,7 +980,9 @@ export default function Home() {
 
               </section>
 
-              {/* QUICK ACTIONS */}
+              {/* =================================================
+                  QUICK ACTIONS
+              ================================================= */}
 
               <section className="panel quickPanel">
 
@@ -1156,17 +1003,18 @@ export default function Home() {
 
                 </div>
 
+                {/* NEW PATIENT */}
+
                 <button
                   onClick={
                     openNewPatient
                   }
                 >
 
-                  <span>
-                    ＋
-                  </span>
+                  <span>＋</span>
 
                   <div>
+
                     <b>
                       New Patient
                     </b>
@@ -1175,9 +1023,12 @@ export default function Home() {
                       Register new
                       patient
                     </small>
+
                   </div>
 
                 </button>
+
+                {/* CREATE BILL */}
 
                 <button
                   onClick={
@@ -1185,11 +1036,10 @@ export default function Home() {
                   }
                 >
 
-                  <span>
-                    ₹
-                  </span>
+                  <span>₹</span>
 
                   <div>
+
                     <b>
                       Create Bill
                     </b>
@@ -1197,9 +1047,12 @@ export default function Home() {
                     <small>
                       Patient billing
                     </small>
+
                   </div>
 
                 </button>
+
+                {/* RESULT ENTRY */}
 
                 <button
                   onClick={
@@ -1207,11 +1060,10 @@ export default function Home() {
                   }
                 >
 
-                  <span>
-                    ▤
-                  </span>
+                  <span>▤</span>
 
                   <div>
+
                     <b>
                       Result Entry
                     </b>
@@ -1220,9 +1072,12 @@ export default function Home() {
                       Enter test
                       results
                     </small>
+
                   </div>
 
                 </button>
+
+                {/* REPORTS */}
 
                 <button
                   onClick={
@@ -1230,11 +1085,10 @@ export default function Home() {
                   }
                 >
 
-                  <span>
-                    ▣
-                  </span>
+                  <span>▣</span>
 
                   <div>
+
                     <b>
                       Reports
                     </b>
@@ -1243,6 +1097,7 @@ export default function Home() {
                       View final
                       reports
                     </small>
+
                   </div>
 
                 </button>
@@ -1252,6 +1107,7 @@ export default function Home() {
             </div>
 
           </div>
+
         )}
 
         {/* ===================================================
@@ -1262,6 +1118,8 @@ export default function Home() {
           "newPatient" && (
 
           <div className="content">
+
+            {/* PAGE HEADING */}
 
             <div className="pageHeading">
 
@@ -1276,10 +1134,9 @@ export default function Home() {
                 </h1>
 
                 <p>
-                  Patient ki basic
-                  details enter karein.
-                  Iske baad tests
-                  select kiye jayenge.
+                  Patient ki basic details
+                  enter karein. Iske baad
+                  tests select kiye jayenge.
                 </p>
 
               </div>
@@ -1295,17 +1152,18 @@ export default function Home() {
 
             </div>
 
-            {/* STEPS */}
+            {/* =================================================
+                STEPS
+            ================================================= */}
 
             <div className="steps">
 
               <div className="step activeStep">
 
-                <span>
-                  1
-                </span>
+                <span>1</span>
 
                 <div>
+
                   <b>
                     Patient
                   </b>
@@ -1313,17 +1171,17 @@ export default function Home() {
                   <small>
                     Registration
                   </small>
+
                 </div>
 
               </div>
 
               <div className="step">
 
-                <span>
-                  2
-                </span>
+                <span>2</span>
 
                 <div>
+
                   <b>
                     Tests
                   </b>
@@ -1331,17 +1189,17 @@ export default function Home() {
                   <small>
                     Select tests
                   </small>
+
                 </div>
 
               </div>
 
               <div className="step">
 
-                <span>
-                  3
-                </span>
+                <span>3</span>
 
                 <div>
+
                   <b>
                     Billing
                   </b>
@@ -1349,17 +1207,17 @@ export default function Home() {
                   <small>
                     Create bill
                   </small>
+
                 </div>
 
               </div>
 
               <div className="step">
 
-                <span>
-                  4
-                </span>
+                <span>4</span>
 
                 <div>
+
                   <b>
                     Results
                   </b>
@@ -1367,17 +1225,17 @@ export default function Home() {
                   <small>
                     Enter results
                   </small>
+
                 </div>
 
               </div>
 
               <div className="step">
 
-                <span>
-                  5
-                </span>
+                <span>5</span>
 
                 <div>
+
                   <b>
                     Report
                   </b>
@@ -1385,13 +1243,16 @@ export default function Home() {
                   <small>
                     Print / PDF
                   </small>
+
                 </div>
 
               </div>
 
             </div>
 
-            {/* REGISTRATION CARD */}
+            {/* =================================================
+                REGISTRATION FORM
+            ================================================= */}
 
             <form
               className="registrationCard"
@@ -1399,6 +1260,8 @@ export default function Home() {
                 continueToTests
               }
             >
+
+              {/* FORM HEADER */}
 
               <div className="formHeader">
 
@@ -1421,6 +1284,8 @@ export default function Home() {
 
               </div>
 
+              {/* FORM GRID */}
+
               <div className="formGrid">
 
                 {/* PATIENT ID */}
@@ -1441,7 +1306,7 @@ export default function Home() {
 
                 </div>
 
-                {/* NAME */}
+                {/* PATIENT NAME */}
 
                 <div className="field">
 
@@ -1580,91 +1445,16 @@ export default function Home() {
                     Referring Doctor
                   </label>
 
-                  {doctors.length >
-                  0 ? (
-
-                    <select
-                      name="doctor"
-                      value={
-                        patient.doctor
-                      }
-                      onChange={
-                        change
-                      }
-                    >
-
-                      <option value="">
-                        Select Doctor
-                      </option>
-
-                      {doctors.map(
-                        (
-                          doctor,
-                          index
-                        ) => {
-
-                          const name =
-                            doctor.name ||
-                            doctor.doctor_name ||
-                            "";
-
-                          const qualification =
-                            doctor.qualification ||
-                            doctor.qualification_name ||
-                            "";
-
-                          const key =
-                            doctor.id ||
-                            doctor.doctor_id ||
-                            `${name}-${index}`;
-
-                          return (
-
-                            <option
-                              key={
-                                key
-                              }
-                              value={
-                                name
-                              }
-                            >
-                              Dr.{" "}
-                              {name}
-                              {qualification
-                                ? ` (${qualification})`
-                                : ""}
-                            </option>
-
-                          );
-                        }
-                      )}
-
-                    </select>
-
-                  ) : (
-
-                    <div>
-
-                      <input
-                        name="doctor"
-                        value={
-                          patient.doctor
-                        }
-                        onChange={
-                          change
-                        }
-                        placeholder="Doctor name"
-                      />
-
-                      <small className="doctorHint">
-                        No doctor found.
-                        Add doctor from
-                        Doctors menu.
-                      </small>
-
-                    </div>
-
-                  )}
+                  <input
+                    name="doctor"
+                    value={
+                      patient.doctor
+                    }
+                    onChange={
+                      change
+                    }
+                    placeholder="Doctor name"
+                  />
 
                 </div>
 
@@ -1691,7 +1481,7 @@ export default function Home() {
 
               </div>
 
-              {/* FOOTER */}
+              {/* FORM FOOTER */}
 
               <div className="formFooter">
 
@@ -1712,9 +1502,11 @@ export default function Home() {
                     saving
                   }
                 >
+
                   {saving
                     ? "Saving..."
                     : "Save & Select Tests →"}
+
                 </button>
 
               </div>
@@ -1722,1134 +1514,10 @@ export default function Home() {
             </form>
 
           </div>
+
         )}
 
       </main>
-
-      {/* =====================================================
-          STYLE
-      ===================================================== */}
-
-      <style jsx global>{`
-
-        * {
-          box-sizing: border-box;
-        }
-
-        body {
-          margin: 0;
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-          background:
-            #f4f7fb;
-          color:
-            #1e293b;
-        }
-
-        button,
-        input,
-        select,
-        textarea {
-          font-family:
-            inherit;
-        }
-
-        button {
-          cursor:
-            pointer;
-        }
-
-        button:disabled {
-          opacity:
-            0.65;
-          cursor:
-            not-allowed;
-        }
-
-        /* =====================================================
-           APP
-        ===================================================== */
-
-        .labApp {
-          min-height:
-            100vh;
-          display:
-            flex;
-          background:
-            #f4f7fb;
-        }
-
-        /* =====================================================
-           SIDEBAR
-        ===================================================== */
-
-        .sidebar {
-          width:
-            230px;
-          min-height:
-            100vh;
-          background:
-            #09263a;
-          color:
-            white;
-          padding:
-            18px 12px;
-          position:
-            fixed;
-          left:
-            0;
-          top:
-            0;
-          bottom:
-            0;
-          overflow-y:
-            auto;
-          z-index:
-            20;
-        }
-
-        .brand {
-          display:
-            flex;
-          align-items:
-            center;
-          gap:
-            10px;
-          padding:
-            5px 6px 22px;
-        }
-
-        .brandLogo {
-          width:
-            38px;
-          height:
-            38px;
-          border-radius:
-            10px;
-          background:
-            #0fa5a1;
-          display:
-            grid;
-          place-items:
-            center;
-          font-weight:
-            bold;
-          font-size:
-            17px;
-        }
-
-        .brand h2 {
-          margin:
-            0;
-          font-size:
-            17px;
-          letter-spacing:
-            .5px;
-        }
-
-        .brand p {
-          margin:
-            2px 0 0;
-          font-size:
-            8px;
-          opacity:
-            .65;
-          letter-spacing:
-            .5px;
-        }
-
-        .menuLabel {
-          font-size:
-            9px;
-          letter-spacing:
-            1.5px;
-          color:
-            #7e98a9;
-          padding:
-            12px 8px 7px;
-          font-weight:
-            bold;
-        }
-
-        .menuLabel.second {
-          margin-top:
-            10px;
-        }
-
-        .menu {
-          width:
-            100%;
-          border:
-            0;
-          background:
-            transparent;
-          color:
-            #d9e5ec;
-          padding:
-            10px 10px;
-          border-radius:
-            7px;
-          display:
-            flex;
-          align-items:
-            center;
-          gap:
-            12px;
-          text-align:
-            left;
-          font-size:
-            12px;
-          margin:
-            2px 0;
-        }
-
-        .menu span {
-          width:
-            18px;
-          text-align:
-            center;
-        }
-
-        .menu:hover {
-          background:
-            rgba(255,255,255,.08);
-        }
-
-        .menu.active {
-          background:
-            #105d72;
-          color:
-            white;
-          box-shadow:
-            inset 3px 0 0 #18b4ad;
-        }
-
-        /* =====================================================
-           MAIN
-        ===================================================== */
-
-        .mainArea {
-          margin-left:
-            230px;
-          width:
-            calc(100% - 230px);
-          min-height:
-            100vh;
-        }
-
-        .topbar {
-          min-height:
-            70px;
-          background:
-            white;
-          border-bottom:
-            1px solid #e5eaf0;
-          padding:
-            14px 24px;
-          display:
-            flex;
-          justify-content:
-            space-between;
-          align-items:
-            center;
-        }
-
-        .topbar h3 {
-          margin:
-            0 0 3px;
-          font-size:
-            16px;
-        }
-
-        .topbar p {
-          margin:
-            0;
-          font-size:
-            11px;
-          color:
-            #7b8794;
-        }
-
-        .topRight {
-          font-size:
-            11px;
-          color:
-            #64748b;
-          display:
-            flex;
-          align-items:
-            center;
-          gap:
-            7px;
-        }
-
-        .statusDot {
-          width:
-            7px;
-          height:
-            7px;
-          border-radius:
-            50%;
-          background:
-            #20b779;
-        }
-
-        .content {
-          padding:
-            22px;
-        }
-
-        /* =====================================================
-           WELCOME
-        ===================================================== */
-
-        .welcome {
-          background:
-            white;
-          border:
-            1px solid #e5eaf0;
-          border-radius:
-            14px;
-          padding:
-            24px;
-          display:
-            flex;
-          justify-content:
-            space-between;
-          align-items:
-            center;
-          gap:
-            20px;
-        }
-
-        .smallTitle {
-          display:
-            inline-block;
-          font-size:
-            10px;
-          letter-spacing:
-            1.3px;
-          color:
-            #0f9d9a;
-          font-weight:
-            bold;
-        }
-
-        .welcome h1 {
-          margin:
-            6px 0;
-          font-size:
-            26px;
-        }
-
-        .welcome p {
-          margin:
-            0;
-          color:
-            #718096;
-          font-size:
-            13px;
-          max-width:
-            700px;
-        }
-
-        .primaryBtn,
-        .continueBtn {
-          border:
-            0;
-          background:
-            #0f9d9a;
-          color:
-            white;
-          border-radius:
-            8px;
-          padding:
-            11px 16px;
-          font-weight:
-            bold;
-        }
-
-        .primaryBtn:hover,
-        .continueBtn:hover {
-          background:
-            #0b8582;
-        }
-
-        /* =====================================================
-           STATS
-        ===================================================== */
-
-        .stats {
-          display:
-            grid;
-          grid-template-columns:
-            repeat(4, 1fr);
-          gap:
-            14px;
-          margin-top:
-            16px;
-        }
-
-        .statCard {
-          background:
-            white;
-          border:
-            1px solid #e4e9ef;
-          border-radius:
-            12px;
-          padding:
-            18px;
-          display:
-            flex;
-          align-items:
-            center;
-          gap:
-            13px;
-          min-height:
-            95px;
-        }
-
-        .statIcon {
-          width:
-            44px;
-          height:
-            44px;
-          border-radius:
-            11px;
-          background:
-            #e5f8f7;
-          color:
-            #078d89;
-          display:
-            grid;
-          place-items:
-            center;
-          font-size:
-            20px;
-          font-weight:
-            bold;
-        }
-
-        .statCard p {
-          margin:
-            0 0 5px;
-          color:
-            #64748b;
-          font-size:
-            12px;
-        }
-
-        .statCard h2 {
-          margin:
-            0;
-          font-size:
-            22px;
-          color:
-            #172033;
-        }
-
-        /* =====================================================
-           DASHBOARD GRID
-        ===================================================== */
-
-        .dashboardGrid {
-          display:
-            grid;
-          grid-template-columns:
-            1.5fr 1fr;
-          gap:
-            16px;
-          margin-top:
-            16px;
-        }
-
-        .panel {
-          background:
-            white;
-          border:
-            1px solid #e4e9ef;
-          border-radius:
-            12px;
-          overflow:
-            hidden;
-        }
-
-        .panelHead {
-          padding:
-            18px;
-          display:
-            flex;
-          justify-content:
-            space-between;
-          align-items:
-            center;
-          border-bottom:
-            1px solid #edf1f5;
-        }
-
-        .panelHead h2 {
-          margin:
-            0 0 4px;
-          font-size:
-            16px;
-        }
-
-        .panelHead p {
-          margin:
-            0;
-          font-size:
-            11px;
-          color:
-            #718096;
-        }
-
-        .panelHead button {
-          border:
-            0;
-          background:
-            #e8f7f6;
-          color:
-            #078d89;
-          border-radius:
-            7px;
-          padding:
-            8px 11px;
-          font-weight:
-            bold;
-          font-size:
-            11px;
-        }
-
-        .recentPatient {
-          padding:
-            12px 18px;
-          border-bottom:
-            1px solid #edf1f5;
-        }
-
-        .recentPatient b {
-          font-size:
-            13px;
-        }
-
-        .recentPatient div {
-          font-size:
-            10px;
-          color:
-            #0f9d9a;
-          margin-top:
-            3px;
-        }
-
-        .recentPatient small {
-          color:
-            #64748b;
-          font-size:
-            10px;
-        }
-
-        .emptyState {
-          text-align:
-            center;
-          padding:
-            35px 20px;
-        }
-
-        .emptyState > div {
-          font-size:
-            30px;
-          color:
-            #0f9d9a;
-        }
-
-        .emptyState h3 {
-          margin:
-            8px 0;
-        }
-
-        .emptyState p {
-          color:
-            #718096;
-          font-size:
-            12px;
-        }
-
-        .emptyState button {
-          border:
-            0;
-          background:
-            #0f9d9a;
-          color:
-            white;
-          padding:
-            10px 15px;
-          border-radius:
-            7px;
-          font-weight:
-            bold;
-        }
-
-        /* =====================================================
-           QUICK ACTIONS
-        ===================================================== */
-
-        .quickPanel {
-          padding-bottom:
-            10px;
-        }
-
-        .quickPanel > button {
-          width:
-            calc(100% - 28px);
-          margin:
-            7px 14px;
-          padding:
-            11px;
-          background:
-            #f8fafc;
-          border:
-            1px solid #e7edf2;
-          border-radius:
-            9px;
-          display:
-            flex;
-          align-items:
-            center;
-          gap:
-            11px;
-          text-align:
-            left;
-        }
-
-        .quickPanel > button:hover {
-          border-color:
-            #0f9d9a;
-          background:
-            #f0fdfa;
-        }
-
-        .quickPanel > button > span {
-          width:
-            34px;
-          height:
-            34px;
-          display:
-            grid;
-          place-items:
-            center;
-          background:
-            #e5f8f7;
-          color:
-            #078d89;
-          border-radius:
-            8px;
-          font-weight:
-            bold;
-        }
-
-        .quickPanel b {
-          display:
-            block;
-          font-size:
-            12px;
-        }
-
-        .quickPanel small {
-          display:
-            block;
-          margin-top:
-            3px;
-          color:
-            #718096;
-          font-size:
-            10px;
-        }
-
-        /* =====================================================
-           PAGE HEADING
-        ===================================================== */
-
-        .pageHeading {
-          display:
-            flex;
-          justify-content:
-            space-between;
-          align-items:
-            center;
-          gap:
-            15px;
-          margin-bottom:
-            16px;
-        }
-
-        .pageHeading h1 {
-          margin:
-            5px 0;
-          font-size:
-            24px;
-        }
-
-        .pageHeading p {
-          margin:
-            0;
-          color:
-            #718096;
-          font-size:
-            12px;
-        }
-
-        .backBtn,
-        .cancelBtn {
-          border:
-            1px solid #d9e1e8;
-          background:
-            white;
-          color:
-            #475569;
-          border-radius:
-            8px;
-          padding:
-            10px 14px;
-          font-weight:
-            bold;
-        }
-
-        /* =====================================================
-           STEPS
-        ===================================================== */
-
-        .steps {
-          background:
-            white;
-          border:
-            1px solid #e4e9ef;
-          border-radius:
-            12px;
-          padding:
-            12px;
-          display:
-            grid;
-          grid-template-columns:
-            repeat(5, 1fr);
-          gap:
-            8px;
-          margin-bottom:
-            16px;
-        }
-
-        .step {
-          display:
-            flex;
-          align-items:
-            center;
-          gap:
-            8px;
-          padding:
-            8px;
-          border-radius:
-            8px;
-          color:
-            #64748b;
-        }
-
-        .step > span {
-          width:
-            24px;
-          height:
-            24px;
-          border-radius:
-            50%;
-          display:
-            grid;
-          place-items:
-            center;
-          background:
-            #eef2f6;
-          font-size:
-            11px;
-          font-weight:
-            bold;
-        }
-
-        .step b {
-          display:
-            block;
-          font-size:
-            11px;
-        }
-
-        .step small {
-          display:
-            block;
-          font-size:
-            8px;
-          margin-top:
-            2px;
-        }
-
-        .activeStep {
-          background:
-            #eefaf9;
-          color:
-            #087e7b;
-        }
-
-        .activeStep > span {
-          background:
-            #0f9d9a;
-          color:
-            white;
-        }
-
-        /* =====================================================
-           REGISTRATION CARD
-        ===================================================== */
-
-        .registrationCard {
-          background:
-            white;
-          border:
-            1px solid #e4e9ef;
-          border-radius:
-            14px;
-          overflow:
-            hidden;
-        }
-
-        .formHeader {
-          padding:
-            18px;
-          display:
-            flex;
-          align-items:
-            center;
-          gap:
-            12px;
-          border-bottom:
-            1px solid #edf1f5;
-        }
-
-        .formIcon {
-          width:
-            38px;
-          height:
-            38px;
-          border-radius:
-            10px;
-          background:
-            #e7f8f7;
-          color:
-            #078d89;
-          display:
-            grid;
-          place-items:
-            center;
-        }
-
-        .formHeader h2 {
-          margin:
-            0 0 3px;
-          font-size:
-            15px;
-        }
-
-        .formHeader p {
-          margin:
-            0;
-          color:
-            #718096;
-          font-size:
-            10px;
-        }
-
-        .formGrid {
-          padding:
-            20px;
-          display:
-            grid;
-          grid-template-columns:
-            1fr 1fr;
-          gap:
-            15px;
-        }
-
-        .field label {
-          display:
-            block;
-          font-size:
-            11px;
-          font-weight:
-            bold;
-          margin-bottom:
-            6px;
-          color:
-            #334155;
-        }
-
-        .field label b {
-          color:
-            #dc2626;
-        }
-
-        .field input,
-        .field select,
-        .field textarea {
-          width:
-            100%;
-          border:
-            1px solid #d7e0e8;
-          border-radius:
-            8px;
-          padding:
-            11px;
-          font-size:
-            12px;
-          outline:
-            none;
-          background:
-            white;
-        }
-
-        .field input:focus,
-        .field select:focus,
-        .field textarea:focus {
-          border-color:
-            #0f9d9a;
-          box-shadow:
-            0 0 0 2px
-            rgba(15,157,154,.08);
-        }
-
-        .field textarea {
-          min-height:
-            80px;
-          resize:
-            vertical;
-        }
-
-        .readonly {
-          background:
-            #f1f4f7 !important;
-          color:
-            #64748b;
-        }
-
-        .full {
-          grid-column:
-            span 2;
-        }
-
-        .ageField {
-          display:
-            grid;
-          grid-template-columns:
-            1fr 100px;
-          gap:
-            8px;
-        }
-
-        .doctorHint {
-          display:
-            block;
-          margin-top:
-            5px;
-          font-size:
-            9px;
-          color:
-            #dc8a00;
-        }
-
-        .formFooter {
-          padding:
-            14px 20px;
-          background:
-            #fbfcfd;
-          border-top:
-            1px solid #edf1f5;
-          display:
-            flex;
-          justify-content:
-            flex-end;
-          gap:
-            10px;
-        }
-
-        /* =====================================================
-           MOBILE
-        ===================================================== */
-
-        @media (
-          max-width: 900px
-        ) {
-
-          .stats {
-            grid-template-columns:
-              repeat(2, 1fr);
-          }
-
-          .dashboardGrid {
-            grid-template-columns:
-              1fr;
-          }
-
-        }
-
-        @media (
-          max-width: 700px
-        ) {
-
-          .sidebar {
-            width:
-              180px;
-          }
-
-          .mainArea {
-            margin-left:
-              180px;
-            width:
-              calc(100% - 180px);
-          }
-
-          .content {
-            padding:
-              12px;
-          }
-
-          .welcome {
-            flex-direction:
-              column;
-            align-items:
-              flex-start;
-          }
-
-          .welcome h1 {
-            font-size:
-              21px;
-          }
-
-          .stats {
-            grid-template-columns:
-              1fr 1fr;
-          }
-
-          .steps {
-            overflow-x:
-              auto;
-            grid-template-columns:
-              repeat(5, 150px);
-          }
-
-        }
-
-        @media (
-          max-width: 560px
-        ) {
-
-          .sidebar {
-            width:
-              70px;
-            padding:
-              10px 7px;
-          }
-
-          .brand {
-            justify-content:
-              center;
-          }
-
-          .brand > div:last-child {
-            display:
-              none;
-          }
-
-          .menuLabel {
-            display:
-              none;
-          }
-
-          .menu {
-            justify-content:
-              center;
-            padding:
-              12px 5px;
-          }
-
-          .menu span {
-            margin:
-              0;
-          }
-
-          .menu {
-            font-size:
-              0;
-          }
-
-          .menu span {
-            font-size:
-              16px;
-          }
-
-          .mainArea {
-            margin-left:
-              70px;
-            width:
-              calc(100% - 70px);
-          }
-
-          .topbar {
-            padding:
-              12px;
-          }
-
-          .topRight {
-            display:
-              none;
-          }
-
-          .content {
-            padding:
-              9px;
-          }
-
-          .stats {
-            grid-template-columns:
-              1fr;
-          }
-
-          .pageHeading {
-            align-items:
-              flex-start;
-            flex-direction:
-              column;
-          }
-
-          .formGrid {
-            grid-template-columns:
-              1fr;
-            padding:
-              14px;
-          }
-
-          .full {
-            grid-column:
-              auto;
-          }
-
-          .ageField {
-            grid-template-columns:
-              1fr 100px;
-          }
-
-          .formFooter {
-            padding:
-              12px;
-          }
-
-        }
-
-      `}</style>
 
     </div>
   );
