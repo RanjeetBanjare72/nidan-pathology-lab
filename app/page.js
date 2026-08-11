@@ -8,26 +8,28 @@ export default function Home() {
   const router = useRouter();
 
   // =========================================================
-  // DASHBOARD DATA
+  // STATE
   // =========================================================
 
   const [patients, setPatients] = useState([]);
-
-  const [todayBills, setTodayBills] = useState(0);
-  const [todayCollection, setTodayCollection] = useState(0);
-  const [pendingReports, setPendingReports] = useState(0);
+  const [doctors, setDoctors] = useState([]);
 
   const [active, setActive] = useState("dashboard");
-  const [saving, setSaving] = useState(false);
 
-  const [dashboardLoading, setDashboardLoading] =
-    useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
+
+  // Dashboard statistics
+  const [todayCollection, setTodayCollection] = useState(0);
+  const [todayBills, setTodayBills] = useState(0);
+  const [pendingReports, setPendingReports] = useState(0);
 
   // =========================================================
   // PATIENT FORM
   // =========================================================
 
-  const [patient, setPatient] = useState({
+  const emptyPatient = {
     id: "",
     name: "",
     age: "",
@@ -36,7 +38,9 @@ export default function Home() {
     mobile: "",
     doctor: "",
     address: "",
-  });
+  };
+
+  const [patient, setPatient] = useState(emptyPatient);
 
   // =========================================================
   // INITIAL LOAD
@@ -44,6 +48,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchPatients();
+    fetchDoctors();
     fetchDashboardStats();
   }, []);
 
@@ -72,156 +77,59 @@ export default function Home() {
       setPatients(data || []);
     } catch (error) {
       console.error(
-        "Patients load error:",
+        "Patients loading error:",
         error
       );
     }
   }
 
   // =========================================================
-  // DASHBOARD STATISTICS
+  // LOAD DOCTORS
   // =========================================================
 
-  async function fetchDashboardStats() {
-    setDashboardLoading(true);
+  async function fetchDoctors() {
+    setLoadingDoctors(true);
 
     try {
-      // -----------------------------------------------------
-      // TODAY DATE
-      // -----------------------------------------------------
+      const { data, error } = await supabase
+        .from("doctors")
+        .select("*")
+        .order("created_at", {
+          ascending: false,
+        });
 
-      const now = new Date();
-
-      const start = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        0,
-        0,
-        0,
-        0
-      );
-
-      const end = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + 1,
-        0,
-        0,
-        0,
-        0
-      );
-
-      const startISO = start.toISOString();
-      const endISO = end.toISOString();
-
-      // -----------------------------------------------------
-      // TODAY'S BILLS
-      // -----------------------------------------------------
-
-      const {
-        data: billsData,
-        error: billsError,
-      } = await supabase
-        .from("bills")
-        .select(
-          "id, bill_no, bill_date, paid, net_amount, payment_status"
-        )
-        .gte("bill_date", startISO)
-        .lt("bill_date", endISO);
-
-      if (billsError) {
+      if (error) {
         console.error(
-          "Today's bills error:",
-          billsError
+          "Doctors load error:",
+          error
         );
 
-        setTodayBills(0);
-        setTodayCollection(0);
-      } else {
-        const bills = billsData || [];
+        setDoctors([]);
 
-        // Total bills created today
-        setTodayBills(bills.length);
-
-        // Today's actual collection
-        const collection = bills.reduce(
-          (total, bill) => {
-            return (
-              total +
-              Number(bill.paid || 0)
-            );
-          },
-          0
-        );
-
-        setTodayCollection(collection);
+        return;
       }
 
-      // -----------------------------------------------------
-      // PENDING REPORTS
-      // -----------------------------------------------------
-      //
-      // Completed reports ko count nahi karenge.
-      // Pending / In Progress / blank status count honge.
-      //
-
-      const {
-        data: reportsData,
-        error: reportsError,
-      } = await supabase
-        .from("reports")
-        .select("id, status");
-
-      if (reportsError) {
-        console.error(
-          "Pending reports error:",
-          reportsError
-        );
-
-        setPendingReports(0);
-      } else {
-        const reports = reportsData || [];
-
-        const pending = reports.filter(
-          (report) => {
-            const status = String(
-              report.status || "Pending"
-            )
-              .trim()
-              .toLowerCase();
-
-            return status !== "completed";
-          }
-        );
-
-        setPendingReports(
-          pending.length
-        );
-      }
+      setDoctors(data || []);
     } catch (error) {
       console.error(
-        "Dashboard statistics error:",
+        "Doctors loading error:",
         error
       );
 
-      setTodayBills(0);
-      setTodayCollection(0);
-      setPendingReports(0);
+      setDoctors([]);
     } finally {
-      setDashboardLoading(false);
+      setLoadingDoctors(false);
     }
   }
 
   // =========================================================
-  // PATIENT ID
+  // GENERATE PATIENT ID
   // =========================================================
 
   function generatePatientId() {
     const now = new Date();
 
-    const y =
-      now.getFullYear();
+    const y = now.getFullYear();
 
     const m = String(
       now.getMonth() + 1
@@ -232,8 +140,7 @@ export default function Home() {
     ).padStart(2, "0");
 
     const n = Math.floor(
-      1000 +
-        Math.random() * 9000
+      1000 + Math.random() * 9000
     );
 
     return `NPL-${y}${m}${d}-${n}`;
@@ -245,14 +152,8 @@ export default function Home() {
 
   function openNewPatient() {
     setPatient({
+      ...emptyPatient,
       id: generatePatientId(),
-      name: "",
-      age: "",
-      ageUnit: "Years",
-      gender: "Male",
-      mobile: "",
-      doctor: "",
-      address: "",
     });
 
     setActive("newPatient");
@@ -268,12 +169,220 @@ export default function Home() {
       value,
     } = e.target;
 
-    setPatient(
-      (previous) => ({
-        ...previous,
-        [name]: value,
-      })
+    setPatient((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  }
+
+  // =========================================================
+  // GET LOCAL DAY START / END
+  // =========================================================
+
+  function getTodayRange() {
+    const now = new Date();
+
+    const start = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0,
+      0
     );
+
+    const end = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+      0,
+      0,
+      0,
+      0
+    );
+
+    return {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    };
+  }
+
+  // =========================================================
+  // DASHBOARD STATISTICS
+  // =========================================================
+
+  async function fetchDashboardStats() {
+    setLoadingDashboard(true);
+
+    try {
+      // -------------------------------------------------------
+      // TODAY DATE RANGE
+      // -------------------------------------------------------
+
+      const {
+        start,
+        end,
+      } = getTodayRange();
+
+      // -------------------------------------------------------
+      // TODAY'S BILLS
+      // -------------------------------------------------------
+
+      const {
+        data: bills,
+        error: billsError,
+      } = await supabase
+        .from("bills")
+        .select(
+          "id, bill_no, bill_date, created_at, paid, net_amount, payment_status"
+        )
+        .gte("bill_date", start)
+        .lt("bill_date", end);
+
+      // -------------------------------------------------------
+      // FALLBACK
+      //
+      // Agar bill_date me data nahi hai to created_at se
+      // today's bills check karenge.
+      // -------------------------------------------------------
+
+      let todayBillData = bills || [];
+
+      if (
+        billsError
+      ) {
+        console.warn(
+          "bill_date query failed:",
+          billsError.message
+        );
+
+        const {
+          data: fallbackBills,
+          error: fallbackError,
+        } = await supabase
+          .from("bills")
+          .select(
+            "id, bill_no, bill_date, created_at, paid, net_amount, payment_status"
+          )
+          .gte("created_at", start)
+          .lt("created_at", end);
+
+        if (
+          fallbackError
+        ) {
+          console.error(
+            "Bills load error:",
+            fallbackError
+          );
+
+          setTodayCollection(0);
+          setTodayBills(0);
+        } else {
+          todayBillData =
+            fallbackBills || [];
+        }
+      }
+
+      // -------------------------------------------------------
+      // COLLECTION
+      //
+      // Paid amount ko add karenge.
+      // -------------------------------------------------------
+
+      const collection =
+        todayBillData.reduce(
+          (total, bill) => {
+            return (
+              total +
+              Number(
+                bill.paid || 0
+              )
+            );
+          },
+          0
+        );
+
+      setTodayCollection(
+        collection
+      );
+
+      setTodayBills(
+        todayBillData.length
+      );
+
+      // -------------------------------------------------------
+      // PENDING REPORTS
+      //
+      // Completed reports ko छोड़कर बाकी reports pending.
+      // -------------------------------------------------------
+
+      const {
+        data: reportData,
+        error: reportError,
+      } = await supabase
+        .from("reports")
+        .select(
+          "id, status, created_at"
+        );
+
+      if (reportError) {
+        console.error(
+          "Reports load error:",
+          reportError
+        );
+
+        setPendingReports(0);
+      } else {
+        const reports =
+          reportData || [];
+
+        const pending =
+          reports.filter(
+            (report) => {
+              const status =
+                String(
+                  report.status ||
+                    "Pending"
+                )
+                  .trim()
+                  .toLowerCase();
+
+              return (
+                status !==
+                "completed"
+              );
+            }
+          );
+
+        setPendingReports(
+          pending.length
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Dashboard statistics error:",
+        error
+      );
+
+      setTodayCollection(0);
+      setTodayBills(0);
+      setPendingReports(0);
+    } finally {
+      setLoadingDashboard(false);
+    }
+  }
+
+  // =========================================================
+  // REFRESH EVERYTHING
+  // =========================================================
+
+  async function refreshDashboard() {
+    await Promise.all([
+      fetchPatients(),
+      fetchDoctors(),
+      fetchDashboardStats(),
+    ]);
   }
 
   // =========================================================
@@ -283,7 +392,14 @@ export default function Home() {
   async function continueToTests(e) {
     e.preventDefault();
 
-    if (!patient.name.trim()) {
+    // -------------------------------------------------------
+    // VALIDATION
+    // -------------------------------------------------------
+
+    if (
+      !patient.name ||
+      !patient.name.trim()
+    ) {
       alert(
         "Patient Name enter karein."
       );
@@ -291,9 +407,23 @@ export default function Home() {
       return;
     }
 
-    if (!patient.age) {
+    if (
+      patient.age === "" ||
+      patient.age === null ||
+      patient.age === undefined
+    ) {
       alert(
         "Patient Age enter karein."
+      );
+
+      return;
+    }
+
+    if (
+      Number(patient.age) < 0
+    ) {
+      alert(
+        "Patient Age valid enter karein."
       );
 
       return;
@@ -307,45 +437,54 @@ export default function Home() {
       return;
     }
 
+    // -------------------------------------------------------
+    // SAVE
+    // -------------------------------------------------------
+
     try {
       setSaving(true);
 
-      // -----------------------------------------------------
-      // SUPABASE PATIENT INSERT
-      // -----------------------------------------------------
+      const patientData = {
+        patient_id:
+          patient.id,
 
-      const { error } =
-        await supabase
-          .from("patients")
-          .insert([
-            {
-              patient_id:
-                patient.id,
+        name:
+          patient.name.trim(),
 
-              name:
-                patient.name,
+        age:
+          Number(patient.age),
 
-              age:
-                Number(
-                  patient.age
-                ),
+        age_unit:
+          patient.ageUnit ||
+          "Years",
 
-              age_unit:
-                patient.ageUnit,
+        gender:
+          patient.gender ||
+          "Male",
 
-              gender:
-                patient.gender,
+        mobile:
+          patient.mobile ||
+          "",
 
-              mobile:
-                patient.mobile,
+        referring_doctor:
+          patient.doctor ||
+          "",
 
-              referring_doctor:
-                patient.doctor,
+        address:
+          patient.address ||
+          "",
+      };
 
-              address:
-                patient.address,
-            },
-          ]);
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("patients")
+        .insert([
+          patientData,
+        ])
+        .select()
+        .single();
 
       if (error) {
         console.error(
@@ -358,22 +497,36 @@ export default function Home() {
             error.message
         );
 
-        setSaving(false);
-
         return;
       }
 
-      // -----------------------------------------------------
-      // LOCAL PATIENT
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // LOCAL PATIENT DATA
+      //
+      // Existing Tests/Billing/Results pages ke liye
+      // multiple compatible keys rakhe gaye hain.
+      // -------------------------------------------------------
 
-      const localPatient = {
+      const savedPatient = {
         ...patient,
+
+        id:
+          data?.id ||
+          patient.id,
 
         patientId:
           patient.id,
 
+        patient_id:
+          patient.id,
+
         refDoctor:
+          patient.doctor,
+
+        referring_doctor:
+          patient.doctor,
+
+        doctor:
           patient.doctor,
 
         sex:
@@ -383,13 +536,13 @@ export default function Home() {
       localStorage.setItem(
         "nidanPatient",
         JSON.stringify(
-          localPatient
+          savedPatient
         )
       );
 
-      // -----------------------------------------------------
-      // NEW PATIENT = CLEAN TEST/BILL/RESULT DATA
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // OLD VISIT DATA CLEAR
+      // -------------------------------------------------------
 
       localStorage.removeItem(
         "nidanSelectedTests"
@@ -403,20 +556,24 @@ export default function Home() {
         "nidanResults"
       );
 
-      // -----------------------------------------------------
-      // REFRESH DASHBOARD DATA
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // REFRESH DATA
+      // -------------------------------------------------------
 
       await fetchPatients();
 
-      // -----------------------------------------------------
-      // GO TO TESTS
-      // -----------------------------------------------------
+      await fetchDashboardStats();
 
-      router.push("/tests");
+      // -------------------------------------------------------
+      // GO TESTS
+      // -------------------------------------------------------
+
+      router.push(
+        "/tests"
+      );
     } catch (error) {
       console.error(
-        "Patient save error:",
+        "Patient save exception:",
         error
       );
 
@@ -433,62 +590,88 @@ export default function Home() {
   // =========================================================
 
   function goDashboard() {
-    setActive("dashboard");
+    setActive(
+      "dashboard"
+    );
 
-    fetchPatients();
     fetchDashboardStats();
+    fetchPatients();
   }
 
   function goPatients() {
-    router.push("/patients");
+    router.push(
+      "/patients"
+    );
   }
 
   function goTests() {
-    router.push("/tests");
+    router.push(
+      "/tests"
+    );
   }
 
   function goBilling() {
-    router.push("/billing");
+    router.push(
+      "/billing"
+    );
   }
 
   function goSamples() {
-    router.push("/samples");
+    router.push(
+      "/samples"
+    );
   }
 
   function goResults() {
-    router.push("/results");
+    router.push(
+      "/results"
+    );
   }
 
   function goReports() {
-    router.push("/reports");
+    router.push(
+      "/reports"
+    );
   }
 
   function goTestMaster() {
-    router.push("/test-master");
+    router.push(
+      "/test-master"
+    );
   }
 
   function goDoctors() {
-    router.push("/doctors");
+    router.push(
+      "/doctors"
+    );
   }
 
   function goSettings() {
-    router.push("/settings");
-  }
-
-  // =========================================================
-  // FORMAT MONEY
-  // =========================================================
-
-  function formatMoney(amount) {
-    return Number(
-      amount || 0
-    ).toLocaleString(
-      "en-IN"
+    router.push(
+      "/settings"
     );
   }
 
   // =========================================================
-  // DASHBOARD
+  // DOCTOR DISPLAY NAME
+  // =========================================================
+
+  function getDoctorName(
+    doctor
+  ) {
+    return (
+      doctor.name ||
+      doctor.doctor_name ||
+      doctor.doctorName ||
+      doctor.full_name ||
+      doctor.fullName ||
+      doctor.display_name ||
+      ""
+    );
+  }
+
+  // =========================================================
+  // RENDER
   // =========================================================
 
   return (
@@ -499,6 +682,8 @@ export default function Home() {
       ===================================================== */}
 
       <aside className="sidebar">
+
+        {/* BRAND */}
 
         <div className="brand">
 
@@ -515,6 +700,8 @@ export default function Home() {
 
         </div>
 
+        {/* MAIN MENU */}
+
         <div className="menuLabel">
           MAIN MENU
         </div>
@@ -523,7 +710,8 @@ export default function Home() {
 
         <button
           className={
-            active === "dashboard"
+            active ===
+            "dashboard"
               ? "menu active"
               : "menu"
           }
@@ -663,7 +851,7 @@ export default function Home() {
       <main className="mainArea">
 
         {/* ===================================================
-            TOPBAR
+            TOP BAR
         =================================================== */}
 
         <header className="topbar">
@@ -703,9 +891,7 @@ export default function Home() {
 
           <div className="content">
 
-            {/* =================================================
-                WELCOME
-            ================================================= */}
+            {/* WELCOME */}
 
             <div className="welcome">
 
@@ -716,15 +902,15 @@ export default function Home() {
                 </span>
 
                 <h1>
-                  Welcome to NIDAN
-                  Pathology Lab
+                  Welcome to NIDAN Pathology Lab
                 </h1>
 
                 <p>
                   Patients, billing,
                   samples, test results
                   aur laboratory reports
-                  ko ek jagah manage karein.
+                  ko ek jagah manage
+                  karein.
                 </p>
 
               </div>
@@ -768,7 +954,7 @@ export default function Home() {
 
               </div>
 
-              {/* TODAY COLLECTION */}
+              {/* TODAY'S COLLECTION */}
 
               <div className="statCard">
 
@@ -784,9 +970,9 @@ export default function Home() {
 
                   <h2>
                     ₹
-                    {formatMoney(
+                    {Number(
                       todayCollection
-                    )}
+                    ).toFixed(0)}
                   </h2>
 
                 </div>
@@ -808,9 +994,7 @@ export default function Home() {
                   </p>
 
                   <h2>
-                    {dashboardLoading
-                      ? "..."
-                      : todayBills}
+                    {todayBills}
                   </h2>
 
                 </div>
@@ -832,9 +1016,7 @@ export default function Home() {
                   </p>
 
                   <h2>
-                    {dashboardLoading
-                      ? "..."
-                      : pendingReports}
+                    {pendingReports}
                   </h2>
 
                 </div>
@@ -849,9 +1031,7 @@ export default function Home() {
 
             <div className="dashboardGrid">
 
-              {/* =================================================
-                  RECENT PATIENTS
-              ================================================= */}
+              {/* RECENT PATIENTS */}
 
               <section className="panel">
 
@@ -864,8 +1044,7 @@ export default function Home() {
                     </h2>
 
                     <p>
-                      Latest registered
-                      patients
+                      Latest registered patients
                     </p>
 
                   </div>
@@ -880,25 +1059,24 @@ export default function Home() {
 
                 </div>
 
-                {/* EMPTY */}
-
                 {patients.length ===
                 0 ? (
 
                   <div className="emptyState">
 
-                    <div>♙</div>
+                    <div>
+                      ♙
+                    </div>
 
                     <h3>
-                      No registered
-                      patients
+                      No registered patients
                     </h3>
 
                     <p>
                       Patient registration
                       shuru karne ke liye
-                      New Patient par click
-                      karein.
+                      New Patient par
+                      click karein.
                     </p>
 
                     <button
@@ -916,13 +1094,19 @@ export default function Home() {
                   <div>
 
                     {patients
-                      .slice(0, 5)
+                      .slice(
+                        0,
+                        5
+                      )
                       .map(
-                        (p) => (
+                        (
+                          p
+                        ) => (
 
                           <div
                             key={
-                              p.id
+                              p.id ||
+                              p.patient_id
                             }
                             style={{
                               padding:
@@ -933,39 +1117,33 @@ export default function Home() {
                           >
 
                             <b>
-                              {
-                                p.name
-                              }
+                              {p.name ||
+                                p.patient_name ||
+                                "Unknown Patient"}
                             </b>
 
                             <div>
-                              {
-                                p.patient_id ||
+                              {p.patient_id ||
                                 p.patientId ||
-                                p.id
-                              }
+                                p.id ||
+                                "-"}
                             </div>
 
                             <small>
 
-                              {
-                                p.mobile ||
-                                "No mobile"
-                              }
+                              {p.mobile ||
+                                "No mobile"}
 
                               {" • "}
 
-                              {
-                                p.age
-                              }
+                              {p.age ??
+                                "-"}
 
                               {" "}
 
-                              {
-                                p.age_unit ||
+                              {p.age_unit ||
                                 p.ageUnit ||
-                                "Years"
-                              }
+                                "Years"}
 
                             </small>
 
@@ -1011,7 +1189,9 @@ export default function Home() {
                   }
                 >
 
-                  <span>＋</span>
+                  <span>
+                    ＋
+                  </span>
 
                   <div>
 
@@ -1020,15 +1200,14 @@ export default function Home() {
                     </b>
 
                     <small>
-                      Register new
-                      patient
+                      Register new patient
                     </small>
 
                   </div>
 
                 </button>
 
-                {/* CREATE BILL */}
+                {/* BILL */}
 
                 <button
                   onClick={
@@ -1036,7 +1215,9 @@ export default function Home() {
                   }
                 >
 
-                  <span>₹</span>
+                  <span>
+                    ₹
+                  </span>
 
                   <div>
 
@@ -1052,7 +1233,7 @@ export default function Home() {
 
                 </button>
 
-                {/* RESULT ENTRY */}
+                {/* RESULTS */}
 
                 <button
                   onClick={
@@ -1060,7 +1241,9 @@ export default function Home() {
                   }
                 >
 
-                  <span>▤</span>
+                  <span>
+                    ▤
+                  </span>
 
                   <div>
 
@@ -1069,8 +1252,7 @@ export default function Home() {
                     </b>
 
                     <small>
-                      Enter test
-                      results
+                      Enter test results
                     </small>
 
                   </div>
@@ -1085,7 +1267,9 @@ export default function Home() {
                   }
                 >
 
-                  <span>▣</span>
+                  <span>
+                    ▣
+                  </span>
 
                   <div>
 
@@ -1094,8 +1278,7 @@ export default function Home() {
                     </b>
 
                     <small>
-                      View final
-                      reports
+                      View final reports
                     </small>
 
                   </div>
@@ -1103,6 +1286,35 @@ export default function Home() {
                 </button>
 
               </section>
+
+            </div>
+
+            {/* REFRESH */}
+
+            <div
+              style={{
+                display:
+                  "flex",
+                justifyContent:
+                  "flex-end",
+                marginTop:
+                  "15px",
+              }}
+            >
+
+              <button
+                className="backBtn"
+                onClick={
+                  refreshDashboard
+                }
+                disabled={
+                  loadingDashboard
+                }
+              >
+                {loadingDashboard
+                  ? "Refreshing..."
+                  : "↻ Refresh Dashboard"}
+              </button>
 
             </div>
 
@@ -1119,7 +1331,7 @@ export default function Home() {
 
           <div className="content">
 
-            {/* PAGE HEADING */}
+            {/* HEADING */}
 
             <div className="pageHeading">
 
@@ -1134,9 +1346,10 @@ export default function Home() {
                 </h1>
 
                 <p>
-                  Patient ki basic details
-                  enter karein. Iske baad
-                  tests select kiye jayenge.
+                  Patient ki basic
+                  details enter karein.
+                  Iske baad tests
+                  select kiye jayenge.
                 </p>
 
               </div>
@@ -1158,9 +1371,13 @@ export default function Home() {
 
             <div className="steps">
 
+              {/* STEP 1 */}
+
               <div className="step activeStep">
 
-                <span>1</span>
+                <span>
+                  1
+                </span>
 
                 <div>
 
@@ -1176,9 +1393,13 @@ export default function Home() {
 
               </div>
 
+              {/* STEP 2 */}
+
               <div className="step">
 
-                <span>2</span>
+                <span>
+                  2
+                </span>
 
                 <div>
 
@@ -1194,9 +1415,13 @@ export default function Home() {
 
               </div>
 
+              {/* STEP 3 */}
+
               <div className="step">
 
-                <span>3</span>
+                <span>
+                  3
+                </span>
 
                 <div>
 
@@ -1212,9 +1437,13 @@ export default function Home() {
 
               </div>
 
+              {/* STEP 4 */}
+
               <div className="step">
 
-                <span>4</span>
+                <span>
+                  4
+                </span>
 
                 <div>
 
@@ -1230,9 +1459,13 @@ export default function Home() {
 
               </div>
 
+              {/* STEP 5 */}
+
               <div className="step">
 
-                <span>5</span>
+                <span>
+                  5
+                </span>
 
                 <div>
 
@@ -1306,7 +1539,7 @@ export default function Home() {
 
                 </div>
 
-                {/* PATIENT NAME */}
+                {/* NAME */}
 
                 <div className="field">
 
@@ -1334,7 +1567,8 @@ export default function Home() {
                 <div className="field">
 
                   <label>
-                    Age <b>*</b>
+                    Age{" "}
+                    <b>*</b>
                   </label>
 
                   <div className="ageField">
@@ -1363,15 +1597,15 @@ export default function Home() {
                       }
                     >
 
-                      <option>
+                      <option value="Years">
                         Years
                       </option>
 
-                      <option>
+                      <option value="Months">
                         Months
                       </option>
 
-                      <option>
+                      <option value="Days">
                         Days
                       </option>
 
@@ -1399,15 +1633,15 @@ export default function Home() {
                     }
                   >
 
-                    <option>
+                    <option value="Male">
                       Male
                     </option>
 
-                    <option>
+                    <option value="Female">
                       Female
                     </option>
 
-                    <option>
+                    <option value="Other">
                       Other
                     </option>
 
@@ -1433,11 +1667,14 @@ export default function Home() {
                       change
                     }
                     placeholder="Enter mobile number"
+                    maxLength="15"
                   />
 
                 </div>
 
-                {/* DOCTOR */}
+                {/* =================================================
+                    REFERRING DOCTOR DROPDOWN
+                ================================================= */}
 
                 <div className="field">
 
@@ -1445,7 +1682,7 @@ export default function Home() {
                     Referring Doctor
                   </label>
 
-                  <input
+                  <select
                     name="doctor"
                     value={
                       patient.doctor
@@ -1453,8 +1690,108 @@ export default function Home() {
                     onChange={
                       change
                     }
-                    placeholder="Doctor name"
-                  />
+                  >
+
+                    <option value="">
+                      {loadingDoctors
+                        ? "Loading doctors..."
+                        : doctors.length ===
+                          0
+                        ? "No doctors found"
+                        : "Select Referring Doctor"}
+                    </option>
+
+                    {doctors.map(
+                      (
+                        doctor,
+                        index
+                      ) => {
+
+                        const doctorId =
+                          doctor.id ||
+                          doctor.doctor_id ||
+                          index;
+
+                        const doctorName =
+                          getDoctorName(
+                            doctor
+                          );
+
+                        if (
+                          !doctorName
+                        ) {
+                          return null;
+                        }
+
+                        return (
+                          <option
+                            key={
+                              doctorId
+                            }
+                            value={
+                              doctorName
+                            }
+                          >
+                            {doctorName}
+                          </option>
+                        );
+                      }
+                    )}
+
+                  </select>
+
+                  {/* DOCTOR INFO */}
+
+                  {loadingDoctors ? (
+
+                    <small
+                      style={{
+                        display:
+                          "block",
+                        marginTop:
+                          "5px",
+                        color:
+                          "#64748b",
+                      }}
+                    >
+                      Doctors loading...
+                    </small>
+
+                  ) : doctors.length ===
+                    0 ? (
+
+                    <small
+                      style={{
+                        display:
+                          "block",
+                        marginTop:
+                          "5px",
+                        color:
+                          "#dc2626",
+                      }}
+                    >
+                      Doctors Master में
+                      doctor add करें।
+                    </small>
+
+                  ) : (
+
+                    <small
+                      style={{
+                        display:
+                          "block",
+                        marginTop:
+                          "5px",
+                        color:
+                          "#059669",
+                      }}
+                    >
+                      ✓{" "}
+                      {doctors.length} doctor
+                      available
+                    </small>
+
+                  )}
 
                 </div>
 
@@ -1475,13 +1812,16 @@ export default function Home() {
                       change
                     }
                     placeholder="Patient address"
+                    rows="3"
                   />
 
                 </div>
 
               </div>
 
-              {/* FORM FOOTER */}
+              {/* =================================================
+                  FORM FOOTER
+              ================================================= */}
 
               <div className="formFooter">
 
@@ -1490,6 +1830,9 @@ export default function Home() {
                   className="cancelBtn"
                   onClick={
                     goDashboard
+                  }
+                  disabled={
+                    saving
                   }
                 >
                   Cancel
@@ -1502,11 +1845,9 @@ export default function Home() {
                     saving
                   }
                 >
-
                   {saving
                     ? "Saving..."
                     : "Save & Select Tests →"}
-
                 </button>
 
               </div>
