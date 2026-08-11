@@ -4,55 +4,38 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
-/* =========================================================
-   DEFAULT SETTINGS
-========================================================= */
-
-const DEFAULT_SETTINGS = {
-  labName: "NIDAN PATHOLOGY LAB",
-  labAddress: "",
-  phone: "",
-  email: "",
-  registrationNo: "",
-  doctorName: "",
-
-  letterhead: "",
-
-  reportHeader: true,
-  showLogo: true,
-  showReferenceRange: true,
-  showFlag: true,
-  autoSave: true,
-};
-
 export default function ReportPage() {
   const router = useRouter();
-
-  /* =======================================================
-     STATE
-  ======================================================= */
 
   const [patient, setPatient] = useState({});
   const [selectedTests, setSelectedTests] = useState([]);
   const [results, setResults] = useState({});
+  const [settings, setSettings] = useState({
+    labName: "NIDAN PATHOLOGY LAB",
+    labAddress: "",
+    phone: "",
+    email: "",
+    registrationNo: "",
+    doctorName: "",
+    letterhead: "",
+    reportHeader: true,
+    showLogo: true,
+    showReferenceRange: true,
+    showFlag: true,
+    autoSave: true,
+  });
+
   const [reportDate, setReportDate] = useState("");
   const [reportNo, setReportNo] = useState("");
-
   const [saveStatus, setSaveStatus] = useState("loading");
   const [saveMessage, setSaveMessage] = useState("");
-
-  const [labSettings, setLabSettings] =
-    useState(DEFAULT_SETTINGS);
-
-  const [settingsLoaded, setSettingsLoaded] =
-    useState(false);
 
   const savingRef = useRef(false);
   const saveTimerRef = useRef(null);
 
-  /* =======================================================
-     LOAD REPORT DATA + SETTINGS
-  ======================================================= */
+  /* =====================================================
+     LOAD DATA
+  ===================================================== */
 
   useEffect(() => {
     try {
@@ -72,53 +55,36 @@ export default function ReportPage() {
         localStorage.getItem("nidanLabSettings") || "{}"
       );
 
-      setPatient(savedPatient);
+      setPatient(savedPatient || {});
 
       setSelectedTests(
-        Array.isArray(savedTests)
-          ? savedTests
-          : []
+        Array.isArray(savedTests) ? savedTests : []
       );
 
       setResults(savedResults || {});
 
-      setLabSettings({
-        ...DEFAULT_SETTINGS,
+      setSettings((prev) => ({
+        ...prev,
         ...(savedSettings || {}),
-      });
+      }));
 
       setReportDate(
-        new Date().toLocaleDateString(
-          "en-IN",
-          {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          }
-        )
+        new Date().toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })
       );
-
-      setSettingsLoaded(true);
-
     } catch (error) {
-      console.error(
-        "REPORT DATA LOAD ERROR:",
-        error
-      );
-
+      console.error("REPORT LOAD ERROR:", error);
       setSaveStatus("error");
-
-      setSaveMessage(
-        "Report data load nahi hua."
-      );
-
-      setSettingsLoaded(true);
+      setSaveMessage("Report data load nahi hua.");
     }
   }, []);
 
-  /* =======================================================
+  /* =====================================================
      NORMALIZE NAME
-  ======================================================= */
+  ===================================================== */
 
   function normalizeName(name = "") {
     return String(name)
@@ -129,15 +95,13 @@ export default function ReportPage() {
       .trim();
   }
 
-  /* =======================================================
+  /* =====================================================
      GENDER
-  ======================================================= */
+  ===================================================== */
 
   function getGender() {
     const gender = String(
-      patient.gender ||
-        patient.sex ||
-        ""
+      patient.gender || patient.sex || ""
     )
       .trim()
       .toLowerCase();
@@ -161,44 +125,30 @@ export default function ReportPage() {
     return "";
   }
 
-  /* =======================================================
+  /* =====================================================
      AGE
-  ======================================================= */
+  ===================================================== */
 
   function getAge() {
-    const age = parseFloat(
-      patient.age
-    );
-
-    return Number.isNaN(age)
-      ? null
-      : age;
+    const age = parseFloat(patient.age);
+    return Number.isNaN(age) ? null : age;
   }
 
-  /* =======================================================
-     DEFAULT REFERENCE DATABASE
-  ======================================================= */
+  /* =====================================================
+     DEFAULT REFERENCES
+  ===================================================== */
 
-  function getDefaultReference(
-    parameterName
-  ) {
-    const name =
-      normalizeName(parameterName);
-
+  function getDefaultReference(parameterName) {
+    const name = normalizeName(parameterName);
     const gender = getGender();
     const age = getAge();
-
-    /* ================= CBC ================= */
 
     if (
       name === "hemoglobin" ||
       name === "haemoglobin" ||
       name === "hb"
     ) {
-      if (
-        age !== null &&
-        age < 12
-      ) {
+      if (age !== null && age < 12) {
         return {
           min: 11,
           max: 15,
@@ -225,12 +175,8 @@ export default function ReportPage() {
     }
 
     if (
-      name.includes(
-        "total leucocyte"
-      ) ||
-      name.includes(
-        "total leukocyte"
-      ) ||
+      name.includes("total leucocyte") ||
+      name.includes("total leukocyte") ||
       name === "tlc" ||
       name.includes("wbc")
     ) {
@@ -242,9 +188,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name === "neutrophils"
-    ) {
+    if (name === "neutrophils") {
       return {
         min: 40,
         max: 75,
@@ -253,9 +197,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name === "lymphocytes"
-    ) {
+    if (name === "lymphocytes") {
       return {
         min: 20,
         max: 40,
@@ -264,9 +206,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name === "eosinophils"
-    ) {
+    if (name === "eosinophils") {
       return {
         min: 1,
         max: 6,
@@ -275,9 +215,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name === "monocytes"
-    ) {
+    if (name === "monocytes") {
       return {
         min: 1,
         max: 10,
@@ -286,9 +224,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name === "basophils"
-    ) {
+    if (name === "basophils") {
       return {
         min: 0,
         max: 1,
@@ -320,12 +256,8 @@ export default function ReportPage() {
 
     if (
       name.includes("pcv") ||
-      name.includes(
-        "haematocrit"
-      ) ||
-      name.includes(
-        "hematocrit"
-      )
+      name.includes("haematocrit") ||
+      name.includes("hematocrit")
     ) {
       if (gender === "female") {
         return {
@@ -371,10 +303,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name === "rdw cv" ||
-      name === "rdw-cv"
-    ) {
+    if (name === "rdw cv" || name === "rdw-cv") {
       return {
         min: 11.5,
         max: 14.5,
@@ -422,20 +351,13 @@ export default function ReportPage() {
       };
     }
 
-    /* ================= ESR ================= */
-
     if (
       name === "esr" ||
-      name.includes(
-        "erythrocyte sedimentation"
-      )
+      name.includes("erythrocyte sedimentation")
     ) {
       return {
         min: 0,
-        max:
-          gender === "female"
-            ? 20
-            : 15,
+        max: gender === "female" ? 20 : 15,
         unit: "mm/hr",
         range:
           gender === "female"
@@ -444,16 +366,10 @@ export default function ReportPage() {
       };
     }
 
-    /* ================= SUGAR ================= */
-
     if (
-      name.includes(
-        "fasting blood sugar"
-      ) ||
+      name.includes("fasting blood sugar") ||
       name === "fbs" ||
-      name.includes(
-        "fasting glucose"
-      )
+      name.includes("fasting glucose")
     ) {
       return {
         min: 70,
@@ -464,13 +380,9 @@ export default function ReportPage() {
     }
 
     if (
-      name.includes(
-        "post prandial"
-      ) ||
+      name.includes("post prandial") ||
       name === "ppbs" ||
-      name.includes(
-        "postprandial"
-      )
+      name.includes("postprandial")
     ) {
       return {
         min: 70,
@@ -481,13 +393,9 @@ export default function ReportPage() {
     }
 
     if (
-      name.includes(
-        "random blood sugar"
-      ) ||
+      name.includes("random blood sugar") ||
       name === "rbs" ||
-      name.includes(
-        "random glucose"
-      )
+      name.includes("random glucose")
     ) {
       return {
         min: 70,
@@ -496,8 +404,6 @@ export default function ReportPage() {
         range: "70 - 140",
       };
     }
-
-    /* ================= KFT ================= */
 
     if (
       name === "blood urea" ||
@@ -512,8 +418,7 @@ export default function ReportPage() {
     }
 
     if (
-      name ===
-        "serum creatinine" ||
+      name === "serum creatinine" ||
       name === "creatinine"
     ) {
       return {
@@ -524,9 +429,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name === "uric acid"
-    ) {
+    if (name === "uric acid") {
       return gender === "female"
         ? {
             min: 2.4,
@@ -578,11 +481,7 @@ export default function ReportPage() {
       };
     }
 
-    /* ================= LFT ================= */
-
-    if (
-      name === "total bilirubin"
-    ) {
+    if (name === "total bilirubin") {
       return {
         min: 0.2,
         max: 1.2,
@@ -591,9 +490,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name === "direct bilirubin"
-    ) {
+    if (name === "direct bilirubin") {
       return {
         min: 0,
         max: 0.3,
@@ -627,9 +524,7 @@ export default function ReportPage() {
     }
 
     if (
-      name.includes(
-        "alkaline phosphatase"
-      ) ||
+      name.includes("alkaline phosphatase") ||
       name === "alp"
     ) {
       return {
@@ -640,9 +535,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name === "total protein"
-    ) {
+    if (name === "total protein") {
       return {
         min: 6.0,
         max: 8.3,
@@ -669,13 +562,7 @@ export default function ReportPage() {
       };
     }
 
-    /* ================= LIPID ================= */
-
-    if (
-      name.includes(
-        "total cholesterol"
-      )
-    ) {
+    if (name.includes("total cholesterol")) {
       return {
         min: 0,
         max: 200,
@@ -684,11 +571,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name.includes(
-        "triglyceride"
-      )
-    ) {
+    if (name.includes("triglyceride")) {
       return {
         min: 0,
         max: 150,
@@ -715,9 +598,7 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      name.includes("vldl")
-    ) {
+    if (name.includes("vldl")) {
       return {
         min: 5,
         max: 40,
@@ -725,8 +606,6 @@ export default function ReportPage() {
         range: "5 - 40",
       };
     }
-
-    /* ================= HBA1C ================= */
 
     if (
       name === "hba1c" ||
@@ -739,8 +618,6 @@ export default function ReportPage() {
         range: "4.0 - 5.6",
       };
     }
-
-    /* ================= THYROID ================= */
 
     if (name === "t3") {
       return {
@@ -772,13 +649,11 @@ export default function ReportPage() {
     return null;
   }
 
-  /* =======================================================
+  /* =====================================================
      RESOLVE PARAMETER
-  ======================================================= */
+  ===================================================== */
 
-  function resolveParameter(
-    parameter
-  ) {
+  function resolveParameter(parameter) {
     if (!parameter) {
       return {
         min: null,
@@ -788,31 +663,15 @@ export default function ReportPage() {
       };
     }
 
-    if (
-      typeof parameter ===
-      "string"
-    ) {
+    if (typeof parameter === "string") {
       const defaults =
-        getDefaultReference(
-          parameter
-        );
+        getDefaultReference(parameter);
 
       return {
-        min:
-          defaults?.min ??
-          null,
-
-        max:
-          defaults?.max ??
-          null,
-
-        unit:
-          defaults?.unit ||
-          "",
-
-        range:
-          defaults?.range ||
-          "-",
+        min: defaults?.min ?? null,
+        max: defaults?.max ?? null,
+        unit: defaults?.unit || "",
+        range: defaults?.range || "-",
       };
     }
 
@@ -859,30 +718,24 @@ export default function ReportPage() {
       max = defaults.max;
     }
 
-    if (
-      !range ||
-      range === "-"
-    ) {
+    if (!range) {
       if (
         min !== null &&
         min !== undefined &&
         max !== null &&
         max !== undefined
       ) {
-        range =
-          `${min} - ${max}`;
+        range = `${min} - ${max}`;
       } else if (
         max !== null &&
         max !== undefined
       ) {
-        range =
-          `< ${max}`;
+        range = `< ${max}`;
       } else if (
         min !== null &&
         min !== undefined
       ) {
-        range =
-          `> ${min}`;
+        range = `> ${min}`;
       } else {
         range = "-";
       }
@@ -897,9 +750,9 @@ export default function ReportPage() {
     };
   }
 
-  /* =======================================================
+  /* =====================================================
      PARAMETER KEY
-  ======================================================= */
+  ===================================================== */
 
   function parameterKey(
     testId,
@@ -907,8 +760,7 @@ export default function ReportPage() {
     index
   ) {
     const name =
-      typeof parameter ===
-      "string"
+      typeof parameter === "string"
         ? parameter
         : parameter?.name ||
           parameter?.testName ||
@@ -918,18 +770,15 @@ export default function ReportPage() {
     return `${testId}-${name}-${index}`;
   }
 
-  /* =======================================================
+  /* =====================================================
      PARAMETER NAME
-  ======================================================= */
+  ===================================================== */
 
   function getParameterName(
     parameter,
     index
   ) {
-    if (
-      typeof parameter ===
-      "string"
-    ) {
+    if (typeof parameter === "string") {
       return parameter;
     }
 
@@ -937,20 +786,15 @@ export default function ReportPage() {
       parameter?.name ||
       parameter?.testName ||
       parameter?.investigation ||
-      `Investigation ${
-        index + 1
-      }`
+      `Investigation ${index + 1}`
     );
   }
 
-  /* =======================================================
+  /* =====================================================
      FLAG
-  ======================================================= */
+  ===================================================== */
 
-  function getFlag(
-    value,
-    parameter
-  ) {
+  function getFlag(value, parameter) {
     if (
       value === "" ||
       value === undefined ||
@@ -960,23 +804,16 @@ export default function ReportPage() {
     }
 
     const resolved =
-      resolveParameter(
-        parameter
-      );
+      resolveParameter(parameter);
 
-    const cleanedValue =
-      String(value)
-        .replace(/,/g, "")
-        .trim();
+    const cleanedValue = String(value)
+      .replace(/,/g, "")
+      .trim();
 
     const numericValue =
       Number(cleanedValue);
 
-    if (
-      Number.isNaN(
-        numericValue
-      )
-    ) {
+    if (Number.isNaN(numericValue)) {
       return "";
     }
 
@@ -1009,9 +846,9 @@ export default function ReportPage() {
     return "";
   }
 
-  /* =======================================================
+  /* =====================================================
      CATEGORY
-  ======================================================= */
+  ===================================================== */
 
   function getCategory(test) {
     return (
@@ -1021,135 +858,119 @@ export default function ReportPage() {
     );
   }
 
-  /* =======================================================
+  /* =====================================================
      BUILD REPORT TESTS
-  ======================================================= */
+  ===================================================== */
 
   function buildReportTests(
     tests,
     resultData
   ) {
-    if (
-      !Array.isArray(tests)
-    ) {
+    if (!Array.isArray(tests)) {
       return [];
     }
 
-    return tests.map(
-      (
-        test,
-        testIndex
-      ) => {
-        const parameters =
-          test?.tests ||
-          test?.parameters ||
-          [];
+    return tests.map((test, testIndex) => {
+      const parameters =
+        test?.tests ||
+        test?.parameters ||
+        [];
 
-        const testId =
+      return {
+        id:
           test?.id ??
           test?.testId ??
-          `test-${testIndex}`;
+          `test-${testIndex}`,
 
-        return {
-          id: testId,
+        name:
+          test?.name ||
+          test?.testName ||
+          test?.short ||
+          "Laboratory Test",
 
-          name:
-            test?.name ||
-            test?.testName ||
-            test?.short ||
-            "Laboratory Test",
+        category:
+          getCategory(test),
 
-          category:
-            getCategory(test),
+        parameters:
+          Array.isArray(parameters)
+            ? parameters.map(
+                (
+                  parameter,
+                  index
+                ) => {
+                  const key =
+                    parameterKey(
+                      test?.id ??
+                        test?.testId ??
+                        `test-${testIndex}`,
+                      parameter,
+                      index
+                    );
 
-          parameters:
-            Array.isArray(
-              parameters
-            )
-              ? parameters.map(
-                  (
-                    parameter,
-                    index
-                  ) => {
-                    const key =
-                      parameterKey(
-                        testId,
+                  const value =
+                    resultData?.[key] ??
+                    "";
+
+                  const resolved =
+                    resolveParameter(
+                      parameter
+                    );
+
+                  return {
+                    name:
+                      getParameterName(
                         parameter,
                         index
-                      );
+                      ),
 
-                    const value =
-                      resultData?.[
-                        key
-                      ] ?? "";
+                    result: value,
 
-                    const resolved =
-                      resolveParameter(
-                        parameter
-                      );
+                    unit:
+                      resolved.unit ||
+                      "-",
 
-                    return {
-                      name:
-                        getParameterName(
-                          parameter,
-                          index
-                        ),
+                    referenceRange:
+                      resolved.range ||
+                      "-",
 
-                      result:
+                    min:
+                      resolved.min,
+
+                    max:
+                      resolved.max,
+
+                    flag:
+                      getFlag(
                         value,
-
-                      unit:
-                        resolved.unit ||
-                        "-",
-
-                      referenceRange:
-                        resolved.range ||
-                        "-",
-
-                      min:
-                        resolved.min,
-
-                      max:
-                        resolved.max,
-
-                      flag:
-                        getFlag(
-                          value,
-                          parameter
-                        ),
-                    };
-                  }
-                )
-              : [],
-        };
-      }
-    );
+                        parameter
+                      ),
+                  };
+                }
+              )
+            : [],
+      };
+    });
   }
 
-  /* =======================================================
+  /* =====================================================
      AUTO SAVE
-  ======================================================= */
+  ===================================================== */
 
   useEffect(() => {
     if (
       !patient ||
-      Object.keys(patient)
-        .length === 0 ||
+      Object.keys(patient).length === 0 ||
       selectedTests.length === 0
     ) {
       return;
     }
 
-    if (
-      !labSettings.autoSave
-    ) {
+    if (settings.autoSave === false) {
       return;
     }
 
     if (saveTimerRef.current) {
-      clearTimeout(
-        saveTimerRef.current
-      );
+      clearTimeout(saveTimerRef.current);
     }
 
     saveTimerRef.current =
@@ -1158,24 +979,20 @@ export default function ReportPage() {
       }, 500);
 
     return () => {
-      if (
-        saveTimerRef.current
-      ) {
-        clearTimeout(
-          saveTimerRef.current
-        );
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
       }
     };
   }, [
     patient,
     selectedTests,
     results,
-    labSettings.autoSave,
+    settings.autoSave,
   ]);
 
-  /* =======================================================
+  /* =====================================================
      SAVE REPORT
-  ======================================================= */
+  ===================================================== */
 
   async function saveReportAutomatically() {
     if (savingRef.current) {
@@ -1184,8 +1001,7 @@ export default function ReportPage() {
 
     if (
       !patient ||
-      Object.keys(patient)
-        .length === 0 ||
+      Object.keys(patient).length === 0 ||
       selectedTests.length === 0
     ) {
       return;
@@ -1195,10 +1011,7 @@ export default function ReportPage() {
 
     try {
       setSaveStatus("saving");
-
-      setSaveMessage(
-        "Report saving..."
-      );
+      setSaveMessage("Report saving...");
 
       const patientId =
         patient.patientId ||
@@ -1236,10 +1049,6 @@ export default function ReportPage() {
         existingReportNo ||
         `RPT-${Date.now()}`;
 
-      setReportNo(
-        generatedReportNo
-      );
-
       const reportTests =
         buildReportTests(
           selectedTests,
@@ -1263,18 +1072,25 @@ export default function ReportPage() {
 
         reportNo:
           generatedReportNo,
-      };
 
-      /* CHECK EXISTING */
+        settings: {
+          labName: settings.labName,
+          labAddress: settings.labAddress,
+          phone: settings.phone,
+          email: settings.email,
+          registrationNo:
+            settings.registrationNo,
+          doctorName:
+            settings.doctorName,
+        },
+      };
 
       const {
         data: existingData,
         error: checkError,
       } = await supabase
         .from("reports")
-        .select(
-          "id, report_no"
-        )
+        .select("id, report_no")
         .eq(
           "report_no",
           generatedReportNo
@@ -1288,11 +1104,7 @@ export default function ReportPage() {
         );
       }
 
-      /* UPDATE */
-
-      if (
-        existingData?.id
-      ) {
+      if (existingData?.id) {
         const {
           error: updateError,
         } = await supabase
@@ -1315,11 +1127,7 @@ export default function ReportPage() {
         if (updateError) {
           throw updateError;
         }
-      }
-
-      /* INSERT */
-
-      else {
+      } else {
         const {
           error: insertError,
         } = await supabase
@@ -1360,11 +1168,9 @@ export default function ReportPage() {
       );
 
       setSaveStatus("saved");
-
       setSaveMessage(
         "Report saved successfully"
       );
-
     } catch (error) {
       console.error(
         "AUTO REPORT SAVE ERROR:",
@@ -1377,32 +1183,24 @@ export default function ReportPage() {
         error?.message ||
           "Report save nahi hua."
       );
-
     } finally {
       savingRef.current = false;
     }
   }
 
-  /* =======================================================
+  /* =====================================================
      PRINT
-  ======================================================= */
+  ===================================================== */
 
   function printReport() {
-    if (
-      saveStatus ===
-      "saving"
-    ) {
+    if (saveStatus === "saving") {
       alert(
         "Report abhi save ho raha hai. Ek moment wait karein."
       );
-
       return;
     }
 
-    if (
-      saveStatus ===
-      "error"
-    ) {
+    if (saveStatus === "error") {
       const proceed =
         window.confirm(
           "Report database me save nahi hua hai.\n\nKya phir bhi Print / PDF karna hai?"
@@ -1416,9 +1214,9 @@ export default function ReportPage() {
     window.print();
   }
 
-  /* =======================================================
+  /* =====================================================
      NEW PATIENT
-  ======================================================= */
+  ===================================================== */
 
   function newPatient() {
     const confirmNew =
@@ -1437,22 +1235,16 @@ export default function ReportPage() {
       "nidanBillTotal",
       "nidanCurrentReportNo",
       "nidanCurrentReportPatient",
-    ].forEach(
-      (key) => {
-        localStorage.removeItem(
-          key
-        );
-      }
-    );
+    ].forEach((key) => {
+      localStorage.removeItem(key);
+    });
 
-    router.push(
-      "/patients"
-    );
+    router.push("/patients");
   }
 
-  /* =======================================================
+  /* =====================================================
      REPORT DATA
-  ======================================================= */
+  ===================================================== */
 
   const reportTests =
     buildReportTests(
@@ -1460,33 +1252,57 @@ export default function ReportPage() {
       results
     );
 
-  /* =======================================================
-     LOADING
-  ======================================================= */
+  /* =====================================================
+     PATIENT DATE
+  ===================================================== */
 
-  if (!settingsLoaded) {
-    return (
-      <div className="reportLoading">
-        Loading Laboratory Report...
-      </div>
-    );
-  }
+  const sampleDate =
+    patient.sampleDate ||
+    patient.collectionDate ||
+    reportDate ||
+    "-";
 
-  /* =======================================================
+  const patientName =
+    patient.name ||
+    patient.patientName ||
+    "-";
+
+  const patientId =
+    patient.patientId ||
+    patient.id ||
+    "-";
+
+  const patientGender =
+    patient.gender ||
+    patient.sex ||
+    "-";
+
+  const patientDoctor =
+    patient.doctor ||
+    patient.refDoctor ||
+    patient.referringDoctor ||
+    "-";
+
+  const patientMobile =
+    patient.mobile ||
+    patient.mobileNumber ||
+    "-";
+
+  /* =====================================================
      UI
-  ======================================================= */
+  ===================================================== */
 
   return (
     <>
-      <div className="finalReportPage">
+      <div className="reportApp">
 
         {/* =================================================
             SCREEN TOOLBAR
         ================================================= */}
 
-        <div className="reportScreenToolbar">
+        <div className="screenToolbar">
 
-          <div className="reportToolbarInfo">
+          <div className="toolbarInfo">
 
             <strong>
               Final Laboratory Report
@@ -1502,38 +1318,32 @@ export default function ReportPage() {
               </small>
             )}
 
-            {saveStatus ===
-              "saving" && (
-              <small className="savingText">
+            {saveStatus === "saving" && (
+              <small className="saving">
                 ● Saving report...
               </small>
             )}
 
-            {saveStatus ===
-              "saved" && (
-              <small className="savedText">
+            {saveStatus === "saved" && (
+              <small className="saved">
                 ✓ Saved to Reports
               </small>
             )}
 
-            {saveStatus ===
-              "error" && (
-              <small className="errorText">
+            {saveStatus === "error" && (
+              <small className="error">
                 ⚠ {saveMessage}
               </small>
             )}
 
           </div>
 
-          <div className="reportToolbarButtons">
+          <div className="toolbarButtons">
 
             <button
               type="button"
-              className="reportBackButton"
               onClick={() =>
-                router.push(
-                  "/results"
-                )
+                router.push("/results")
               }
             >
               ← Edit Results
@@ -1541,20 +1351,16 @@ export default function ReportPage() {
 
             <button
               type="button"
-              className="reportPrintButton"
-              onClick={
-                printReport
-              }
+              className="printButton"
+              onClick={printReport}
             >
               🖨 Print / Save PDF
             </button>
 
             <button
               type="button"
-              className="reportNewButton"
-              onClick={
-                newPatient
-              }
+              className="newButton"
+              onClick={newPatient}
             >
               + New Patient
             </button>
@@ -1567,233 +1373,149 @@ export default function ReportPage() {
             A4 REPORT
         ================================================= */}
 
-        <main
-          className={
-            labSettings.letterhead
-              ? "printableReport hasLetterhead"
-              : "printableReport"
-          }
-        >
+        <div className="reportPages">
 
-          {/* =================================================
-              ORIGINAL LETTERHEAD
-          ================================================= */}
-
-          {labSettings.letterhead && (
-            <img
-              src={
-                labSettings.letterhead
-              }
-              alt="Laboratory Letterhead"
-              className="letterheadImage"
-            />
-          )}
-
-          {/* =================================================
-              REPORT CONTENT
-          ================================================= */}
-
-          <div
-            className={
-              labSettings.letterhead
-                ? "reportContent letterheadContent"
-                : "reportContent"
-            }
-          >
+          <div className="a4Page">
 
             {/* =================================================
-                NORMAL HEADER
-                ONLY IF LETTERHEAD NOT AVAILABLE
+                ORIGINAL LETTERHEAD
             ================================================= */}
 
-            {!labSettings.letterhead &&
-              labSettings.reportHeader && (
-                <>
-                  <header className="normalLabHeader">
+            {settings.letterhead ? (
+              <img
+                className="letterheadBackground"
+                src={settings.letterhead}
+                alt="Laboratory Letterhead"
+              />
+            ) : (
+              <div className="noLetterheadBackground">
+                <div>
+                  {settings.labName ||
+                    "NIDAN PATHOLOGY LAB"}
+                </div>
 
-                    {labSettings.showLogo && (
-                      <div className="reportLogo">
-                        N+
-                      </div>
-                    )}
-
-                    <div className="normalLabIdentity">
-
-                      <h1>
-                        {labSettings.labName ||
-                          "NIDAN PATHOLOGY LAB"}
-                      </h1>
-
-                      <p className="reportTagline">
-                        Accurate • Reliable • Professional
-                      </p>
-
-                      <p>
-                        Clinical Pathology &
-                        Diagnostic Laboratory
-                      </p>
-
-                    </div>
-
-                    <div className="reportHeaderRight">
-
-                      <strong>
-                        LABORATORY REPORT
-                      </strong>
-
-                      <span>
-                        Report Date:{" "}
-                        {reportDate || "-"}
-                      </span>
-
-                      {reportNo && (
-                        <span>
-                          {reportNo}
-                        </span>
-                      )}
-
-                    </div>
-
-                  </header>
-
-                  <div className="reportAccentLine" />
-                </>
-              )}
-
-            {/* =================================================
-                PATIENT INFORMATION
-            ================================================= */}
-
-            <section className="reportPatientSection">
-
-              <div className="reportSectionTitle">
-                PATIENT INFORMATION
+                <small>
+                  Laboratory Letterhead
+                </small>
               </div>
-
-              <div className="reportPatientGrid">
-
-                <div>
-                  <span>
-                    PATIENT ID
-                  </span>
-
-                  <strong>
-                    {patient.patientId ||
-                      patient.id ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    PATIENT NAME
-                  </span>
-
-                  <strong>
-                    {patient.name ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    AGE / SEX
-                  </span>
-
-                  <strong>
-                    {patient.age ||
-                      "-"}{" "}
-                    Years /{" "}
-                    {patient.gender ||
-                      patient.sex ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    MOBILE
-                  </span>
-
-                  <strong>
-                    {patient.mobile ||
-                      patient.mobileNumber ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    REF. DOCTOR
-                  </span>
-
-                  <strong>
-                    {patient.doctor ||
-                      patient.refDoctor ||
-                      patient.referringDoctor ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    SAMPLE DATE
-                  </span>
-
-                  <strong>
-                    {patient.sampleDate ||
-                      reportDate ||
-                      "-"}
-                  </strong>
-                </div>
-
-              </div>
-
-            </section>
+            )}
 
             {/* =================================================
-                INVESTIGATIONS
+                REPORT CONTENT AREA
             ================================================= */}
 
-            <section className="investigationReport">
+            <div className="reportContent">
 
-              {reportTests.length ===
-              0 ? (
+              {/* PATIENT INFORMATION */}
 
-                <div className="reportEmpty">
-                  No investigations selected.
+              <section className="patientInformation">
+
+                <div className="patientLeft">
+
+                  <div className="patientName">
+                    {patientName}
+                  </div>
+
+                  <div>
+                    <b>Age/Sex:</b>{" "}
+                    {patient.age || "-"}Y /
+                    {patientGender}
+                  </div>
+
+                  <div>
+                    <b>Referred By:</b>{" "}
+                    {patientDoctor}
+                  </div>
+
+                  <div>
+                    <b>Sample ID:</b>{" "}
+                    {patientId}
+                  </div>
+
                 </div>
 
-              ) : (
+                <div className="patientMiddle">
 
-                reportTests.map(
-                  (
-                    test,
-                    testIndex
-                  ) => (
+                  <div>
+                    <b>Patient ID</b>
+                    <span>
+                      {patientId}
+                    </span>
+                  </div>
 
-                    <section
-                      className="reportTestSection"
-                      key={
-                        test.id ||
-                        `report-test-${testIndex}`
-                      }
-                    >
+                  <div>
+                    <b>Mobile</b>
+                    <span>
+                      {patientMobile}
+                    </span>
+                  </div>
 
-                      <div className="reportCategory">
-                        {(
-                          test.category ||
-                          "PATHOLOGY"
-                        ).toUpperCase()}
-                      </div>
+                </div>
 
-                      <div className="reportTestHeading">
-                        {test.name}
-                      </div>
+                <div className="patientRight">
 
-                      <div className="reportTableWrapper">
+                  <div>
+                    <b>Report ID</b>
+                    <span>
+                      {reportNo || "-"}
+                    </span>
+                  </div>
 
-                        <table className="finalReportTable">
+                  <div>
+                    <b>Collection Date</b>
+                    <span>
+                      {sampleDate}
+                    </span>
+                  </div>
+
+                  <div>
+                    <b>Report Date</b>
+                    <span>
+                      {reportDate}
+                    </span>
+                  </div>
+
+                </div>
+
+              </section>
+
+              {/* =================================================
+                  TESTS
+              ================================================= */}
+
+              <section className="testsArea">
+
+                {reportTests.length === 0 ? (
+
+                  <div className="emptyReport">
+                    No investigations selected.
+                  </div>
+
+                ) : (
+
+                  reportTests.map(
+                    (test, testIndex) => (
+
+                      <section
+                        className="testBlock"
+                        key={
+                          test.id ||
+                          `test-${testIndex}`
+                        }
+                      >
+
+                        <div className="departmentTitle">
+                          {(
+                            test.category ||
+                            "PATHOLOGY"
+                          ).toUpperCase()}
+                        </div>
+
+                        <div className="testTitle">
+                          {test.name}
+                        </div>
+
+                        <table className="reportTable">
 
                           <thead>
 
@@ -1803,8 +1525,9 @@ export default function ReportPage() {
                                 INVESTIGATION
                               </th>
 
-                              {labSettings.showFlag && (
-                                <th>
+                              {settings.showFlag !==
+                                false && (
+                                <th className="flagColumn">
                                   FLAG
                                 </th>
                               )}
@@ -1813,9 +1536,10 @@ export default function ReportPage() {
                                 RESULT
                               </th>
 
-                              {labSettings.showReferenceRange && (
+                              {settings.showReferenceRange !==
+                                false && (
                                 <th>
-                                  REFERENCE RANGE
+                                  REF. RANGE
                                 </th>
                               )}
 
@@ -1829,221 +1553,191 @@ export default function ReportPage() {
 
                           <tbody>
 
-                            {test.parameters
-                              .length ===
-                            0 ? (
+                            {test.parameters.map(
+                              (
+                                parameter,
+                                index
+                              ) => (
 
-                              <tr>
-
-                                <td
-                                  colSpan={
-                                    labSettings.showFlag &&
-                                    labSettings.showReferenceRange
-                                      ? 5
-                                      : 3
-                                  }
-                                  className="noParameter"
+                                <tr
+                                  key={`${test.id}-${index}`}
                                 >
-                                  No parameters available
-                                </td>
 
-                              </tr>
+                                  <td className="investigationCell">
 
-                            ) : (
+                                    {parameter.name}
 
-                              test.parameters.map(
-                                (
-                                  parameter,
-                                  index
-                                ) => (
+                                  </td>
 
-                                  <tr
-                                    key={`${test.id}-${index}`}
+                                  {settings.showFlag !==
+                                    false && (
+
+                                    <td className="flagColumn">
+
+                                      {parameter.flag && (
+                                        <span
+                                          className={
+                                            parameter.flag ===
+                                            "H"
+                                              ? "high"
+                                              : "low"
+                                          }
+                                        >
+                                          {
+                                            parameter.flag
+                                          }
+                                        </span>
+                                      )}
+
+                                    </td>
+
+                                  )}
+
+                                  <td
+                                    className={
+                                      parameter.flag
+                                        ? "result abnormal"
+                                        : "result"
+                                    }
                                   >
 
-                                    <td>
-                                      <strong>
-                                        {
-                                          parameter.name
-                                        }
-                                      </strong>
-                                    </td>
+                                    {parameter.result !==
+                                      "" &&
+                                    parameter.result !==
+                                      null &&
+                                    parameter.result !==
+                                      undefined
+                                      ? parameter.result
+                                      : "-"}
 
-                                    {labSettings.showFlag && (
-                                      <td className="flagCell">
+                                  </td>
 
-                                        {parameter.flag && (
-                                          <span
-                                            className={`reportFlag ${
-                                              parameter.flag ===
-                                              "H"
-                                                ? "highFlag"
-                                                : "lowFlag"
-                                            }`}
-                                          >
-                                            {
-                                              parameter.flag
-                                            }
-                                          </span>
-                                        )}
+                                  {settings.showReferenceRange !==
+                                    false && (
 
-                                      </td>
-                                    )}
+                                    <td className="reference">
 
-                                    <td
-                                      className={
-                                        parameter.flag
-                                          ? "abnormalResult"
-                                          : "normalResult"
-                                      }
-                                    >
-                                      {parameter.result !==
-                                        "" &&
-                                      parameter.result !==
-                                        null &&
-                                      parameter.result !==
-                                        undefined
-                                        ? parameter.result
-                                        : "-"}
-                                    </td>
-
-                                    {labSettings.showReferenceRange && (
-                                      <td>
-                                        {
-                                          parameter.referenceRange
-                                        }
-                                      </td>
-                                    )}
-
-                                    <td>
                                       {
-                                        parameter.unit
+                                        parameter.referenceRange
                                       }
+
                                     </td>
 
-                                  </tr>
+                                  )}
 
-                                )
+                                  <td className="unit">
+
+                                    {
+                                      parameter.unit
+                                    }
+
+                                  </td>
+
+                                </tr>
+
                               )
-
                             )}
 
                           </tbody>
 
                         </table>
 
-                      </div>
+                      </section>
 
-                    </section>
-
+                    )
                   )
-                )
 
-              )}
+                )}
 
-            </section>
+              </section>
 
-            {/* =================================================
-                SIGNATURE
-            ================================================= */}
+              {/* =================================================
+                  INTERPRETATION
+              ================================================= */}
 
-            <section className="reportSignatureSection">
-
-              <div className="reportSignatureBox">
-
-                <div className="signatureSpace" />
+              <section className="reportInterpretation">
 
                 <strong>
-                  Lab Technician
+                  Interpretation:
                 </strong>
 
                 <span>
-                  {labSettings.labName ||
-                    "NIDAN PATHOLOGY LAB"}
+                  Laboratory results should be
+                  interpreted with relevant clinical
+                  findings.
                 </span>
 
-              </div>
+              </section>
 
-              <div className="reportSignatureBox">
+              {/* =================================================
+                  SIGNATURE
+              ================================================= */}
 
-                <div className="signatureSpace" />
+              <section className="signatureArea">
 
-                <strong>
-                  Authorized Signatory
-                </strong>
+                <div className="signatureBox">
 
-                <span>
-                  Signature & Seal
-                </span>
+                  <div className="signatureLine"></div>
 
-              </div>
+                  <strong>
+                    Lab Technician
+                  </strong>
 
-            </section>
+                  <small>
+                    {settings.labName ||
+                      "NIDAN PATHOLOGY LAB"}
+                  </small>
 
-            {/* =================================================
-                NOTE
-            ================================================= */}
+                </div>
 
-            <section className="reportNotes">
+                <div className="signatureBox">
 
-              <strong>
-                Note:
-              </strong>
+                  <div className="signatureLine"></div>
 
-              <p>
+                  <strong>
+                    Authorized Signatory
+                  </strong>
+
+                  <small>
+                    Signature & Seal
+                  </small>
+
+                </div>
+
+              </section>
+
+              {/* =================================================
+                  NOTE
+              ================================================= */}
+
+              <div className="reportNote">
+
+                <b>Note:</b>{" "}
+
                 Reference intervals may vary
                 according to laboratory method,
                 age, sex and clinical circumstances.
                 Laboratory results should be
                 interpreted with relevant clinical
                 findings.
-              </p>
 
-            </section>
+              </div>
 
-            {/* =================================================
-                NORMAL FOOTER
-                ONLY WITHOUT LETTERHEAD
-            ================================================= */}
-
-            {!labSettings.letterhead && (
-              <footer className="reportFooter">
-
-                <span>
-                  {labSettings.labName ||
-                    "NIDAN PATHOLOGY LAB"}
-                </span>
-
-                <strong>
-                  *** END OF REPORT ***
-                </strong>
-
-                <span>
-                  Computer Generated Report
-                </span>
-
-              </footer>
-            )}
+            </div>
 
           </div>
 
-        </main>
+        </div>
 
       </div>
 
       {/* =====================================================
-          COMPLETE CSS
+          CSS
       ===================================================== */}
 
       <style jsx global>{`
 
-        /* =====================================================
-           GLOBAL
-        ===================================================== */
-
-        *,
-        *::before,
-        *::after {
+        * {
           box-sizing: border-box;
         }
 
@@ -2051,7 +1745,8 @@ export default function ReportPage() {
         body {
           margin: 0;
           padding: 0;
-          background: #f1f5f9;
+          background: #eef2f7;
+          color: #172033;
           font-family:
             Arial,
             Helvetica,
@@ -2062,227 +1757,125 @@ export default function ReportPage() {
           overflow-x: hidden;
         }
 
-        button {
-          font-family: inherit;
-        }
-
         /* =====================================================
-           LOADING
+           SCREEN
         ===================================================== */
 
-        .reportLoading {
+        .reportApp {
           min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-
-          background: #f1f5f9;
-
-          color: #64748b;
-
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-
-          font-size: 14px;
+          background: #eef2f7;
+          padding: 14px;
         }
 
-        /* =====================================================
-           MAIN PAGE
-        ===================================================== */
-
-        .finalReportPage {
-          width: 100%;
-          min-height: 100vh;
-
-          padding: 18px;
-
-          background: #f1f5f9;
-        }
-
-        /* =====================================================
-           SCREEN TOOLBAR
-        ===================================================== */
-
-        .reportScreenToolbar {
+        .screenToolbar {
           width: 100%;
           max-width: 1180px;
-
-          min-height: 72px;
-
-          margin:
-            0 auto 18px;
-
-          padding:
-            13px 18px;
-
+          margin: 0 auto 14px;
+          min-height: 70px;
+          padding: 12px 16px;
           background: #ffffff;
-
-          border:
-            1px solid #e2e8f0;
-
-          border-radius: 10px;
+          border: 1px solid #e1e7ec;
+          border-radius: 9px;
 
           display: flex;
-
           align-items: center;
-
-          justify-content:
-            space-between;
-
-          gap: 18px;
+          justify-content: space-between;
+          gap: 15px;
 
           box-shadow:
             0 3px 12px
-            rgba(
-              15,
-              23,
-              42,
-              0.07
-            );
+            rgba(15, 23, 42, 0.07);
         }
 
-        .reportToolbarInfo {
-          min-width: 0;
-
+        .toolbarInfo {
           display: flex;
-
           flex-direction: column;
-
           gap: 3px;
+          min-width: 0;
         }
 
-        .reportToolbarInfo strong {
-          font-size: 16px;
-          color: #172033;
+        .toolbarInfo strong {
+          font-size: 15px;
         }
 
-        .reportToolbarInfo small {
-          font-size: 10px;
+        .toolbarInfo small {
           color: #64748b;
+          font-size: 10px;
         }
 
-        .reportToolbarButtons {
-          display: flex;
-
-          align-items: center;
-
-          justify-content:
-            flex-end;
-
-          gap: 8px;
-
-          flex-shrink: 0;
-        }
-
-        .reportToolbarButtons button {
-          min-height: 40px;
-
-          padding:
-            8px 13px;
-
-          border-radius: 8px;
-
-          border:
-            1px solid #d8e0e7;
-
-          background: #ffffff;
-
-          color: #334155;
-
-          font-size: 11px;
-
+        .saving {
+          color: #b7791f !important;
           font-weight: 700;
-
-          cursor: pointer;
-
-          white-space: nowrap;
         }
 
-        .reportBackButton {
-          background: #ffffff;
+        .saved {
+          color: #15803d !important;
+          font-weight: 700;
         }
 
-        .reportPrintButton {
-          background: #087f7d !important;
-
-          color: #ffffff !important;
-
-          border-color:
-            #087f7d !important;
-        }
-
-        .reportNewButton {
+        .error {
           color: #dc2626 !important;
-        }
-
-        .savingText {
-          color:
-            #b7791f !important;
-
           font-weight: 700;
         }
 
-        .savedText {
-          color:
-            #15803d !important;
-
-          font-weight: 700;
+        .toolbarButtons {
+          display: flex;
+          gap: 7px;
+          flex-wrap: wrap;
         }
 
-        .errorText {
-          color:
-            #dc2626 !important;
-
+        .toolbarButtons button {
+          min-height: 38px;
+          padding: 7px 12px;
+          border: 1px solid #d8e0e6;
+          border-radius: 7px;
+          background: #ffffff;
+          color: #334155;
+          font-size: 11px;
           font-weight: 700;
+          cursor: pointer;
+        }
+
+        .toolbarButtons .printButton {
+          background: #087f7d;
+          border-color: #087f7d;
+          color: white;
+        }
+
+        .toolbarButtons .newButton {
+          color: #b91c1c;
         }
 
         /* =====================================================
-           A4 PAPER
-
-           EXACT A4 RATIO
+           A4 SCREEN
         ===================================================== */
 
-        .printableReport {
+        .reportPages {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          padding-bottom: 30px;
+        }
 
+        .a4Page {
           position: relative;
-
           width: 210mm;
-
           height: 297mm;
-
-          min-height: 297mm;
-
-          margin: 0 auto;
-
-          background:
-            #ffffff;
-
+          background: white;
           overflow: hidden;
 
           box-shadow:
             0 8px 30px
-            rgba(
-              15,
-              23,
-              42,
-              0.12
-            );
+            rgba(15, 23, 42, 0.14);
         }
 
         /* =====================================================
-           LETTERHEAD IMAGE
-
-           Original uploaded image is preserved.
+           LETTERHEAD
         ===================================================== */
 
-        .letterheadImage {
-
+        .letterheadBackground {
           position: absolute;
-
-          left: 0;
-          top: 0;
+          inset: 0;
 
           width: 100%;
           height: 100%;
@@ -2291,835 +1884,469 @@ export default function ReportPage() {
 
           object-fit: fill;
 
-          z-index: 0;
+          z-index: 1;
 
           pointer-events: none;
+        }
 
-          user-select: none;
+        .noLetterheadBackground {
+          position: absolute;
+          inset: 0;
 
-          print-color-adjust:
-            exact;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
 
-          -webkit-print-color-adjust:
-            exact;
+          color: #087f7d;
+          font-size: 24px;
+          font-weight: 900;
+
+          background: white;
+
+          z-index: 1;
+        }
+
+        .noLetterheadBackground small {
+          margin-top: 6px;
+          color: #64748b;
+          font-size: 12px;
+          font-weight: normal;
         }
 
         /* =====================================================
-           REPORT CONTENT
-
            IMPORTANT:
-           Content sits between the
-           original letterhead header
-           and original letterhead footer.
+           REPORT CONTENT ONLY IN WHITE MIDDLE AREA
         ===================================================== */
 
         .reportContent {
-
-          position: relative;
-
-          z-index: 2;
-
-          width: 100%;
-
-          height: 100%;
-
-          padding:
-            12mm;
-        }
-
-        .letterheadContent {
+          position: absolute;
 
           /*
-             Header area of uploaded
-             letterhead.
+             Header approx:
+             0 - 74mm
 
-             Report starts below
-             original header.
+             Footer approx:
+             246 - 297mm
+
+             Therefore report is placed
+             only in middle white area.
           */
 
-          padding-top: 31%;
+          top: 75mm;
+          left: 12mm;
+          right: 12mm;
 
-          /*
-             Keep content away from
-             left/right edge.
-          */
+          min-height: 155mm;
 
-          padding-left: 8%;
+          z-index: 5;
 
-          padding-right: 8%;
-
-          /*
-             Footer area reserved
-             for original letterhead.
-          */
-
-          padding-bottom: 18%;
-        }
-
-        /* =====================================================
-           NORMAL HEADER
-        ===================================================== */
-
-        .normalLabHeader {
-
-          display: grid;
-
-          grid-template-columns:
-            50px
-            minmax(0,1fr)
-            auto;
-
-          align-items: center;
-
-          gap: 12px;
-        }
-
-        .reportLogo {
-
-          width: 50px;
-          height: 50px;
-
-          border-radius: 10px;
-
-          background:
-            #087f7d;
-
-          color:
-            #ffffff;
-
-          display: flex;
-
-          align-items: center;
-
-          justify-content: center;
-
-          font-size: 21px;
-
-          font-weight: 900;
-        }
-
-        .normalLabIdentity {
-          min-width: 0;
-        }
-
-        .normalLabIdentity h1 {
-
-          margin: 0;
-
-          font-size: 22px;
-
-          color:
-            #087f7d;
-
-          line-height: 1.15;
-        }
-
-        .normalLabIdentity p {
-
-          margin:
-            3px 0 0;
-
-          font-size: 9px;
-
-          color:
-            #475569;
-        }
-
-        .reportTagline {
-          font-weight: 700;
-        }
-
-        .reportHeaderRight {
-
-          display: flex;
-
-          flex-direction: column;
-
-          align-items: flex-end;
-
-          gap: 3px;
-
-          text-align: right;
-        }
-
-        .reportHeaderRight strong {
-
-          font-size: 10px;
-
-          color:
-            #087f7d;
-        }
-
-        .reportHeaderRight span {
-
-          font-size: 8px;
-
-          color:
-            #64748b;
-        }
-
-        .reportAccentLine {
-
-          width: 100%;
-
-          height: 3px;
-
-          margin:
-            9px 0 12px;
-
-          background:
-            #087f7d;
-
-          border-radius: 3px;
+          color: #111827;
         }
 
         /* =====================================================
            PATIENT INFORMATION
         ===================================================== */
 
-        .reportPatientSection {
-
+        .patientInformation {
           width: 100%;
-
-          margin-top: 0;
-
-          margin-bottom: 10px;
-
-          border:
-            1px solid #aebdc7;
-
-          border-radius: 3px;
-
-          overflow: hidden;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.96
-            );
-
-          page-break-inside:
-            avoid;
-
-          break-inside:
-            avoid;
-        }
-
-        .reportSectionTitle {
-
-          padding:
-            6px 8px;
-
-          background:
-            rgba(
-              232,
-              248,
-              247,
-              0.97
-            );
-
-          border-left:
-            4px solid #087f7d;
-
-          color:
-            #087f7d;
-
-          font-size: 8px;
-
-          font-weight: 900;
-
-          letter-spacing:
-            0.45px;
-        }
-
-        .reportPatientGrid {
 
           display: grid;
 
           grid-template-columns:
-            repeat(3,1fr);
+            1.35fr
+            1fr
+            1.2fr;
+
+          border-top: 1px solid #1f2937;
+          border-bottom: 1px solid #cbd5e1;
+
+          background: rgba(
+            255,
+            255,
+            255,
+            0.97
+          );
+
+          min-height: 28mm;
         }
 
-        .reportPatientGrid > div {
+        .patientLeft,
+        .patientMiddle,
+        .patientRight {
+          padding: 6px 8px;
 
-          min-height: 39px;
+          font-size: 9px;
 
-          padding:
-            6px 8px;
-
-          border-right:
-            1px solid #d4dde3;
-
-          border-bottom:
-            1px solid #d4dde3;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.93
-            );
+          line-height: 1.65;
         }
 
-        .reportPatientGrid
-        > div:nth-child(3n) {
-
-          border-right: 0;
+        .patientLeft {
+          border-right: 1px solid #cbd5e1;
         }
 
-        .reportPatientGrid
-        > div:nth-last-child(-n+3) {
-
-          border-bottom: 0;
+        .patientMiddle {
+          border-right: 1px solid #cbd5e1;
         }
 
-        .reportPatientGrid span {
-
-          display: block;
-
-          margin-bottom: 2px;
-
-          font-size: 6.3px;
-
-          line-height: 1.2;
-
-          color:
-            #64748b;
-
+        .patientName {
+          font-size: 12px;
           font-weight: 800;
+          margin-bottom: 2px;
+          text-transform: uppercase;
         }
 
-        .reportPatientGrid strong {
+        .patientMiddle div,
+        .patientRight div {
+          display: flex;
+          gap: 6px;
+          margin-bottom: 2px;
+        }
 
-          display: block;
-
+        .patientMiddle b,
+        .patientRight b {
+          min-width: 70px;
           font-size: 8px;
+        }
 
-          line-height: 1.25;
-
-          color:
-            #172033;
-
-          word-break:
-            break-word;
+        .patientMiddle span,
+        .patientRight span {
+          font-size: 8.5px;
+          word-break: break-word;
         }
 
         /* =====================================================
-           INVESTIGATION
+           TEST AREA
         ===================================================== */
 
-        .investigationReport {
-
+        .testsArea {
           width: 100%;
+          margin-top: 6mm;
         }
 
-        .reportTestSection {
-
+        .testBlock {
           width: 100%;
+          margin-bottom: 5mm;
 
-          margin-bottom: 9px;
-
-          page-break-inside:
-            avoid;
-
-          break-inside:
-            avoid;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
-        .reportCategory {
+        .departmentTitle {
+          width: 100%;
+          text-align: center;
 
-          margin-bottom: 2px;
+          font-size: 8px;
+          font-weight: 800;
+
+          letter-spacing: 1px;
+
+          color: #374151;
+
+          margin-bottom: 1px;
+        }
+
+        .testTitle {
+          width: 100%;
 
           text-align: center;
 
-          font-size: 6.5px;
+          font-size: 12px;
 
-          color:
-            #64748b;
-
-          font-weight: 900;
-
-          letter-spacing:
-            0.6px;
-        }
-
-        .reportTestHeading {
-
-          padding:
-            6px 8px;
-
-          background:
-            rgba(
-              239,
-              245,
-              248,
-              0.97
-            );
-
-          border:
-            1px solid #c3cfd6;
-
-          border-left:
-            4px solid #087f7d;
-
-          color:
-            #172033;
-
-          font-size: 8.5px;
-
-          line-height: 1.2;
+          line-height: 1.25;
 
           font-weight: 900;
 
-          text-transform:
-            uppercase;
+          color: #111827;
+
+          margin-bottom: 2.5mm;
+
+          text-transform: uppercase;
         }
 
         /* =====================================================
            TABLE
         ===================================================== */
 
-        .reportTableWrapper {
-
+        .reportTable {
           width: 100%;
 
-          overflow: visible;
+          border-collapse: collapse;
+
+          table-layout: fixed;
+
+          background: rgba(
+            255,
+            255,
+            255,
+            0.96
+          );
         }
 
-        .finalReportTable {
+        .reportTable th {
+          background: #f1f5f9;
 
-          width: 100%;
+          border: 1px solid #9ca3af;
 
-          border-collapse:
-            collapse;
+          padding: 4px 5px;
 
-          table-layout:
-            fixed;
+          font-size: 7.5px;
 
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.96
-            );
+          line-height: 1.2;
+
+          text-align: left;
+
+          font-weight: 800;
+
+          color: #111827;
+
+          text-transform: uppercase;
         }
 
-        .finalReportTable th {
+        .reportTable td {
+          border: 1px solid #d1d5db;
 
-          padding:
-            5px 4px;
+          padding: 4px 5px;
 
-          border:
-            1px solid #aebbc4;
+          min-height: 20px;
 
-          background:
-            rgba(
-              228,
-              235,
-              239,
-              0.98
-            );
-
-          color:
-            #263442;
-
-          font-size: 6.4px;
-
-          line-height: 1.15;
-
-          font-weight: 900;
-
-          text-align: center;
-
-          vertical-align: middle;
-        }
-
-        .finalReportTable td {
-
-          padding:
-            5px 4px;
-
-          border:
-            1px solid #c7d1d7;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.94
-            );
-
-          color:
-            #172033;
-
-          font-size: 7.6px;
+          font-size: 8.5px;
 
           line-height: 1.25;
 
+          color: #111827;
+
+          background: rgba(
+            255,
+            255,
+            255,
+            0.92
+          );
+
           vertical-align: middle;
 
-          overflow-wrap:
-            anywhere;
-
-          word-break:
-            normal;
+          word-break: break-word;
         }
 
-        /* =====================================================
-           TABLE WIDTHS
-
-           With FLAG + REFERENCE RANGE
-        ===================================================== */
-
-        .finalReportTable
-        th:nth-child(1),
-        .finalReportTable
-        td:nth-child(1) {
-
-          width: 31%;
-
-          text-align:
-            left;
+        .reportTable th:nth-child(1),
+        .reportTable td:nth-child(1) {
+          width: 38%;
         }
 
-        .finalReportTable
-        th:nth-child(2),
-        .finalReportTable
-        td:nth-child(2) {
-
+        .reportTable th:nth-child(2),
+        .reportTable td:nth-child(2) {
           width: 9%;
-
-          text-align:
-            center;
         }
 
-        .finalReportTable
-        th:nth-child(3),
-        .finalReportTable
-        td:nth-child(3) {
-
-          width: 16%;
-
-          text-align:
-            center;
+        .reportTable th:nth-child(3),
+        .reportTable td:nth-child(3) {
+          width: 17%;
         }
 
-        .finalReportTable
-        th:nth-child(4),
-        .finalReportTable
-        td:nth-child(4) {
-
-          width: 29%;
-
-          text-align:
-            center;
+        .reportTable th:nth-child(4),
+        .reportTable td:nth-child(4) {
+          width: 23%;
         }
 
-        .finalReportTable
-        th:nth-child(5),
-        .finalReportTable
-        td:nth-child(5) {
-
-          width: 15%;
-
-          text-align:
-            center;
+        .reportTable th:nth-child(5),
+        .reportTable td:nth-child(5) {
+          width: 13%;
         }
 
-        /* =====================================================
-           RESULT
-        ===================================================== */
-
-        .normalResult {
-
-          text-align:
-            center !important;
-
-          font-weight:
-            700;
+        .investigationCell {
+          font-weight: 500;
         }
 
-        .abnormalResult {
-
-          text-align:
-            center !important;
-
-          color:
-            #c62828 !important;
-
-          font-weight:
-            900;
+        .flagColumn {
+          text-align: center !important;
         }
 
-        /* =====================================================
-           FLAG
-        ===================================================== */
-
-        .flagCell {
-
-          text-align:
-            center !important;
+        .result {
+          text-align: center;
+          font-weight: 600;
         }
 
-        .reportFlag {
-
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          min-width:
-            17px;
-
-          min-height:
-            15px;
-
-          padding:
-            2px 4px;
-
-          border-radius:
-            3px;
-
-          font-size:
-            6px;
-
-          font-weight:
-            900;
+        .abnormal {
+          color: #b91c1c !important;
+          font-weight: 900;
         }
 
-        .highFlag {
-
-          background:
-            #fee2e2;
-
-          color:
-            #b91c1c;
+        .reference {
+          text-align: center;
+          font-size: 7.5px !important;
         }
 
-        .lowFlag {
+        .unit {
+          text-align: center;
+        }
 
-          background:
-            #dbeafe;
+        .high,
+        .low {
+          display: inline-flex;
 
-          color:
-            #1d4ed8;
+          align-items: center;
+          justify-content: center;
+
+          min-width: 16px;
+          height: 14px;
+
+          border-radius: 3px;
+
+          font-size: 7px;
+
+          font-weight: 900;
+        }
+
+        .high {
+          color: #b91c1c;
+          background: #fee2e2;
+        }
+
+        .low {
+          color: #1d4ed8;
+          background: #dbeafe;
         }
 
         /* =====================================================
-           EMPTY
+           INTERPRETATION
         ===================================================== */
 
-        .reportEmpty {
+        .reportInterpretation {
+          margin-top: 4mm;
 
-          padding:
-            20px;
+          padding: 5px 7px;
 
-          text-align:
-            center;
+          border-top: 1px solid #1f2937;
+          border-bottom: 1px solid #1f2937;
 
-          color:
-            #64748b;
+          background: rgba(
+            255,
+            255,
+            255,
+            0.94
+          );
 
-          border:
-            1px dashed #cbd5e1;
+          display: flex;
+          gap: 5px;
 
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.95
-            );
+          font-size: 7.5px;
+          line-height: 1.4;
+
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
-        .noParameter {
-
-          padding:
-            10px !important;
-
-          text-align:
-            center !important;
-
-          color:
-            #64748b !important;
+        .reportInterpretation strong {
+          white-space: nowrap;
         }
 
         /* =====================================================
            SIGNATURE
         ===================================================== */
 
-        .reportSignatureSection {
+        .signatureArea {
+          width: 100%;
 
           display: grid;
 
-          grid-template-columns:
-            1fr 1fr;
+          grid-template-columns: 1fr 1fr;
 
-          gap: 55px;
+          gap: 35mm;
 
-          margin-top: 15px;
+          margin-top: 7mm;
 
-          page-break-inside:
-            avoid;
-
-          break-inside:
-            avoid;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
-        .reportSignatureBox {
+        .signatureBox {
+          text-align: center;
 
-          text-align:
-            center;
+          font-size: 8px;
 
-          font-size:
-            7.5px;
-
-          color:
-            #334155;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.88
-            );
+          background: rgba(
+            255,
+            255,
+            255,
+            0.92
+          );
         }
 
-        .signatureSpace {
+        .signatureLine {
+          height: 8mm;
 
-          height:
-            23px;
+          border-bottom: 1px solid #374151;
 
-          margin-bottom:
-            3px;
-
-          border-bottom:
-            1px solid #64748b;
+          margin-bottom: 2mm;
         }
 
-        .reportSignatureBox strong {
+        .signatureBox strong {
+          display: block;
 
-          display:
-            block;
-
-          font-size:
-            7.5px;
+          font-size: 8px;
         }
 
-        .reportSignatureBox span {
+        .signatureBox small {
+          display: block;
 
-          display:
-            block;
+          margin-top: 1px;
 
-          margin-top:
-            1px;
+          color: #64748b;
 
-          color:
-            #64748b;
-
-          font-size:
-            6.5px;
+          font-size: 6.5px;
         }
 
         /* =====================================================
            NOTE
         ===================================================== */
 
-        .reportNotes {
+        .reportNote {
+          margin-top: 4mm;
 
-          margin-top:
-            9px;
+          padding-top: 2mm;
 
-          padding-top:
-            5px;
+          border-top: 1px solid #d1d5db;
 
-          border-top:
-            1px solid #cbd5e1;
+          font-size: 6.5px;
 
-          color:
-            #64748b;
+          line-height: 1.4;
 
-          font-size:
-            6.2px;
+          color: #4b5563;
 
-          line-height:
-            1.35;
+          background: rgba(
+            255,
+            255,
+            255,
+            0.88
+          );
 
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.84
-            );
-
-          page-break-inside:
-            avoid;
-
-          break-inside:
-            avoid;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
-        .reportNotes strong {
-
-          color:
-            #334155;
-        }
-
-        .reportNotes p {
-
-          margin:
-            2px 0 0;
+        .reportNote b {
+          color: #111827;
         }
 
         /* =====================================================
-           NORMAL FOOTER
+           EMPTY
         ===================================================== */
 
-        .reportFooter {
+        .emptyReport {
+          padding: 20px;
 
-          display:
-            flex;
+          text-align: center;
 
-          align-items:
-            center;
+          border: 1px dashed #94a3b8;
 
-          justify-content:
-            space-between;
+          color: #64748b;
 
-          gap:
-            10px;
-
-          margin-top:
-            10px;
-
-          padding-top:
-            6px;
-
-          border-top:
-            1px solid #dbe3ea;
-
-          font-size:
-            6.5px;
-
-          color:
-            #64748b;
-        }
-
-        .reportFooter strong {
-
-          color:
-            #087f7d;
+          background: rgba(
+            255,
+            255,
+            255,
+            0.95
+          );
         }
 
         /* =====================================================
@@ -3128,83 +2355,40 @@ export default function ReportPage() {
 
         @media (max-width: 900px) {
 
-          .finalReportPage {
-
-            padding:
-              8px;
+          .reportApp {
+            padding: 8px;
           }
 
-          .reportScreenToolbar {
-
-            flex-direction:
-              column;
-
-            align-items:
-              flex-start;
-
-            position:
-              relative;
+          .screenToolbar {
+            flex-direction: column;
+            align-items: stretch;
           }
 
-          .reportToolbarInfo {
-
-            width:
-              100%;
-          }
-
-          .reportToolbarButtons {
-
-            width:
-              100%;
-
-            display:
-              grid;
-
+          .toolbarButtons {
+            display: grid;
             grid-template-columns:
-              repeat(3,1fr);
+              1fr 1.3fr 1fr;
           }
 
-          .reportToolbarButtons button {
-
-            width:
-              100%;
+          .toolbarButtons button {
+            width: 100%;
           }
 
-          .printableReport {
-
-            width:
-              100%;
-
-            height:
-              auto;
-
-            min-height:
-              0;
-
-            aspect-ratio:
-              210 / 297;
+          .reportPages {
+            overflow-x: auto;
+            justify-content: flex-start;
+            padding: 5px;
           }
 
-          .reportContent {
+          /*
+             Keep the A4 report at real A4 proportions.
+             Do NOT squeeze the report.
+          */
 
-            height:
-              100%;
+          .a4Page {
+            flex: 0 0 210mm;
           }
 
-          .letterheadContent {
-
-            padding-top:
-              31%;
-
-            padding-left:
-              7%;
-
-            padding-right:
-              7%;
-
-            padding-bottom:
-              18%;
-          }
         }
 
         /* =====================================================
@@ -3213,610 +2397,156 @@ export default function ReportPage() {
 
         @media (max-width: 600px) {
 
-          .finalReportPage {
-
-            padding:
-              5px;
-
-            background:
-              #eef2f7;
+          .reportApp {
+            padding: 5px;
           }
 
-          .reportScreenToolbar {
-
-            margin-bottom:
-              7px;
-
-            padding:
-              10px;
-
-            border-radius:
-              8px;
+          .screenToolbar {
+            margin-bottom: 8px;
+            padding: 10px;
           }
 
-          .reportToolbarInfo strong {
-
-            font-size:
-              14px;
+          .toolbarButtons {
+            grid-template-columns: 1fr;
           }
 
-          .reportToolbarInfo small {
-
-            font-size:
-              8.5px;
-          }
-
-          .reportToolbarButtons {
-
-            display:
-              grid;
-
-            grid-template-columns:
-              1fr;
-
-            gap:
-              6px;
-          }
-
-          .reportToolbarButtons button {
-
-            min-height:
-              40px;
-
-            font-size:
-              10px;
-          }
-
-          .printableReport {
-
-            width:
-              100%;
-
-            height:
-              auto;
-
-            min-height:
-              0;
-
-            aspect-ratio:
-              210 / 297;
-
-            box-shadow:
-              0 3px 14px
-              rgba(
-                15,
-                23,
-                42,
-                0.12
-              );
+          .toolbarButtons button {
+            min-height: 40px;
           }
 
           /*
-             Letterhead header takes
-             approximately 30% of page.
+             IMPORTANT:
+             Report remains A4.
+             Browser can scroll horizontally instead
+             of shrinking the report.
           */
 
-          .letterheadContent {
-
-            padding-top:
-              30.5%;
-
-            padding-left:
-              6.5%;
-
-            padding-right:
-              6.5%;
-
-            padding-bottom:
-              18%;
+          .reportPages {
+            width: 100%;
+            overflow-x: auto;
+            justify-content: flex-start;
           }
 
-          .reportPatientSection {
-
-            margin-bottom:
-              7px;
+          .a4Page {
+            width: 210mm;
+            height: 297mm;
+            flex: 0 0 210mm;
           }
 
-          .reportSectionTitle {
-
-            padding:
-              5px 6px;
-
-            font-size:
-              6.5px;
-          }
-
-          .reportPatientGrid > div {
-
-            min-height:
-              31px;
-
-            padding:
-              4px 5px;
-          }
-
-          .reportPatientGrid span {
-
-            font-size:
-              5px;
-          }
-
-          .reportPatientGrid strong {
-
-            font-size:
-              6.3px;
-          }
-
-          .reportTestSection {
-
-            margin-bottom:
-              6px;
-          }
-
-          .reportCategory {
-
-            font-size:
-              5px;
-
-            margin-bottom:
-              1px;
-          }
-
-          .reportTestHeading {
-
-            padding:
-              4px 5px;
-
-            font-size:
-              6.5px;
-          }
-
-          .finalReportTable th {
-
-            padding:
-              3px 2px;
-
-            font-size:
-              4.6px;
-          }
-
-          .finalReportTable td {
-
-            padding:
-              3px 2px;
-
-            font-size:
-              5.8px;
-
-            line-height:
-              1.15;
-          }
-
-          .reportFlag {
-
-            min-width:
-              13px;
-
-            min-height:
-              11px;
-
-            padding:
-              1px 3px;
-
-            font-size:
-              4.8px;
-          }
-
-          .reportSignatureSection {
-
-            gap:
-              18px;
-
-            margin-top:
-              9px;
-          }
-
-          .reportSignatureBox {
-
-            font-size:
-              5.8px;
-          }
-
-          .signatureSpace {
-
-            height:
-              18px;
-          }
-
-          .reportSignatureBox strong {
-
-            font-size:
-              5.8px;
-          }
-
-          .reportSignatureBox span {
-
-            font-size:
-              5px;
-          }
-
-          .reportNotes {
-
-            margin-top:
-              6px;
-
-            padding-top:
-              3px;
-
-            font-size:
-              4.8px;
-
-            line-height:
-              1.25;
-          }
-
-          .reportFooter {
-
-            font-size:
-              5px;
-          }
         }
 
         /* =====================================================
-           VERY SMALL PHONE
-        ===================================================== */
-
-        @media (max-width: 380px) {
-
-          .letterheadContent {
-
-            padding-top:
-              30%;
-
-            padding-left:
-              6%;
-
-            padding-right:
-              6%;
-
-            padding-bottom:
-              18%;
-          }
-
-          .reportPatientGrid > div {
-
-            min-height:
-              29px;
-          }
-
-          .finalReportTable th {
-
-            font-size:
-              4.2px;
-          }
-
-          .finalReportTable td {
-
-            font-size:
-              5.3px;
-          }
-        }
-
-        /* =====================================================
-           PRINT / SAVE PDF
+           PRINT
         ===================================================== */
 
         @media print {
 
           @page {
-
-            size:
-              A4;
-
-            margin:
-              0;
+            size: A4 portrait;
+            margin: 0;
           }
 
           html,
           body {
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
 
-            width:
-              210mm;
-
-            height:
-              297mm;
-
-            min-height:
-              297mm;
-
-            margin:
-              0 !important;
-
-            padding:
-              0 !important;
-
-            background:
-              #ffffff !important;
+            background: #ffffff !important;
           }
 
           body {
-
-            overflow:
-              visible !important;
+            overflow: visible !important;
           }
 
-          .finalReportPage {
+          .reportApp {
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
 
-            width:
-              210mm;
-
-            height:
-              297mm;
-
-            min-height:
-              297mm;
-
-            margin:
-              0 !important;
-
-            padding:
-              0 !important;
-
-            background:
-              #ffffff !important;
+            background: #ffffff !important;
           }
 
-          .reportScreenToolbar {
-
-            display:
-              none !important;
+          .screenToolbar {
+            display: none !important;
           }
 
-          .printableReport {
+          .reportPages {
+            display: block !important;
 
-            position:
-              relative !important;
+            width: 210mm !important;
 
-            width:
-              210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
 
-            height:
-              297mm !important;
-
-            min-height:
-              297mm !important;
-
-            max-height:
-              297mm !important;
-
-            margin:
-              0 !important;
-
-            padding:
-              0 !important;
-
-            overflow:
-              hidden !important;
-
-            background:
-              #ffffff !important;
-
-            box-shadow:
-              none !important;
-
-            page-break-after:
-              always;
+            overflow: visible !important;
           }
 
-          /* =================================================
-             ORIGINAL LETTERHEAD
-          ================================================= */
+          .a4Page {
+            width: 210mm !important;
+            height: 297mm !important;
 
-          .letterheadImage {
+            margin: 0 !important;
+            padding: 0 !important;
 
-            position:
-              absolute !important;
+            box-shadow: none !important;
 
-            left:
-              0 !important;
+            overflow: hidden !important;
 
-            top:
-              0 !important;
+            page-break-after: always;
 
-            width:
-              210mm !important;
-
-            height:
-              297mm !important;
-
-            object-fit:
-              fill !important;
-
-            display:
-              block !important;
-
-            z-index:
-              0 !important;
-
-            print-color-adjust:
-              exact !important;
-
-            -webkit-print-color-adjust:
-              exact !important;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
           }
 
-          /* =================================================
-             REPORT CONTENT
-          ================================================= */
+          .letterheadBackground {
+            display: block !important;
+
+            width: 210mm !important;
+            height: 297mm !important;
+
+            object-fit: fill !important;
+
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
 
           .reportContent {
+            position: absolute !important;
 
-            position:
-              relative !important;
+            top: 75mm !important;
 
-            z-index:
-              2 !important;
+            left: 12mm !important;
+            right: 12mm !important;
 
-            width:
-              210mm !important;
+            min-height: 155mm !important;
 
-            height:
-              297mm !important;
-
-            min-height:
-              297mm !important;
-
-            padding:
-              12mm !important;
+            z-index: 5 !important;
           }
 
-          .letterheadContent {
-
-            /*
-               ORIGINAL LETTERHEAD HEADER
-            */
-
-            padding-top:
-              31% !important;
-
-            /*
-               CONTENT WIDTH
-            */
-
-            padding-left:
-              8% !important;
-
-            padding-right:
-              8% !important;
-
-            /*
-               ORIGINAL LETTERHEAD FOOTER
-            */
-
-            padding-bottom:
-              18% !important;
+          .patientInformation,
+          .reportTable,
+          .reportInterpretation,
+          .signatureArea,
+          .reportNote {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
           }
 
-          /* =================================================
-             PRINT SIZES
-          ================================================= */
-
-          .reportPatientGrid span {
-
-            font-size:
-              6.3px !important;
+          .testBlock {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
 
-          .reportPatientGrid strong {
-
-            font-size:
-              8px !important;
+          .reportTable tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
 
-          .reportSectionTitle {
-
-            font-size:
-              8px !important;
+          .reportTable thead {
+            display: table-header-group;
           }
 
-          .reportTestHeading {
-
-            font-size:
-              8.5px !important;
-          }
-
-          .reportCategory {
-
-            font-size:
-              6.5px !important;
-          }
-
-          .finalReportTable th {
-
-            font-size:
-              6.4px !important;
-
-            padding:
-              5px 4px !important;
-          }
-
-          .finalReportTable td {
-
-            font-size:
-              7.6px !important;
-
-            padding:
-              5px 4px !important;
-          }
-
-          .reportFlag {
-
-            font-size:
-              6px !important;
-          }
-
-          .reportSignatureBox {
-
-            font-size:
-              7.5px !important;
-          }
-
-          .reportNotes {
-
-            font-size:
-              6.2px !important;
-          }
-
-          /* =================================================
-             AVOID PAGE BREAK
-          ================================================= */
-
-          .reportPatientSection,
-          .reportTestSection,
-          .reportSignatureSection,
-          .reportNotes {
-
-            page-break-inside:
-              avoid !important;
-
-            break-inside:
-              avoid !important;
-          }
-
-          .finalReportTable tr {
-
-            page-break-inside:
-              avoid !important;
-
-            break-inside:
-              avoid !important;
-          }
-
-          .finalReportTable thead {
-
-            display:
-              table-header-group;
-          }
-
-          /* =================================================
-             KEEP COLORS
-          ================================================= */
-
-          .letterheadImage,
-          .reportPatientSection,
-          .reportPatientGrid > div,
-          .reportTestHeading,
-          .finalReportTable,
-          .finalReportTable th,
-          .finalReportTable td,
-          .reportFlag {
-
-            print-color-adjust:
-              exact !important;
-
-            -webkit-print-color-adjust:
-              exact !important;
-          }
         }
 
       `}</style>
