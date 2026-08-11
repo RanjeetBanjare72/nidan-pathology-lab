@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../../lib/supabase";
 
-const KEY = "nidanDoctors";
+const LOCAL_KEY = "nidanDoctors";
 
-const blankDoctor = {
-  id: "",
+const EMPTY_DOCTOR = {
   name: "",
   qualification: "",
   specialization: "",
-  registrationNo: "",
+  registration_no: "",
   mobile: "",
   clinic: "",
   address: "",
@@ -18,129 +17,378 @@ const blankDoctor = {
 };
 
 export default function DoctorsPage() {
-
-  const router = useRouter();
-
   const [doctors, setDoctors] = useState([]);
   const [search, setSearch] = useState("");
-  const [doctor, setDoctor] =
-    useState(blankDoctor);
-  const [editing, setEditing] =
-    useState(null);
-  const [show, setShow] =
-    useState(false);
+  const [doctor, setDoctor] = useState(EMPTY_DOCTOR);
+  const [editingId, setEditingId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // --------------------------------------------------
+  // LOAD DOCTORS FROM SUPABASE
+  // --------------------------------------------------
 
   useEffect(() => {
-    load();
+    loadDoctors();
   }, []);
 
-  function load() {
+  async function loadDoctors() {
+    setLoading(true);
+    setError("");
+
     try {
-      setDoctors(
-        JSON.parse(
-          localStorage.getItem(KEY) || "[]"
-        )
+      const { data, error: dbError } = await supabase
+        .from("doctors")
+        .select("*")
+        .order("name", { ascending: true });
+
+      if (dbError) {
+        console.error("Supabase doctor load error:", dbError);
+        throw dbError;
+      }
+
+      const supabaseDoctors = Array.isArray(data) ? data : [];
+
+      /*
+       * If Supabase has no doctors, try to migrate
+       * existing doctors saved in localStorage.
+       */
+      if (supabaseDoctors.length === 0) {
+        const localDoctors = readLocalDoctors();
+
+        if (localDoctors.length > 0) {
+          const converted = localDoctors.map((item) => ({
+            name: item.name || "",
+            qualification: item.qualification || "",
+            specialization: item.specialization || "",
+            registration_no:
+              item.registration_no ||
+              item.registrationNo ||
+              "",
+            mobile: item.mobile || "",
+            clinic: item.clinic || "",
+            address: item.address || "",
+            active:
+              item.active === undefined
+                ? true
+                : Boolean(item.active),
+          }));
+
+          const { data: inserted, error: insertError } =
+            await supabase
+              .from("doctors")
+              .insert(converted)
+              .select("*");
+
+          if (!insertError && inserted) {
+            setDoctors(inserted);
+            localStorage.setItem(
+              LOCAL_KEY,
+              JSON.stringify(inserted)
+            );
+            return;
+          }
+        }
+      }
+
+      setDoctors(supabaseDoctors);
+
+      // Backup to localStorage
+      localStorage.setItem(
+        LOCAL_KEY,
+        JSON.stringify(supabaseDoctors)
       );
-    } catch {
-      setDoctors([]);
+    } catch (err) {
+      console.error(err);
+
+      /*
+       * Supabase failed.
+       * Show local doctors as backup.
+       */
+      const localDoctors = readLocalDoctors();
+
+      setDoctors(localDoctors);
+
+      setError(
+        "Supabase se doctors load nahi ho paaye. Local backup dikhaya ja raha hai."
+      );
+    } finally {
+      setLoading(false);
     }
   }
 
-  function save(data) {
-    localStorage.setItem(
-      KEY,
-      JSON.stringify(data)
-    );
-    setDoctors(data);
+  function readLocalDoctors() {
+    try {
+      const data = JSON.parse(
+        localStorage.getItem(LOCAL_KEY) || "[]"
+      );
+
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
   }
 
-  function addDoctor() {
-    setEditing(null);
+  // --------------------------------------------------
+  // OPEN NEW DOCTOR
+  // --------------------------------------------------
+
+  function openNewDoctor() {
+    setEditingId(null);
 
     setDoctor({
-      ...blankDoctor,
-      id: `DOC-${Date.now()}`,
+      ...EMPTY_DOCTOR,
     });
 
-    setShow(true);
+    setError("");
+    setShowModal(true);
   }
 
-  function editDoctor(item) {
-    setEditing(item.id);
+  // --------------------------------------------------
+  // EDIT DOCTOR
+  // --------------------------------------------------
+
+  function openEditDoctor(item) {
+    setEditingId(item.id);
+
     setDoctor({
-      ...blankDoctor,
-      ...item,
+      name: item.name || "",
+      qualification: item.qualification || "",
+      specialization: item.specialization || "",
+      registration_no:
+        item.registration_no ||
+        item.registrationNo ||
+        "",
+      mobile: item.mobile || "",
+      clinic: item.clinic || "",
+      address: item.address || "",
+      active:
+        item.active === undefined
+          ? true
+          : Boolean(item.active),
     });
-    setShow(true);
+
+    setError("");
+    setShowModal(true);
   }
 
-  function saveDoctor() {
+  // --------------------------------------------------
+  // SAVE / UPDATE DOCTOR
+  // --------------------------------------------------
 
+  async function saveDoctor() {
     if (!doctor.name.trim()) {
       alert("Doctor name enter karein.");
       return;
     }
 
-    const finalDoctor = {
-      ...doctor,
-      updatedAt:
-        new Date().toISOString(),
-    };
+    setSaving(true);
+    setError("");
 
-    let updated;
+    try {
+      if (editingId) {
+        // UPDATE EXISTING DOCTOR
+        const { data, error: updateError } =
+          await supabase
+            .from("doctors")
+            .update({
+              name: doctor.name.trim(),
+              qualification:
+                doctor.qualification.trim(),
+              specialization:
+                doctor.specialization.trim(),
+              registration_no:
+                doctor.registration_no.trim(),
+              mobile: doctor.mobile.trim(),
+              clinic: doctor.clinic.trim(),
+              address: doctor.address.trim(),
+              active: doctor.active,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", editingId)
+            .select("*")
+            .single();
 
-    if (editing) {
-      updated = doctors.map((x) =>
-        x.id === editing
-          ? finalDoctor
-          : x
+        if (updateError) {
+          throw updateError;
+        }
+
+        setDoctors((previous) =>
+          previous.map((item) =>
+            item.id === editingId ? data : item
+          )
+        );
+      } else {
+        // INSERT NEW DOCTOR
+        const { data, error: insertError } =
+          await supabase
+            .from("doctors")
+            .insert({
+              name: doctor.name.trim(),
+              qualification:
+                doctor.qualification.trim(),
+              specialization:
+                doctor.specialization.trim(),
+              registration_no:
+                doctor.registration_no.trim(),
+              mobile: doctor.mobile.trim(),
+              clinic: doctor.clinic.trim(),
+              address: doctor.address.trim(),
+              active: doctor.active,
+            })
+            .select("*")
+            .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        setDoctors((previous) =>
+          [...previous, data].sort((a, b) =>
+            (a.name || "").localeCompare(
+              b.name || ""
+            )
+          )
+        );
+      }
+
+      /*
+       * Update local backup after successful Supabase save.
+       */
+      const updatedDoctors = editingId
+        ? doctors.map((item) =>
+            item.id === editingId
+              ? {
+                  ...item,
+                  ...doctor,
+                  id: editingId,
+                }
+              : item
+          )
+        : [
+            ...doctors,
+            {
+              ...doctor,
+            },
+          ];
+
+      localStorage.setItem(
+        LOCAL_KEY,
+        JSON.stringify(updatedDoctors)
       );
-    } else {
-      updated = [
-        ...doctors,
-        {
-          ...finalDoctor,
-          createdAt:
-            new Date().toISOString(),
-        },
-      ];
+
+      setShowModal(false);
+      setEditingId(null);
+      setDoctor({
+        ...EMPTY_DOCTOR,
+      });
+    } catch (err) {
+      console.error("Save doctor error:", err);
+
+      setError(
+        err?.message ||
+          "Doctor save nahi ho paaya."
+      );
+
+      alert(
+        "Doctor save nahi hua.\n\n" +
+          (err?.message || "Unknown error")
+      );
+    } finally {
+      setSaving(false);
     }
-
-    save(updated);
-
-    setShow(false);
-    setDoctor(blankDoctor);
-    setEditing(null);
   }
 
-  function deleteDoctor(id) {
+  // --------------------------------------------------
+  // DELETE DOCTOR
+  // --------------------------------------------------
 
-    if (
-      !confirm(
-        "Kya doctor delete karna hai?"
-      )
-    ) {
-      return;
-    }
-
-    save(
-      doctors.filter(
-        (x) => x.id !== id
-      )
+  async function deleteDoctor(id) {
+    const item = doctors.find(
+      (doctor) => doctor.id === id
     );
+
+    if (!item) return;
+
+    const ok = confirm(
+      `Kya "${item.name}" doctor delete karna hai?`
+    );
+
+    if (!ok) return;
+
+    try {
+      const { error: deleteError } =
+        await supabase
+          .from("doctors")
+          .delete()
+          .eq("id", id);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      const updated = doctors.filter(
+        (doctor) => doctor.id !== id
+      );
+
+      setDoctors(updated);
+
+      localStorage.setItem(
+        LOCAL_KEY,
+        JSON.stringify(updated)
+      );
+    } catch (err) {
+      console.error(
+        "Delete doctor error:",
+        err
+      );
+
+      alert(
+        "Doctor delete nahi hua.\n\n" +
+          (err?.message || "Unknown error")
+      );
+    }
   }
 
-  const filtered = doctors.filter(
-    (x) =>
-      `${x.name} ${x.specialization} ${x.registrationNo}`
-        .toLowerCase()
-        .includes(search.toLowerCase())
-  );
+  // --------------------------------------------------
+  // SEARCH
+  // --------------------------------------------------
+
+  const filteredDoctors = useMemo(() => {
+    const query = search
+      .trim()
+      .toLowerCase();
+
+    if (!query) return doctors;
+
+    return doctors.filter((item) => {
+      const text = [
+        item.name,
+        item.qualification,
+        item.specialization,
+        item.registration_no,
+        item.registrationNo,
+        item.mobile,
+        item.clinic,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return text.includes(query);
+    });
+  }, [doctors, search]);
+
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
 
   return (
     <div className="doctorPage">
-
-      <header>
+      <header className="pageHeader">
         <div>
           <h1>Doctors</h1>
           <p>
@@ -148,14 +396,23 @@ export default function DoctorsPage() {
           </p>
         </div>
 
-        <button onClick={addDoctor}>
+        <button
+          className="primaryButton"
+          onClick={openNewDoctor}
+        >
           + New Doctor
         </button>
       </header>
 
-      <div className="doctorToolbar">
+      {error && (
+        <div className="errorBox">
+          ⚠️ {error}
+        </div>
+      )}
 
+      <div className="doctorToolbar">
         <input
+          type="text"
           placeholder="Search doctor..."
           value={search}
           onChange={(e) =>
@@ -163,99 +420,165 @@ export default function DoctorsPage() {
           }
         />
 
-        <button onClick={addDoctor}>
+        <button
+          className="primaryButton"
+          onClick={openNewDoctor}
+        >
           + Add Doctor
         </button>
-
       </div>
 
-      <div className="doctorGrid">
+      {loading ? (
+        <div className="emptyBox">
+          <div className="loader"></div>
+          <p>Doctors load ho rahe hain...</p>
+        </div>
+      ) : filteredDoctors.length === 0 ? (
+        <div className="emptyBox">
+          <div className="emptyIcon">👨‍⚕️</div>
 
-        {filtered.map((item) => (
+          <h3>
+            {search
+              ? "Doctor nahi mila"
+              : "Abhi koi doctor nahi hai"}
+          </h3>
 
-          <div
-            className="doctorCard"
-            key={item.id}
-          >
+          <p>
+            {search
+              ? "Search change karke dekhein."
+              : "New Doctor button se doctor add karein."}
+          </p>
 
-            <div className="doctorAvatar">
-              {item.name
-                .charAt(0)
-                .toUpperCase()}
+          {!search && (
+            <button
+              className="primaryButton"
+              onClick={openNewDoctor}
+            >
+              + Add First Doctor
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="doctorGrid">
+          {filteredDoctors.map((item) => (
+            <div
+              className="doctorCard"
+              key={item.id}
+            >
+              <div className="doctorAvatar">
+                {(item.name || "D")
+                  .charAt(0)
+                  .toUpperCase()}
+              </div>
+
+              <h3>
+                Dr. {item.name}
+              </h3>
+
+              <p className="qualification">
+                {item.qualification ||
+                  "Doctor"}
+              </p>
+
+              <p>
+                {item.specialization ||
+                  "General"}
+              </p>
+
+              <div className="doctorInfo">
+                <span>
+                  📱{" "}
+                  {item.mobile || "-"}
+                </span>
+
+                <span>
+                  Reg. No:{" "}
+                  {item.registration_no ||
+                    item.registrationNo ||
+                    "-"}
+                </span>
+
+                <span>
+                  🏥{" "}
+                  {item.clinic || "-"}
+                </span>
+
+                {item.address && (
+                  <span>
+                    📍 {item.address}
+                  </span>
+                )}
+              </div>
+
+              <div className="status">
+                <span
+                  className={
+                    item.active
+                      ? "active"
+                      : "inactive"
+                  }
+                >
+                  {item.active
+                    ? "Active"
+                    : "Inactive"}
+                </span>
+              </div>
+
+              <div className="doctorActions">
+                <button
+                  className="editButton"
+                  onClick={() =>
+                    openEditDoctor(item)
+                  }
+                >
+                  Edit
+                </button>
+
+                <button
+                  className="deleteButton"
+                  onClick={() =>
+                    deleteDoctor(item.id)
+                  }
+                >
+                  Delete
+                </button>
+              </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            <h3>
-              Dr. {item.name}
-            </h3>
+      {/* =========================================
+          DOCTOR MODAL
+          ========================================= */}
 
-            <p>
-              {item.qualification ||
-                "Doctor"}
-            </p>
-
-            <p>
-              {item.specialization ||
-                "General"}
-            </p>
-
-            <div className="doctorInfo">
-              <span>
-                📱 {item.mobile || "-"}
-              </span>
-
-              <span>
-                Reg. No:{" "}
-                {item.registrationNo ||
-                  "-"}
-              </span>
-
-              <span>
-                🏥 {item.clinic || "-"}
-              </span>
-            </div>
-
-            <div className="doctorActions">
-
-              <button
-                onClick={() =>
-                  editDoctor(item)
-                }
-              >
-                Edit
-              </button>
-
-              <button
-                onClick={() =>
-                  deleteDoctor(item.id)
-                }
-              >
-                Delete
-              </button>
-
-            </div>
-
-          </div>
-
-        ))}
-
-      </div>
-
-      {show && (
-
-        <div className="modal">
-
-          <div className="box">
-
+      {showModal && (
+        <div
+          className="modal"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false);
+            }
+          }}
+        >
+          <div className="modalBox">
             <div className="modalTitle">
-              <h2>
-                {editing
-                  ? "Edit Doctor"
-                  : "New Doctor"}
-              </h2>
+              <div>
+                <h2>
+                  {editingId
+                    ? "Edit Doctor"
+                    : "New Doctor"}
+                </h2>
+
+                <p>
+                  Doctor ki information enter karein
+                </p>
+              </div>
 
               <button
+                className="closeButton"
                 onClick={() =>
-                  setShow(false)
+                  setShowModal(false)
                 }
               >
                 ×
@@ -263,10 +586,10 @@ export default function DoctorsPage() {
             </div>
 
             <div className="form">
-
               <label>
                 Doctor Name *
                 <input
+                  type="text"
                   value={doctor.name}
                   onChange={(e) =>
                     setDoctor({
@@ -274,13 +597,14 @@ export default function DoctorsPage() {
                       name: e.target.value,
                     })
                   }
+                  placeholder="Dr. Ranjeet Banjare"
                 />
               </label>
 
               <label>
                 Qualification
                 <input
-                  placeholder="MBBS, MD"
+                  type="text"
                   value={
                     doctor.qualification
                   }
@@ -291,13 +615,14 @@ export default function DoctorsPage() {
                         e.target.value,
                     })
                   }
+                  placeholder="MBBS, MD"
                 />
               </label>
 
               <label>
                 Specialization
                 <input
-                  placeholder="Medicine"
+                  type="text"
                   value={
                     doctor.specialization
                   }
@@ -308,28 +633,32 @@ export default function DoctorsPage() {
                         e.target.value,
                     })
                   }
+                  placeholder="Medicine"
                 />
               </label>
 
               <label>
                 Registration No.
                 <input
+                  type="text"
                   value={
-                    doctor.registrationNo
+                    doctor.registration_no
                   }
                   onChange={(e) =>
                     setDoctor({
                       ...doctor,
-                      registrationNo:
+                      registration_no:
                         e.target.value,
                     })
                   }
+                  placeholder="Registration number"
                 />
               </label>
 
               <label>
                 Mobile
                 <input
+                  type="tel"
                   value={doctor.mobile}
                   onChange={(e) =>
                     setDoctor({
@@ -338,12 +667,14 @@ export default function DoctorsPage() {
                         e.target.value,
                     })
                   }
+                  placeholder="Mobile number"
                 />
               </label>
 
               <label>
                 Clinic / Hospital
                 <input
+                  type="text"
                   value={doctor.clinic}
                   onChange={(e) =>
                     setDoctor({
@@ -352,12 +683,14 @@ export default function DoctorsPage() {
                         e.target.value,
                     })
                   }
+                  placeholder="Clinic / Hospital name"
                 />
               </label>
 
               <label className="full">
                 Address
                 <textarea
+                  rows="3"
                   value={doctor.address}
                   onChange={(e) =>
                     setDoctor({
@@ -366,47 +699,71 @@ export default function DoctorsPage() {
                         e.target.value,
                     })
                   }
+                  placeholder="Doctor address"
                 />
               </label>
 
+              <label className="activeCheck">
+                <input
+                  type="checkbox"
+                  checked={doctor.active}
+                  onChange={(e) =>
+                    setDoctor({
+                      ...doctor,
+                      active:
+                        e.target.checked,
+                    })
+                  }
+                />
+
+                <span>
+                  Doctor Active
+                </span>
+              </label>
             </div>
 
             <div className="footer">
-
               <button
+                className="cancelButton"
                 onClick={() =>
-                  setShow(false)
+                  setShowModal(false)
                 }
+                disabled={saving}
               >
                 Cancel
               </button>
 
               <button
-                className="save"
+                className="saveButton"
                 onClick={saveDoctor}
+                disabled={saving}
               >
-                {editing
+                {saving
+                  ? "Saving..."
+                  : editingId
                   ? "Update Doctor"
                   : "Save Doctor"}
               </button>
-
             </div>
-
           </div>
-
         </div>
-
       )}
 
-      <style jsx global>{`
+      {/* =========================================
+          STYLES
+          ========================================= */}
 
+      <style jsx global>{`
         * {
           box-sizing: border-box;
         }
 
         body {
           margin: 0;
-          font-family: Arial,sans-serif;
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
           background: #f5f8fb;
         }
 
@@ -415,197 +772,363 @@ export default function DoctorsPage() {
           padding: 25px;
         }
 
-        .doctorPage header {
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-          background:white;
-          padding:20px;
-          border-radius:12px;
-          margin-bottom:15px;
+        .pageHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 15px;
+          background: white;
+          padding: 20px;
+          border-radius: 12px;
+          margin-bottom: 15px;
         }
 
-        .doctorPage h1 {
-          margin:0;
+        .pageHeader h1 {
+          margin: 0;
+          font-size: 28px;
+          color: #172033;
         }
 
-        .doctorPage header p {
-          color:#718096;
+        .pageHeader p {
+          margin: 5px 0 0;
+          color: #718096;
         }
 
-        .doctorPage button {
-          border:0;
-          border-radius:8px;
-          padding:10px 15px;
-          cursor:pointer;
+        button {
+          border: 0;
+          border-radius: 8px;
+          padding: 10px 15px;
+          cursor: pointer;
+          font-size: 14px;
         }
 
-        .doctorPage header button,
-        .doctorToolbar button,
-        .save {
-          background:#0f9d9a;
-          color:white;
-          font-weight:bold;
+        button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .primaryButton {
+          background: #0f9d9a;
+          color: white;
+          font-weight: bold;
+        }
+
+        .primaryButton:hover {
+          background: #087f7c;
+        }
+
+        .errorBox {
+          background: #fff1f2;
+          color: #b91c1c;
+          border: 1px solid #fecdd3;
+          padding: 12px 15px;
+          border-radius: 10px;
+          margin-bottom: 15px;
+          font-size: 13px;
         }
 
         .doctorToolbar {
-          background:white;
-          padding:14px;
-          display:flex;
-          gap:10px;
-          border-radius:12px;
-          margin-bottom:15px;
+          background: white;
+          padding: 14px;
+          display: flex;
+          gap: 10px;
+          border-radius: 12px;
+          margin-bottom: 15px;
         }
 
         .doctorToolbar input {
-          flex:1;
-          padding:11px;
-          border:1px solid #d8e0e7;
-          border-radius:8px;
+          flex: 1;
+          min-width: 0;
+          padding: 11px;
+          border: 1px solid #d8e0e7;
+          border-radius: 8px;
+          outline: none;
+        }
+
+        .doctorToolbar input:focus {
+          border-color: #0f9d9a;
         }
 
         .doctorGrid {
-          display:grid;
+          display: grid;
           grid-template-columns:
-            repeat(auto-fill,minmax(260px,1fr));
-          gap:15px;
+            repeat(
+              auto-fill,
+              minmax(260px, 1fr)
+            );
+          gap: 15px;
         }
 
         .doctorCard {
-          background:white;
-          padding:18px;
-          border:1px solid #e1e7eb;
-          border-radius:14px;
+          background: white;
+          padding: 18px;
+          border: 1px solid #e1e7eb;
+          border-radius: 14px;
         }
 
         .doctorAvatar {
-          width:48px;
-          height:48px;
-          border-radius:50%;
-          background:#e6f8f7;
-          color:#07817e;
-          display:grid;
-          place-items:center;
-          font-size:20px;
-          font-weight:bold;
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: #e6f8f7;
+          color: #07817e;
+          display: grid;
+          place-items: center;
+          font-size: 20px;
+          font-weight: bold;
         }
 
         .doctorCard h3 {
-          margin-bottom:4px;
+          margin: 12px 0 4px;
+          color: #172033;
         }
 
         .doctorCard p {
-          margin:4px 0;
-          color:#64748b;
-          font-size:13px;
+          margin: 4px 0;
+          color: #64748b;
+          font-size: 13px;
+        }
+
+        .qualification {
+          font-weight: bold;
         }
 
         .doctorInfo {
-          margin-top:15px;
-          display:grid;
-          gap:7px;
-          font-size:12px;
-          color:#475569;
+          margin-top: 15px;
+          display: grid;
+          gap: 7px;
+          font-size: 12px;
+          color: #475569;
+        }
+
+        .status {
+          margin-top: 12px;
+        }
+
+        .status span {
+          display: inline-block;
+          padding: 4px 9px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: bold;
+        }
+
+        .status .active {
+          background: #dcfce7;
+          color: #15803d;
+        }
+
+        .status .inactive {
+          background: #fee2e2;
+          color: #b91c1c;
         }
 
         .doctorActions {
-          margin-top:15px;
-          display:flex;
-          gap:8px;
+          margin-top: 15px;
+          display: flex;
+          gap: 8px;
         }
 
-        .doctorActions button:first-child {
-          background:#e0f2fe;
-          color:#0369a1;
+        .editButton {
+          background: #e0f2fe;
+          color: #0369a1;
         }
 
-        .doctorActions button:last-child {
-          background:#fee2e2;
-          color:#b91c1c;
+        .deleteButton {
+          background: #fee2e2;
+          color: #b91c1c;
+        }
+
+        .emptyBox {
+          background: white;
+          border-radius: 14px;
+          padding: 50px 20px;
+          text-align: center;
+          border: 1px solid #e1e7eb;
+        }
+
+        .emptyIcon {
+          font-size: 45px;
+          margin-bottom: 10px;
+        }
+
+        .emptyBox h3 {
+          margin: 5px 0;
+          color: #172033;
+        }
+
+        .emptyBox p {
+          color: #718096;
+          margin-bottom: 20px;
+        }
+
+        .loader {
+          width: 35px;
+          height: 35px;
+          border: 4px solid #dceeee;
+          border-top-color: #0f9d9a;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
         }
 
         .modal {
-          position:fixed;
-          inset:0;
-          background:rgba(15,23,42,.55);
-          display:grid;
-          place-items:center;
-          padding:15px;
-          z-index:1000;
+          position: fixed;
+          inset: 0;
+          background: rgba(
+            15,
+            23,
+            42,
+            0.55
+          );
+          display: grid;
+          place-items: center;
+          padding: 15px;
+          z-index: 1000;
         }
 
-        .box {
-          width:min(700px,100%);
-          max-height:90vh;
-          overflow:auto;
-          background:white;
-          padding:20px;
-          border-radius:15px;
+        .modalBox {
+          width: min(700px, 100%);
+          max-height: 90vh;
+          overflow: auto;
+          background: white;
+          padding: 20px;
+          border-radius: 15px;
+          box-shadow:
+            0 20px 60px
+              rgba(0, 0, 0, 0.2);
         }
 
         .modalTitle {
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 15px;
         }
 
-        .modalTitle button {
-          font-size:22px;
+        .modalTitle h2 {
+          margin: 0;
+          color: #172033;
+        }
+
+        .modalTitle p {
+          margin: 5px 0 0;
+          color: #718096;
+          font-size: 13px;
+        }
+
+        .closeButton {
+          font-size: 25px;
+          background: #f1f5f9;
+          color: #334155;
+          width: 40px;
+          height: 40px;
+          padding: 0;
         }
 
         .form {
-          display:grid;
-          grid-template-columns:1fr 1fr;
-          gap:12px;
-          margin-top:20px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+          margin-top: 22px;
         }
 
         .form label {
-          font-size:12px;
-          font-weight:bold;
+          font-size: 12px;
+          font-weight: bold;
+          color: #334155;
         }
 
         .form input,
         .form textarea {
-          width:100%;
-          margin-top:5px;
-          padding:10px;
-          border:1px solid #d8e0e7;
-          border-radius:8px;
+          width: 100%;
+          margin-top: 6px;
+          padding: 11px;
+          border: 1px solid #d8e0e7;
+          border-radius: 8px;
+          outline: none;
+          font-family: inherit;
+          font-size: 14px;
+        }
+
+        .form input:focus,
+        .form textarea:focus {
+          border-color: #0f9d9a;
         }
 
         .full {
-          grid-column:span 2;
+          grid-column: span 2;
+        }
+
+        .activeCheck {
+          display: flex !important;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .activeCheck input {
+          width: auto;
+          margin: 0;
         }
 
         .footer {
-          display:flex;
-          justify-content:flex-end;
-          gap:10px;
-          margin-top:20px;
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 22px;
         }
 
-        @media(max-width:600px) {
+        .cancelButton {
+          background: #e2e8f0;
+          color: #334155;
+        }
+
+        .saveButton {
+          background: #0f9d9a;
+          color: white;
+          font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
           .doctorPage {
-            padding:10px;
+            padding: 10px;
+          }
+
+          .pageHeader {
+            padding: 15px;
+          }
+
+          .pageHeader h1 {
+            font-size: 23px;
+          }
+
+          .doctorToolbar {
+            flex-direction: column;
+          }
+
+          .doctorToolbar input {
+            width: 100%;
           }
 
           .form {
-            grid-template-columns:1fr;
+            grid-template-columns: 1fr;
           }
 
           .full {
-            grid-column:auto;
+            grid-column: auto;
           }
 
-          .doctorPage header {
-            align-items:flex-start;
-            gap:10px;
+          .doctorGrid {
+            grid-template-columns: 1fr;
           }
         }
-
       `}</style>
-
     </div>
   );
 }
