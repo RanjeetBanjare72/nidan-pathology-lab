@@ -6,16 +6,8 @@ import { supabase } from "../../lib/supabase";
 
 /* ============================================================
    NIDAN PATHOLOGY LAB
-   PROFESSIONAL A4 REPORT ENGINE
-   ------------------------------------------------------------
-   - Letterhead ON  : uploaded letterhead is used as A4 page
-   - Letterhead OFF : professional built-in lab header/footer
-   - Responsive preview
-   - A4 print/PDF
-   - Smart safe-area detection
-   - Professional typography
-   - Intelligent pagination
-============================================================ */
+   FINAL A4 REPORT ENGINE
+   ============================================================ */
 
 const DEFAULT_SETTINGS = {
   labName: "NIDAN PATHOLOGY LAB",
@@ -29,18 +21,27 @@ const DEFAULT_SETTINGS = {
   showReferenceRange: true,
 };
 
+/*
+  IMPORTANT A4 POSITIONS
+
+  Letterhead:
+  content starts around 17-20%
+  footer safe area around 87-90%
+
+  No letterhead:
+  content starts around 10%
+  because built-in header is only ~27mm.
+*/
+
 const DEFAULT_LAYOUT = {
-  contentTop: 34,
+  contentTop: 18,
   contentBottom: 87,
-  left: 7,
-  right: 7,
-  headerBottom: 32,
-  footerTop: 87,
-  scale: 1,
+  left: 6.5,
+  right: 6.5,
 };
 
 /* ============================================================
-   MAIN PAGE
+   MAIN
 ============================================================ */
 
 export default function ReportPage() {
@@ -57,6 +58,7 @@ export default function ReportPage() {
 
   const [saveStatus, setSaveStatus] =
     useState("loading");
+
   const [saveMessage, setSaveMessage] =
     useState("");
 
@@ -67,7 +69,7 @@ export default function ReportPage() {
     useState("");
 
   /* ==========================================================
-     LOAD
+     LOAD DATA
   ========================================================== */
 
   useEffect(() => {
@@ -119,18 +121,25 @@ export default function ReportPage() {
         formatDate(new Date())
       );
 
-      const savedReportNo =
+      const savedNo =
         localStorage.getItem(
           "nidanCurrentReportNo"
         );
 
-      if (savedReportNo) {
-        setReportNo(savedReportNo);
+      if (savedNo) {
+        setReportNo(savedNo);
       }
+
+      setSaveStatus("ready");
     } catch (error) {
       console.error(
         "REPORT LOAD ERROR",
         error
+      );
+
+      setSaveStatus("error");
+      setSaveMessage(
+        "Report data load failed"
       );
     }
   }
@@ -164,51 +173,57 @@ export default function ReportPage() {
   }
 
   /* ==========================================================
-     LETTERHEAD ENGINE
+     LETTERHEAD
   ========================================================== */
 
   useEffect(() => {
     if (!labSettings?.letterhead) {
       setProcessedLetterhead("");
+
       setLetterheadInfo({
         ...DEFAULT_LAYOUT,
       });
+
       return;
     }
 
     processLetterhead(
       labSettings.letterhead
     );
-  }, [labSettings?.letterhead]);
+  }, [
+    labSettings?.letterhead,
+  ]);
 
   async function processLetterhead(src) {
     try {
-      const image =
+      const img =
         await loadImage(src);
 
-      const analysis =
+      const layout =
         detectLetterheadSafeArea(
-          image
+          img
         );
 
       setProcessedLetterhead(src);
-
-      setLetterheadInfo(
-        analysis
-      );
+      setLetterheadInfo(layout);
     } catch (error) {
       console.error(
-        "LETTERHEAD PROCESS ERROR",
+        "LETTERHEAD ERROR",
         error
       );
 
       /*
-        Important:
-        If browser cannot analyse a remote image,
-        DO NOT destroy the original letterhead.
+        IMPORTANT:
+        Never remove the original
+        letterhead if detection fails.
       */
 
       setProcessedLetterhead(src);
+
+      /*
+        Safe fallback for normal
+        pathology letterhead.
+      */
 
       setLetterheadInfo({
         ...DEFAULT_LAYOUT,
@@ -223,9 +238,7 @@ export default function ReportPage() {
           new Image();
 
         if (
-          !src.startsWith(
-            "data:"
-          )
+          !src.startsWith("data:")
         ) {
           img.crossOrigin =
             "anonymous";
@@ -244,9 +257,13 @@ export default function ReportPage() {
   /* ==========================================================
      SMART LETTERHEAD SAFE AREA
 
-     This version is deliberately conservative.
-     It does NOT crop the uploaded letterhead.
-     It only calculates where report content should begin/end.
+     FIX:
+     Old version searched only from 24%.
+     That caused your patient box to start
+     around 33%.
+
+     New version checks 9%-28% and keeps
+     the report much closer to the header.
   ========================================================== */
 
   function detectLetterheadSafeArea(
@@ -260,19 +277,11 @@ export default function ReportPage() {
       image.naturalHeight ||
       image.height;
 
-    if (
-      !width ||
-      !height
-    ) {
+    if (!width || !height) {
       return {
         ...DEFAULT_LAYOUT,
       };
     }
-
-    /*
-      A4-like images are common in pathology labs.
-      We analyse the image at a smaller size.
-    */
 
     const maxWidth = 700;
 
@@ -321,13 +330,19 @@ export default function ReportPage() {
       };
     }
 
-    ctx.drawImage(
-      image,
-      0,
-      0,
-      w,
-      h
-    );
+    try {
+      ctx.drawImage(
+        image,
+        0,
+        0,
+        w,
+        h
+      );
+    } catch {
+      return {
+        ...DEFAULT_LAYOUT,
+      };
+    }
 
     let data;
 
@@ -353,13 +368,12 @@ export default function ReportPage() {
       y++
     ) {
       let score = 0;
-
       let samples = 0;
 
       for (
         let x = 0;
         x < w;
-        x += 4
+        x += 5
       ) {
         const i =
           (y * w + x) *
@@ -390,15 +404,14 @@ export default function ReportPage() {
           );
 
         /*
-          Detect dark text and coloured
-          letterhead elements.
+          Detect text,
+          logos and coloured
+          letterhead areas.
         */
 
         if (
-          brightness <
-            205 ||
-          saturation >
-            45
+          brightness < 210 ||
+          saturation > 42
         ) {
           score++;
         }
@@ -416,35 +429,40 @@ export default function ReportPage() {
     }
 
     /*
-      Find first quiet zone after the upper
-      letterhead section.
-
-      We deliberately don't allow the report
-      to start extremely high.
+      ----------------------------------------------------------
+      HEADER DETECTION
+      ----------------------------------------------------------
+      Look between 8% and 27%.
+      We want the FIRST large quiet area.
     */
 
-    let headerEnd =
-      34;
+    let contentTop = 18;
+
+    let quietFound = false;
+
+    const startY =
+      Math.round(
+        h * 0.08
+      );
+
+    const endY =
+      Math.round(
+        h * 0.28
+      );
+
+    const windowSize =
+      Math.max(
+        10,
+        Math.round(
+          h * 0.012
+        )
+      );
 
     for (
-      let y =
-        Math.round(
-          h * 0.24
-        );
-      y <
-        Math.round(
-          h * 0.48
-        );
+      let y = startY;
+      y < endY;
       y++
     ) {
-      const windowSize =
-        Math.max(
-          8,
-          Math.round(
-            h * 0.012
-          )
-        );
-
       let total = 0;
 
       for (
@@ -469,55 +487,55 @@ export default function ReportPage() {
         White/quiet area.
       */
 
-      if (
-        avg < 0.035
-      ) {
-        headerEnd =
+      if (avg < 0.045) {
+        contentTop =
           Math.max(
-            30,
+            15,
             Math.min(
-              46,
-              (y / h) *
-                100
+              25,
+              (y / h) * 100 + 1.5
             )
           );
 
+        quietFound = true;
         break;
       }
     }
 
     /*
-      Footer detection.
-
-      Start looking late in the page because
-      many pathology letterheads have footer
-      logos/banners.
+      If detection is not reliable,
+      use a safe standard position.
     */
 
-    let footerStart =
-      90;
+    if (!quietFound) {
+      contentTop = 18;
+    }
 
-    let foundFooter = false;
+    /*
+      ----------------------------------------------------------
+      FOOTER DETECTION
+      ----------------------------------------------------------
+    */
+
+    let contentBottom = 87;
+
+    let footerFound = false;
+
+    const footerStart =
+      Math.round(
+        h * 0.76
+      );
+
+    const footerEnd =
+      Math.round(
+        h * 0.96
+      );
 
     for (
-      let y =
-        Math.round(
-          h * 0.70
-        );
-      y <
-        Math.round(
-          h * 0.95
-        );
+      let y = footerStart;
+      y < footerEnd;
       y++
     ) {
-      const windowSize =
-        Math.max(
-          8,
-          Math.round(
-            h * 0.01
-          )
-        );
-
       let total = 0;
 
       for (
@@ -538,73 +556,43 @@ export default function ReportPage() {
         total /
         windowSize;
 
-      if (
-        avg >
-        0.045
-      ) {
-        footerStart =
+      if (avg > 0.045) {
+        contentBottom =
           Math.max(
-            78,
+            80,
             Math.min(
-              93,
-              (y / h) *
-                100
+              91,
+              (y / h) * 100 - 1.5
             )
           );
 
-        foundFooter = true;
+        footerFound = true;
         break;
       }
     }
 
-    /*
-      If footer is not obvious,
-      keep enough bottom space.
-    */
-
-    if (!foundFooter) {
-      footerStart = 90;
+    if (!footerFound) {
+      contentBottom = 87;
     }
 
     /*
-      Safety gap.
-    */
-
-    let contentTop =
-      Math.min(
-        49,
-        headerEnd + 2.5
-      );
-
-    let contentBottom =
-      Math.max(
-        72,
-        footerStart - 2.5
-      );
-
-    /*
-      Ensure enough usable area.
+      Final safety.
     */
 
     if (
       contentBottom -
         contentTop <
-      38
+      55
     ) {
-      contentTop = 34;
-      contentBottom = 88;
+      contentTop = 18;
+      contentBottom = 87;
     }
 
     return {
       contentTop,
       contentBottom,
-      headerBottom:
-        contentTop,
-      footerTop:
-        contentBottom,
       left: 6.5,
       right: 6.5,
-      scale: 1,
     };
   }
 
@@ -617,10 +605,7 @@ export default function ReportPage() {
   ) {
     return String(name)
       .toLowerCase()
-      .replace(
-        /[()]/g,
-        ""
-      )
+      .replace(/[()]/g, "")
       .replace(
         /[./_-]/g,
         " "
@@ -666,7 +651,7 @@ export default function ReportPage() {
   }
 
   /* ==========================================================
-     REFERENCE RANGE
+     REFERENCE RANGES
   ========================================================== */
 
   function getDefaultReference(
@@ -710,6 +695,7 @@ export default function ReportPage() {
         "total leukocyte"
       ) ||
       name === "tlc" ||
+      name === "wbc" ||
       name.includes("wbc")
     ) {
       return {
@@ -722,8 +708,10 @@ export default function ReportPage() {
     }
 
     if (
-      name === "neutrophils" ||
-      name === "neutrophil"
+      [
+        "neutrophils",
+        "neutrophil",
+      ].includes(name)
     ) {
       return {
         min: 40,
@@ -734,8 +722,10 @@ export default function ReportPage() {
     }
 
     if (
-      name === "lymphocytes" ||
-      name === "lymphocyte"
+      [
+        "lymphocytes",
+        "lymphocyte",
+      ].includes(name)
     ) {
       return {
         min: 20,
@@ -746,8 +736,10 @@ export default function ReportPage() {
     }
 
     if (
-      name === "eosinophils" ||
-      name === "eosinophil"
+      [
+        "eosinophils",
+        "eosinophil",
+      ].includes(name)
     ) {
       return {
         min: 1,
@@ -758,8 +750,10 @@ export default function ReportPage() {
     }
 
     if (
-      name === "monocytes" ||
-      name === "monocyte"
+      [
+        "monocytes",
+        "monocyte",
+      ].includes(name)
     ) {
       return {
         min: 1,
@@ -770,8 +764,10 @@ export default function ReportPage() {
     }
 
     if (
-      name === "basophils" ||
-      name === "basophil"
+      [
+        "basophils",
+        "basophil",
+      ].includes(name)
     ) {
       return {
         min: 0,
@@ -782,7 +778,8 @@ export default function ReportPage() {
     }
 
     if (
-      name === "rbc count"
+      name === "rbc count" ||
+      name === "rbc"
     ) {
       return gender === "female"
         ? {
@@ -999,7 +996,9 @@ export default function ReportPage() {
       };
     }
 
-    if (name === "uric acid") {
+    if (
+      name === "uric acid"
+    ) {
       return gender === "female"
         ? {
             min: 2.4,
@@ -1039,7 +1038,7 @@ export default function ReportPage() {
 
     if (
       name ===
-        "total bilirubin"
+      "total bilirubin"
     ) {
       return {
         min: 0.2,
@@ -1052,7 +1051,7 @@ export default function ReportPage() {
 
     if (
       name ===
-        "direct bilirubin"
+      "direct bilirubin"
     ) {
       return {
         min: 0,
@@ -1113,7 +1112,9 @@ export default function ReportPage() {
       };
     }
 
-    if (name.includes("hdl")) {
+    if (
+      name.includes("hdl")
+    ) {
       return {
         min: 40,
         max: null,
@@ -1122,7 +1123,9 @@ export default function ReportPage() {
       };
     }
 
-    if (name.includes("ldl")) {
+    if (
+      name.includes("ldl")
+    ) {
       return {
         min: 0,
         max: 100,
@@ -1171,7 +1174,8 @@ export default function ReportPage() {
     parameter
   ) {
     const name =
-      typeof parameter === "string"
+      typeof parameter ===
+      "string"
         ? parameter
         : parameter?.name ||
           parameter?.testName ||
@@ -1329,7 +1333,7 @@ export default function ReportPage() {
   }
 
   /* ==========================================================
-     BUILD TESTS
+     BUILD REPORT TESTS
   ========================================================== */
 
   function buildReportTests() {
@@ -1342,7 +1346,10 @@ export default function ReportPage() {
     }
 
     return selectedTests.map(
-      (test, testIndex) => {
+      (
+        test,
+        testIndex
+      ) => {
         const testId =
           test?.id ??
           test?.testId ??
@@ -1440,9 +1447,7 @@ export default function ReportPage() {
     );
 
   /* ==========================================================
-     SMART PAGINATION
-
-     CBC-like test is kept together where possible.
+     PAGINATION
   ========================================================== */
 
   function paginateTests(
@@ -1452,31 +1457,12 @@ export default function ReportPage() {
       return [[]];
     }
 
-    const usable =
-      Math.max(
-        38,
-        letterheadInfo.contentBottom -
-          letterheadInfo.contentTop
-      );
-
     /*
-      Approximate number of table rows.
-      We use a slightly generous capacity so
-      reports don't unnecessarily create pages.
+      A4 content area is now larger,
+      so CBC can fit comfortably.
     */
 
-    let capacity =
-      Math.floor(
-        usable / 2.05
-      );
-
-    capacity = Math.max(
-      17,
-      Math.min(
-        28,
-        capacity
-      )
-    );
+    const rowsPerPage = 30;
 
     const pages = [];
 
@@ -1496,66 +1482,52 @@ export default function ReportPage() {
       const cost =
         count + 3;
 
-      /*
-        Whole test fits.
-      */
-
       if (
         current.length &&
-        used + cost <=
-          capacity
+        used + cost >
+          rowsPerPage
       ) {
-        current.push(test);
-        used += cost;
-        continue;
+        pages.push(
+          current
+        );
+
+        current = [];
+        used = 3;
       }
 
       /*
-        Empty page:
-        try whole test first.
+        Very large test:
+        split it.
       */
 
       if (
-        current.length === 0
+        cost >
+        rowsPerPage
       ) {
-        if (
-          cost <=
-          capacity + 5
-        ) {
-          current.push(test);
-          used = cost;
-          continue;
-        }
-
-        /*
-          Extremely large test:
-          split rows.
-        */
-
         const chunks =
           chunkTest(
             test,
-            Math.max(
-              5,
-              capacity - 3
-            )
+            rowsPerPage - 3
           );
 
         chunks.forEach(
-          (chunk, i) => {
+          (
+            chunk,
+            index
+          ) => {
             if (
-              i <
+              index <
               chunks.length - 1
             ) {
               pages.push([
                 chunk,
               ]);
             } else {
-              current = [
-                chunk,
-              ];
+              current.push(
+                chunk
+              );
 
-              used =
+              used +=
                 chunk.parameters.length +
                 3;
             }
@@ -1565,58 +1537,11 @@ export default function ReportPage() {
         continue;
       }
 
-      /*
-        Finish current page.
-      */
-
-      pages.push(
-        current
+      current.push(
+        test
       );
 
-      current = [];
-      used = 3;
-
-      /*
-        Retry this test.
-      */
-
-      if (
-        cost <=
-        capacity + 5
-      ) {
-        current.push(test);
-        used = cost;
-      } else {
-        const chunks =
-          chunkTest(
-            test,
-            Math.max(
-              5,
-              capacity - 3
-            )
-          );
-
-        chunks.forEach(
-          (chunk, i) => {
-            if (
-              i <
-              chunks.length - 1
-            ) {
-              pages.push([
-                chunk,
-              ]);
-            } else {
-              current = [
-                chunk,
-              ];
-
-              used =
-                chunk.parameters.length +
-                3;
-            }
-          }
-        );
-      }
+      used += cost;
     }
 
     if (
@@ -1646,7 +1571,10 @@ export default function ReportPage() {
     ) {
       chunks.push({
         ...test,
-        id: `${test.id}-${i}`,
+
+        id:
+          `${test.id}-${i}`,
+
         parameters:
           rows.slice(
             i,
@@ -1666,7 +1594,6 @@ export default function ReportPage() {
         ),
       [
         reportTests,
-        letterheadInfo,
       ]
     );
 
@@ -1700,7 +1627,7 @@ export default function ReportPage() {
     const timer =
       setTimeout(
         saveReport,
-        900
+        1000
       );
 
     return () =>
@@ -1766,6 +1693,7 @@ export default function ReportPage() {
 
       const {
         data: existing,
+        error: findError,
       } =
         await supabase
           .from("reports")
@@ -1776,17 +1704,25 @@ export default function ReportPage() {
           )
           .maybeSingle();
 
+      if (findError) {
+        throw findError;
+      }
+
       if (
         existing?.id
       ) {
-        const { error } =
+        const {
+          error,
+        } =
           await supabase
             .from("reports")
             .update({
               patient_id:
                 patientId,
+
               status:
                 "completed",
+
               report_data:
                 payload,
             })
@@ -1795,27 +1731,34 @@ export default function ReportPage() {
               existing.id
             );
 
-        if (error)
+        if (error) {
           throw error;
+        }
       } else {
-        const { error } =
+        const {
+          error,
+        } =
           await supabase
             .from("reports")
             .insert([
               {
                 report_no:
                   currentReportNo,
+
                 patient_id:
                   patientId,
+
                 status:
                   "completed",
+
                 report_data:
                   payload,
               },
             ]);
 
-        if (error)
+        if (error) {
           throw error;
+        }
       }
 
       setSaveStatus(
@@ -1843,16 +1786,12 @@ export default function ReportPage() {
   }
 
   /* ==========================================================
-     PRINT
+     ACTIONS
   ========================================================== */
 
   function printReport() {
     window.print();
   }
-
-  /* ==========================================================
-     NEW PATIENT
-  ========================================================== */
 
   function newPatient() {
     const ok =
@@ -1879,10 +1818,6 @@ export default function ReportPage() {
     );
   }
 
-  /* ==========================================================
-     RENDER
-  ========================================================== */
-
   const hasLetterhead =
     Boolean(
       processedLetterhead ||
@@ -1893,7 +1828,9 @@ export default function ReportPage() {
     <>
       <main className="reportApp">
 
-        {/* TOOLBAR */}
+        {/* ==================================================
+            TOOLBAR
+        ================================================== */}
 
         <div className="reportToolbar">
 
@@ -1972,7 +1909,9 @@ export default function ReportPage() {
 
         </div>
 
-        {/* STATUS */}
+        {/* ==================================================
+            STATUS
+        ================================================== */}
 
         <div className="smartStatus">
 
@@ -2002,7 +1941,7 @@ export default function ReportPage() {
               </span>
 
               <span>
-                Footer Safe Area:{" "}
+                Footer Safe:{" "}
                 {Math.round(
                   100 -
                     letterheadInfo.contentBottom
@@ -2014,7 +1953,9 @@ export default function ReportPage() {
 
         </div>
 
-        {/* PAGES */}
+        {/* ==================================================
+            PAGES
+        ================================================== */}
 
         <div className="pagesContainer">
 
@@ -2061,11 +2002,12 @@ export default function ReportPage() {
           )}
 
         </div>
+
       </main>
 
-      {/* ======================================================
-          CSS
-      ====================================================== */}
+      {/* ====================================================
+          GLOBAL CSS
+      ==================================================== */}
 
       <style jsx global>{`
 
@@ -2077,8 +2019,11 @@ export default function ReportPage() {
         body {
           margin: 0;
           padding: 0;
+
           background: #eef2f7;
+
           color: #111827;
+
           font-family:
             Arial,
             Helvetica,
@@ -2089,33 +2034,50 @@ export default function ReportPage() {
           overflow-x: hidden;
         }
 
-        /* ====================================================
+        /* ==================================================
            APP
-        ==================================================== */
+        ================================================== */
 
         .reportApp {
           min-height: 100vh;
+
           padding: 12px;
-          background: #eef2f7;
+
+          background:
+            #eef2f7;
         }
 
-        /* ====================================================
+        /* ==================================================
            TOOLBAR
-        ==================================================== */
+        ================================================== */
 
         .reportToolbar {
           width: 100%;
           max-width: 1180px;
-          margin: 0 auto 8px;
-          padding: 10px 14px;
 
-          background: #ffffff;
-          border: 1px solid #dbe3eb;
-          border-radius: 8px;
+          margin:
+            0 auto 8px;
 
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+          padding:
+            10px 14px;
+
+          background:
+            #ffffff;
+
+          border:
+            1px solid #dbe3eb;
+
+          border-radius:
+            8px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
 
           gap: 12px;
 
@@ -2125,131 +2087,198 @@ export default function ReportPage() {
               15,
               23,
               42,
-              0.07
+              .07
             );
         }
 
         .toolbarInfo {
-          display: flex;
-          flex-direction: column;
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
           gap: 2px;
         }
 
         .toolbarInfo strong {
-          font-size: 14px;
-          color: #111827;
+          font-size:
+            14px;
         }
 
         .toolbarInfo small {
-          font-size: 8px;
-          color: #64748b;
+          font-size:
+            8px;
+
+          color:
+            #64748b;
         }
 
         .saving {
-          color: #b45309 !important;
-          font-weight: 700;
+          color:
+            #b45309 !important;
+
+          font-weight:
+            700;
         }
 
         .saved {
-          color: #15803d !important;
-          font-weight: 700;
+          color:
+            #15803d !important;
+
+          font-weight:
+            700;
         }
 
         .error {
-          color: #dc2626 !important;
-          font-weight: 700;
+          color:
+            #dc2626 !important;
+
+          font-weight:
+            700;
         }
 
         .toolbarButtons {
-          display: flex;
+          display:
+            flex;
+
           gap: 6px;
         }
 
         .toolbarButtons button {
-          min-height: 34px;
-          padding: 7px 12px;
+          min-height:
+            34px;
 
-          border-radius: 6px;
-          font-size: 9px;
-          font-weight: 800;
+          padding:
+            7px 12px;
 
-          cursor: pointer;
-          background: #ffffff;
+          border-radius:
+            6px;
+
+          font-size:
+            9px;
+
+          font-weight:
+            800;
+
+          cursor:
+            pointer;
+
+          background:
+            #ffffff;
         }
 
         .editBtn {
-          border: 1px solid #cbd5e1;
-          color: #334155;
+          border:
+            1px solid #cbd5e1;
+
+          color:
+            #334155;
         }
 
         .printBtn {
-          border: 1px solid #087f7d;
-          background: #087f7d !important;
-          color: #ffffff;
+          border:
+            1px solid #087f7d;
+
+          background:
+            #087f7d !important;
+
+          color:
+            #ffffff;
         }
 
         .newBtn {
-          border: 1px solid #fecaca;
-          color: #dc2626;
+          border:
+            1px solid #fecaca;
+
+          color:
+            #dc2626;
         }
 
-        /* ====================================================
+        /* ==================================================
            STATUS
-        ==================================================== */
+        ================================================== */
 
         .smartStatus {
           width: 100%;
           max-width: 1180px;
 
-          margin: 0 auto 8px;
+          margin:
+            0 auto 8px;
 
-          padding: 5px 10px;
+          padding:
+            5px 10px;
 
-          background: #f0fdf4;
-          border: 1px solid #bbf7d0;
+          background:
+            #f0fdf4;
 
-          color: #166534;
+          border:
+            1px solid #bbf7d0;
 
-          border-radius: 6px;
+          color:
+            #166534;
 
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          border-radius:
+            6px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
 
           gap: 18px;
 
-          font-size: 8px;
-          font-weight: 700;
+          font-size:
+            8px;
+
+          font-weight:
+            700;
         }
 
-        /* ====================================================
-           PAGE CONTAINER
-        ==================================================== */
+        /* ==================================================
+           PAGES
+        ================================================== */
 
         .pagesContainer {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 18px;
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          align-items:
+            center;
+
+          gap:
+            18px;
         }
 
-        /* ====================================================
-           A4 SHEET
-        ==================================================== */
+        /* ==================================================
+           A4
+        ================================================== */
 
         .reportSheet {
-          position: relative;
+          position:
+            relative;
 
-          width: min(
-            210mm,
-            calc(100vw - 24px)
-          );
+          width:
+            min(
+              210mm,
+              calc(100vw - 24px)
+            );
 
-          aspect-ratio: 210 / 297;
+          aspect-ratio:
+            210 / 297;
 
-          background: #ffffff;
+          background:
+            #ffffff;
 
-          overflow: hidden;
+          overflow:
+            hidden;
 
           box-shadow:
             0 8px 28px
@@ -2257,147 +2286,224 @@ export default function ReportPage() {
               15,
               23,
               42,
-              0.15
+              .15
             );
         }
 
-        /* ====================================================
+        /* ==================================================
            LETTERHEAD
-        ==================================================== */
+        ================================================== */
 
         .letterheadImage {
-          position: absolute;
+          position:
+            absolute;
 
-          inset: 0;
+          inset:
+            0;
 
-          width: 100%;
-          height: 100%;
+          width:
+            100%;
 
-          object-fit: fill;
+          height:
+            100%;
 
-          z-index: 0;
+          object-fit:
+            fill;
 
-          pointer-events: none;
-          user-select: none;
+          z-index:
+            0;
+
+          pointer-events:
+            none;
+
+          user-select:
+            none;
         }
 
-        /* ====================================================
+        /* ==================================================
            BUILT-IN HEADER
-        ==================================================== */
+        ================================================== */
 
         .nativeHeader {
-          position: absolute;
+          position:
+            absolute;
 
-          top: 0;
-          left: 0;
-          right: 0;
+          top:
+            0;
 
-          height: 27mm;
+          left:
+            0;
 
-          background: #ffffff;
+          right:
+            0;
+
+          height:
+            27mm;
+
+          background:
+            #ffffff;
 
           border-bottom:
             1px solid #111827;
 
           padding:
-            7mm 9mm 4mm;
+            6mm 9mm 3mm;
 
-          z-index: 2;
+          z-index:
+            2;
         }
 
         .nativeLabName {
-          font-size: 20px;
-          font-weight: 900;
-          letter-spacing: .3px;
-          color: #0f4c5c;
+          font-size:
+            20px;
+
+          font-weight:
+            900;
+
+          letter-spacing:
+            .3px;
+
+          color:
+            #0f4c5c;
         }
 
         .nativeSubtitle {
-          margin-top: 2px;
-          font-size: 9px;
-          font-weight: 700;
-          color: #475569;
+          margin-top:
+            2px;
+
+          font-size:
+            9px;
+
+          font-weight:
+            700;
+
+          color:
+            #475569;
         }
 
         .nativeAddress {
-          margin-top: 4px;
-          font-size: 7px;
-          color: #334155;
+          margin-top:
+            4px;
+
+          font-size:
+            7px;
+
+          color:
+            #334155;
         }
 
         .nativeHeaderLine {
-          height: 2px;
-          margin-top: 5px;
-          background: #087f7d;
+          height:
+            2px;
+
+          margin-top:
+            5px;
+
+          background:
+            #087f7d;
         }
 
-        /* ====================================================
+        /* ==================================================
            BUILT-IN FOOTER
-        ==================================================== */
+        ================================================== */
 
         .nativeFooter {
-          position: absolute;
+          position:
+            absolute;
 
-          left: 0;
-          right: 0;
-          bottom: 0;
+          left:
+            0;
 
-          height: 15mm;
+          right:
+            0;
+
+          bottom:
+            0;
+
+          height:
+            15mm;
 
           border-top:
             1px solid #cbd5e1;
 
-          background: #f8fafc;
+          background:
+            #f8fafc;
 
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
+          display:
+            flex;
 
-          z-index: 2;
+          flex-direction:
+            column;
+
+          justify-content:
+            center;
+
+          align-items:
+            center;
+
+          z-index:
+            2;
         }
 
         .nativeFooter strong {
-          font-size: 8px;
-          color: #0f4c5c;
+          font-size:
+            8px;
+
+          color:
+            #0f4c5c;
         }
 
         .nativeFooter span {
-          margin-top: 2px;
-          font-size: 6px;
-          color: #64748b;
+          margin-top:
+            2px;
+
+          font-size:
+            6px;
+
+          color:
+            #64748b;
         }
 
-        /* ====================================================
+        /* ==================================================
            REPORT CONTENT
-        ==================================================== */
+        ================================================== */
 
         .reportContent {
-          position: absolute;
+          position:
+            absolute;
 
-          z-index: 5;
+          z-index:
+            5;
 
-          display: flex;
-          flex-direction: column;
+          display:
+            flex;
 
-          overflow: hidden;
+          flex-direction:
+            column;
 
-          background: transparent;
+          overflow:
+            hidden;
+
+          min-height:
+            0;
+
+          background:
+            transparent;
         }
 
-        /* ====================================================
+        /* ==================================================
            PATIENT BOX
-        ==================================================== */
+        ================================================== */
 
         .patientBox {
-          width: 100%;
+          width:
+            100%;
 
-          display: grid;
+          display:
+            grid;
 
           grid-template-columns:
-            1.35fr
-            1fr
-            1fr;
+            1.35fr 1fr 1fr;
 
           background:
             rgba(
@@ -2410,68 +2516,92 @@ export default function ReportPage() {
           border:
             1px solid #334155;
 
-          flex-shrink: 0;
+          flex-shrink:
+            0;
 
-          margin-bottom: 4mm;
+          margin-bottom:
+            3mm;
         }
 
         .patientColumn {
-          min-width: 0;
+          min-width:
+            0;
 
           padding:
-            3mm 3.2mm;
+            2.2mm 2.8mm;
 
           border-right:
             1px solid #cbd5e1;
         }
 
         .patientColumn:last-child {
-          border-right: 0;
+          border-right:
+            0;
         }
 
         .patientLine {
-          display: flex;
+          display:
+            flex;
 
-          gap: 3px;
+          gap:
+            3px;
 
-          margin-bottom: 2px;
+          margin-bottom:
+            1.5px;
 
-          font-size: 7.4px;
+          font-size:
+            7.1px;
 
-          line-height: 1.25;
+          line-height:
+            1.2;
         }
 
         .patientLabel {
-          font-weight: 800;
-          white-space: nowrap;
+          font-weight:
+            800;
+
+          white-space:
+            nowrap;
         }
 
         .patientValue {
-          min-width: 0;
-          overflow-wrap: anywhere;
+          min-width:
+            0;
+
+          overflow-wrap:
+            anywhere;
         }
 
-        /* ====================================================
+        /* ==================================================
            TEST AREA
-        ==================================================== */
+        ================================================== */
 
         .testArea {
-          flex: 1;
+          flex:
+            1;
 
-          min-height: 0;
+          min-height:
+            0;
 
-          overflow: hidden;
+          overflow:
+            hidden;
 
-          display: flex;
-          flex-direction: column;
+          display:
+            flex;
 
-          gap: 4mm;
+          flex-direction:
+            column;
+
+          gap:
+            3mm;
         }
 
         .testBlock {
-          width: 100%;
+          width:
+            100%;
 
-          flex-shrink: 0;
+          flex-shrink:
+            0;
 
           background:
             rgba(
@@ -2481,80 +2611,103 @@ export default function ReportPage() {
               .97
             );
 
-          break-inside: avoid;
-          page-break-inside: avoid;
+          break-inside:
+            avoid;
+
+          page-break-inside:
+            avoid;
         }
 
         .category {
-          text-align: center;
+          text-align:
+            center;
 
-          font-size: 7px;
+          font-size:
+            6.5px;
 
-          font-weight: 900;
+          font-weight:
+            900;
 
           letter-spacing:
-            .8px;
+            .7px;
 
-          color: #475569;
+          color:
+            #475569;
 
-          margin-bottom: 1px;
+          margin-bottom:
+            1px;
         }
 
         .testTitle {
-          text-align: center;
+          text-align:
+            center;
 
-          font-size: 10px;
+          font-size:
+            9.5px;
 
-          font-weight: 900;
+          font-weight:
+            900;
 
-          color: #111827;
+          color:
+            #111827;
 
-          margin-bottom: 2.5mm;
+          margin-bottom:
+            2mm;
 
-          line-height: 1.15;
+          line-height:
+            1.1;
         }
 
-        /* ====================================================
+        /* ==================================================
            TABLE
-        ==================================================== */
+        ================================================== */
 
         .reportTable {
-          width: 100%;
+          width:
+            100%;
 
-          border-collapse: collapse;
+          border-collapse:
+            collapse;
 
-          table-layout: fixed;
+          table-layout:
+            fixed;
 
-          background: #ffffff;
+          background:
+            #ffffff;
         }
 
         .reportTable th {
-          height: 6mm;
+          height:
+            5.5mm;
 
           padding:
-            1.5mm 1.5mm;
+            1.1mm 1.3mm;
 
           border:
             1px solid #8b98a7;
 
-          background: #edf2f7;
+          background:
+            #edf2f7;
 
-          font-size: 7px;
+          font-size:
+            6.5px;
 
-          font-weight: 900;
+          font-weight:
+            900;
 
-          text-align: center;
+          text-align:
+            center;
 
-          text-transform: uppercase;
+          text-transform:
+            uppercase;
 
-          line-height: 1.1;
+          line-height:
+            1.05;
         }
 
         .reportTable td {
-          height: 5mm;
-
           padding:
-            1.15mm 1.5mm;
+            1mm 1.3mm;
 
           border:
             1px solid #c5ced8;
@@ -2567,100 +2720,147 @@ export default function ReportPage() {
               .98
             );
 
-          font-size: 7.4px;
+          font-size:
+            7.1px;
 
-          line-height: 1.15;
+          line-height:
+            1.1;
 
-          vertical-align: middle;
+          vertical-align:
+            middle;
 
-          overflow-wrap: anywhere;
+          overflow-wrap:
+            anywhere;
         }
 
         .investigationCol {
-          width: 32%;
-          text-align: left !important;
+          width:
+            32%;
+
+          text-align:
+            left !important;
         }
 
         .flagCol {
-          width: 8%;
-          text-align: center !important;
+          width:
+            8%;
+
+          text-align:
+            center !important;
         }
 
         .resultCol {
-          width: 16%;
-          text-align: center !important;
+          width:
+            16%;
+
+          text-align:
+            center !important;
         }
 
         .referenceCol {
-          width: 29%;
-          text-align: center !important;
+          width:
+            29%;
+
+          text-align:
+            center !important;
         }
 
         .unitCol {
-          width: 15%;
-          text-align: center !important;
+          width:
+            15%;
+
+          text-align:
+            center !important;
         }
 
         .normalResult {
-          text-align: center;
-          font-weight: 700;
+          text-align:
+            center;
+
+          font-weight:
+            700;
         }
 
         .abnormalResult {
-          text-align: center;
+          text-align:
+            center;
 
-          font-weight: 900;
+          font-weight:
+            900;
 
-          color: #c62828 !important;
+          color:
+            #c62828 !important;
         }
 
         .flagCell {
-          text-align: center !important;
+          text-align:
+            center !important;
         }
 
         .flag {
-          display: inline-flex;
+          display:
+            inline-flex;
 
-          align-items: center;
-          justify-content: center;
+          align-items:
+            center;
 
-          min-width: 15px;
-          height: 13px;
+          justify-content:
+            center;
 
-          border-radius: 3px;
+          min-width:
+            14px;
 
-          font-size: 6.5px;
+          height:
+            12px;
 
-          font-weight: 900;
+          border-radius:
+            3px;
+
+          font-size:
+            6px;
+
+          font-weight:
+            900;
         }
 
         .high {
-          color: #b91c1c;
-          background: #fee2e2;
+          color:
+            #b91c1c;
+
+          background:
+            #fee2e2;
         }
 
         .low {
-          color: #1d4ed8;
-          background: #dbeafe;
+          color:
+            #1d4ed8;
+
+          background:
+            #dbeafe;
         }
 
-        /* ====================================================
+        /* ==================================================
            SIGNATURE
-        ==================================================== */
+        ================================================== */
 
         .signatureArea {
-          flex-shrink: 0;
+          flex-shrink:
+            0;
 
-          display: grid;
+          display:
+            grid;
 
           grid-template-columns:
             1fr 1fr;
 
-          gap: 35mm;
+          gap:
+            30mm;
 
-          margin-top: 5mm;
+          margin-top:
+            3mm;
 
-          padding-top: 1mm;
+          padding-top:
+            1mm;
 
           background:
             rgba(
@@ -2670,50 +2870,67 @@ export default function ReportPage() {
               .96
             );
 
-          break-inside: avoid;
+          break-inside:
+            avoid;
+
+          page-break-inside:
+            avoid;
         }
 
         .signature {
-          text-align: center;
+          text-align:
+            center;
 
-          font-size: 7px;
+          font-size:
+            7px;
         }
 
         .signatureLine {
-          height: 7mm;
+          height:
+            6mm;
 
           border-bottom:
             1px solid #333;
 
-          margin-bottom: 2mm;
+          margin-bottom:
+            1.5mm;
         }
 
         .signature strong {
-          display: block;
-          font-size: 7px;
+          display:
+            block;
+
+          font-size:
+            7px;
         }
 
         .signature span {
-          display: block;
+          display:
+            block;
 
-          color: #64748b;
+          color:
+            #64748b;
 
-          font-size: 6px;
+          font-size:
+            6px;
 
-          margin-top: 1px;
+          margin-top:
+            1px;
         }
 
-        /* ====================================================
+        /* ==================================================
            NOTE
-        ==================================================== */
+        ================================================== */
 
         .note {
-          flex-shrink: 0;
+          flex-shrink:
+            0;
 
-          margin-top: 2.5mm;
+          margin-top:
+            2mm;
 
           padding:
-            2mm 2mm;
+            1.5mm 2mm;
 
           border-top:
             1px solid #9ca3af;
@@ -2726,28 +2943,38 @@ export default function ReportPage() {
               .95
             );
 
-          font-size: 5.8px;
+          font-size:
+            5.5px;
 
-          line-height: 1.3;
+          line-height:
+            1.25;
 
-          color: #475569;
+          color:
+            #475569;
         }
 
-        /* ====================================================
+        /* ==================================================
            PAGE NUMBER
-        ==================================================== */
+        ================================================== */
 
         .pageNumber {
-          position: absolute;
+          position:
+            absolute;
 
-          right: 6mm;
-          bottom: 3mm;
+          right:
+            5mm;
 
-          z-index: 20;
+          bottom:
+            3mm;
 
-          font-size: 6.5px;
+          z-index:
+            20;
 
-          color: #475569;
+          font-size:
+            6px;
+
+          color:
+            #475569;
 
           background:
             rgba(
@@ -2760,98 +2987,127 @@ export default function ReportPage() {
           padding:
             1mm 1.5mm;
 
-          border-radius: 2px;
+          border-radius:
+            2px;
         }
 
-        /* ====================================================
-           MOBILE PREVIEW
-        ==================================================== */
+        /* ==================================================
+           MOBILE
+        ================================================== */
 
         @media (
           max-width: 700px
         ) {
 
           .reportApp {
-            padding: 5px;
+            padding:
+              5px;
           }
 
           .reportToolbar {
-            flex-direction: column;
-            align-items: stretch;
+            flex-direction:
+              column;
+
+            align-items:
+              stretch;
           }
 
           .toolbarButtons {
-            display: grid;
+            display:
+              grid;
 
             grid-template-columns:
               1fr 1fr;
           }
 
           .toolbarButtons button {
-            width: 100%;
+            width:
+              100%;
           }
 
           .printBtn {
-            grid-column: span 2;
+            grid-column:
+              span 2;
           }
 
           .smartStatus {
-            gap: 7px;
-            font-size: 6.5px;
-            flex-wrap: wrap;
+            gap:
+              7px;
+
+            font-size:
+              6.5px;
+
+            flex-wrap:
+              wrap;
           }
 
           .reportSheet {
             width:
-              calc(100vw - 10px);
+              calc(
+                100vw - 10px
+              );
           }
 
           .patientLine {
-            font-size: 5.5px;
+            font-size:
+              5.5px;
           }
 
           .reportTable th {
-            font-size: 5px;
+            font-size:
+              5px;
           }
 
           .reportTable td {
-            font-size: 5.5px;
+            font-size:
+              5.5px;
           }
 
           .testTitle {
-            font-size: 7px;
+            font-size:
+              7px;
           }
 
           .category {
-            font-size: 5px;
+            font-size:
+              5px;
           }
 
           .signatureArea {
-            gap: 15mm;
+            gap:
+              15mm;
           }
 
           .note {
-            font-size: 4.8px;
+            font-size:
+              4.8px;
           }
-
         }
 
-        /* ====================================================
-           PRINT
-        ==================================================== */
+        /* ==================================================
+           PRINT / A4
+        ================================================== */
 
         @media print {
 
           @page {
-            size: A4 portrait;
-            margin: 0;
+            size:
+              A4 portrait;
+
+            margin:
+              0;
           }
 
           html,
           body {
-            width: 210mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
+            width:
+              210mm !important;
+
+            margin:
+              0 !important;
+
+            padding:
+              0 !important;
 
             background:
               #ffffff !important;
@@ -2864,14 +3120,19 @@ export default function ReportPage() {
             print-color-adjust:
               exact !important;
 
-            overflow: visible !important;
+            overflow:
+              visible !important;
           }
 
           .reportApp {
-            width: 210mm;
+            width:
+              210mm;
 
-            padding: 0 !important;
-            margin: 0 !important;
+            padding:
+              0 !important;
+
+            margin:
+              0 !important;
 
             background:
               #ffffff !important;
@@ -2879,59 +3140,89 @@ export default function ReportPage() {
 
           .reportToolbar,
           .smartStatus {
-            display: none !important;
+            display:
+              none !important;
           }
 
           .pagesContainer {
-            width: 210mm;
+            width:
+              210mm;
 
-            display: block;
+            display:
+              block;
 
-            margin: 0;
-            padding: 0;
+            margin:
+              0;
+
+            padding:
+              0;
           }
 
           .reportSheet {
-            width: 210mm !important;
-            height: 297mm !important;
+            width:
+              210mm !important;
 
-            min-height: 297mm !important;
-            max-height: 297mm !important;
+            height:
+              297mm !important;
 
-            margin: 0 !important;
+            min-height:
+              297mm !important;
 
-            box-shadow: none !important;
+            max-height:
+              297mm !important;
 
-            overflow: hidden !important;
+            margin:
+              0 !important;
 
-            page-break-after: always;
-            break-after: page;
+            box-shadow:
+              none !important;
+
+            overflow:
+              hidden !important;
+
+            page-break-after:
+              always;
+
+            break-after:
+              page;
           }
 
           .reportSheet:last-child {
-            page-break-after: auto;
-            break-after: auto;
+            page-break-after:
+              auto;
+
+            break-after:
+              auto;
           }
 
           .letterheadImage {
-            position: absolute !important;
+            position:
+              absolute !important;
 
-            display: block !important;
+            display:
+              block !important;
 
-            width: 100% !important;
-            height: 100% !important;
+            width:
+              100% !important;
 
-            object-fit: fill !important;
+            height:
+              100% !important;
 
-            z-index: 0 !important;
+            object-fit:
+              fill !important;
+
+            z-index:
+              0 !important;
           }
 
           .reportContent {
-            overflow: hidden !important;
+            overflow:
+              hidden !important;
           }
 
           .reportTable {
-            border-collapse: collapse !important;
+            border-collapse:
+              collapse !important;
           }
 
           .reportTable th,
@@ -2947,8 +3238,11 @@ export default function ReportPage() {
           .patientBox,
           .signatureArea,
           .note {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
+            break-inside:
+              avoid !important;
+
+            page-break-inside:
+              avoid !important;
           }
 
           .nativeHeader,
@@ -2959,7 +3253,6 @@ export default function ReportPage() {
             print-color-adjust:
               exact !important;
           }
-
         }
 
       `}</style>
@@ -3018,37 +3311,56 @@ function ReportSheet({
 
   const sampleDate =
     patient?.sampleDate ||
+    patient?.collectionDate ||
     reportDate ||
     "-";
 
   /*
-    Letterhead:
-    use automatically detected safe area.
+    ============================================================
+    FINAL POSITION FIX
 
-    No letterhead:
-    use built-in professional header/footer.
+    LETTERHEAD ON:
+    Starts around 18%, never lower than 25%.
+
+    LETTERHEAD OFF:
+    Starts at 10.5%, directly below header.
+
+    This is the major fix for your screenshot.
   */
 
-  const top =
-    hasLetterhead
-      ? layout?.contentTop ?? 34
-      : 30;
+  const top = hasLetterhead
+    ? Math.max(
+        15,
+        Math.min(
+          25,
+          layout?.contentTop ??
+            18
+        )
+      )
+    : 10.5;
 
-  const bottom =
-    hasLetterhead
-      ? 100 -
-        (layout?.contentBottom ??
-          87)
-      : 17;
+  const bottom = hasLetterhead
+    ? Math.max(
+        7,
+        Math.min(
+          15,
+          100 -
+            (layout?.contentBottom ??
+              87)
+        )
+      )
+    : 7.5;
 
   const left =
     hasLetterhead
-      ? layout?.left ?? 6.5
+      ? layout?.left ??
+        6.5
       : 7;
 
   const right =
     hasLetterhead
-      ? layout?.right ?? 6.5
+      ? layout?.right ??
+        6.5
       : 7;
 
   const pageTestsSafe =
@@ -3090,11 +3402,13 @@ function ReportSheet({
             <div className="nativeAddress">
               {labSettings?.labAddress ||
                 "Laboratory Investigation & Diagnostic Services"}
+
               {labSettings?.phone
-                ? `  |  ${labSettings.phone}`
+                ? ` | ${labSettings.phone}`
                 : ""}
+
               {labSettings?.email
-                ? `  |  ${labSettings.email}`
+                ? ` | ${labSettings.email}`
                 : ""}
             </div>
 
@@ -3128,10 +3442,17 @@ function ReportSheet({
       <div
         className="reportContent"
         style={{
-          top: `${top}%`,
-          bottom: `${bottom}%`,
-          left: `${left}%`,
-          right: `${right}%`,
+          top:
+            `${top}%`,
+
+          bottom:
+            `${bottom}%`,
+
+          left:
+            `${left}%`,
+
+          right:
+            `${right}%`,
         }}
       >
 
@@ -3258,7 +3579,7 @@ function ReportSheet({
         </div>
 
         {/* ===================================================
-            TEST AREA
+            TESTS
         =================================================== */}
 
         <div className="testArea">
@@ -3360,7 +3681,7 @@ function ReportSheet({
                           index
                         ) => {
 
-                          const isAbnormal =
+                          const abnormal =
                             Boolean(
                               parameter.flag
                             );
@@ -3393,12 +3714,14 @@ function ReportSheet({
 
                                   {parameter.flag ? (
                                     <span
-                                      className={`flag ${
-                                        parameter.flag ===
-                                        "H"
-                                          ? "high"
-                                          : "low"
-                                      }`}
+                                      className={
+                                        `flag ${
+                                          parameter.flag ===
+                                          "H"
+                                            ? "high"
+                                            : "low"
+                                        }`
+                                      }
                                     >
                                       {
                                         parameter.flag
@@ -3413,7 +3736,7 @@ function ReportSheet({
 
                               <td
                                 className={
-                                  isAbnormal
+                                  abnormal
                                     ? "abnormalResult"
                                     : "normalResult"
                                 }
@@ -3455,7 +3778,7 @@ function ReportSheet({
         </div>
 
         {/* ===================================================
-            SIGNATURES
+            SIGNATURE
         =================================================== */}
 
         <div className="signatureArea">
@@ -3516,7 +3839,9 @@ function ReportSheet({
 
       {totalPages > 1 && (
         <div className="pageNumber">
-          Page {pageIndex + 1} of{" "}
+          Page{" "}
+          {pageIndex + 1}{" "}
+          of{" "}
           {totalPages}
         </div>
       )}
