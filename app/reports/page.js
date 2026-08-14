@@ -1,27 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { supabase } from "../../lib/supabase";
 
 /* =========================================================
    NIDAN PATHOLOGY LAB
    SAVED REPORTS
-   COMPLETE FIXED VERSION
+   SAME DESIGN AS FINAL REPORT
+   ========================================================= */
 
-   IMPORTANT:
-   This page supports multiple saved-data structures:
-   1. parameter.result
-   2. parameter.value
-   3. report_data.results
-   4. results[testId][parameter]
-   5. results[testName][parameter]
-   6. results[parameter]
-   7. results array/object
-========================================================= */
+const LAB = {
+  name: "NIDAN PATHOLOGY LAB",
+
+  subtitle:
+    "DIAGNOSTIC & PATHOLOGY LABORATORY",
+
+  slogan:
+    "Accurate Diagnosis • Trusted Care • Better Health",
+
+  phone:
+    "7987580004, 8889325233",
+
+  address:
+    "Gram/Singhanpur, Tehsil Sarangarh, District Sarangarh-Bilaigarh, Chhattisgarh",
+};
 
 /* =========================================================
    MASTER TEST DATABASE
-========================================================= */
+   ========================================================= */
 
 const MASTER_TESTS = [
   {
@@ -29,167 +40,285 @@ const MASTER_TESTS = [
     name: "Complete Blood Count (CBC)",
     short: "CBC",
     category: "HAEMATOLOGY",
+
     parameters: [
       {
         name: "Haemoglobin",
-        aliases: ["Hemoglobin", "Hb"],
+        aliases: [
+          "Hemoglobin",
+          "Hb",
+        ],
         unit: "g/dL",
+
         maleMin: 13,
         maleMax: 17,
+
         femaleMin: 12,
         femaleMax: 15,
+
         maleRange: "13 - 17",
         femaleRange: "12 - 15",
       },
+
       {
-        name: "Total Leucocyte Count (TLC)",
+        name:
+          "Total Leucocyte Count (TLC)",
+
         aliases: [
           "Total WBC Count",
           "WBC Count",
           "TLC",
           "Total Leukocyte Count",
         ],
+
         unit: "/cumm",
+
         min: 4000,
         max: 11000,
-        range: "4000 - 11000",
+
+        range:
+          "4,000 - 11,000",
       },
+
       {
         name: "Neutrophils",
-        aliases: ["Neutrophil"],
+
+        aliases: [
+          "Neutrophil",
+        ],
+
         unit: "%",
+
         min: 40,
         max: 75,
+
         range: "40 - 75",
       },
+
       {
         name: "Lymphocytes",
-        aliases: ["Lymphocyte"],
+
+        aliases: [
+          "Lymphocyte",
+        ],
+
         unit: "%",
+
         min: 20,
         max: 40,
+
         range: "20 - 40",
       },
+
       {
         name: "Eosinophils",
-        aliases: ["Eosinophil"],
+
+        aliases: [
+          "Eosinophil",
+        ],
+
         unit: "%",
+
         min: 1,
         max: 6,
+
         range: "1 - 6",
       },
+
       {
         name: "Monocytes",
-        aliases: ["Monocyte"],
+
+        aliases: [
+          "Monocyte",
+        ],
+
         unit: "%",
+
         min: 1,
         max: 10,
+
         range: "1 - 10",
       },
+
       {
         name: "Basophils",
-        aliases: ["Basophil"],
+
+        aliases: [
+          "Basophil",
+        ],
+
         unit: "%",
+
         min: 0,
         max: 1,
+
         range: "0 - 1",
       },
+
       {
         name: "RBC Count",
+
         aliases: [
           "RBC",
           "Red Blood Cell Count",
           "Total RBC Count",
         ],
-        unit: "million/cumm",
+
+        unit:
+          "million/cumm",
+
         maleMin: 4.5,
         maleMax: 6.0,
+
         femaleMin: 4.0,
         femaleMax: 5.5,
-        maleRange: "4.5 - 6.0",
-        femaleRange: "4.0 - 5.5",
+
+        maleRange:
+          "4.5 - 6.0",
+
+        femaleRange:
+          "4.0 - 5.5",
       },
+
       {
-        name: "PCV / Haematocrit",
+        name:
+          "PCV / Haematocrit",
+
         aliases: [
           "PCV",
           "Hematocrit",
           "Haematocrit",
           "PCV / Hematocrit",
         ],
+
         unit: "%",
+
         maleMin: 40,
         maleMax: 50,
+
         femaleMin: 36,
         femaleMax: 46,
-        maleRange: "40 - 50",
-        femaleRange: "36 - 46",
+
+        maleRange:
+          "40 - 50",
+
+        femaleRange:
+          "36 - 46",
       },
+
       {
         name: "MCV",
+
         aliases: [],
+
         unit: "fL",
+
         min: 80,
         max: 100,
+
         range: "80 - 100",
       },
+
       {
         name: "MCH",
+
         aliases: [],
+
         unit: "pg",
+
         min: 27,
         max: 32,
+
         range: "27 - 32",
       },
+
       {
         name: "MCHC",
+
         aliases: [],
+
         unit: "g/dL",
+
         min: 32,
         max: 36,
+
         range: "32 - 36",
       },
+
       {
         name: "RDW-CV",
-        aliases: ["RDW", "RDW CV"],
+
+        aliases: [
+          "RDW",
+          "RDW CV",
+        ],
+
         unit: "%",
+
         min: 11.5,
         max: 14.5,
+
         range: "11.5 - 14.5",
       },
+
       {
         name: "Platelet Count",
+
         aliases: [
           "Platelets",
           "Total Platelet Count",
         ],
+
         unit: "Lac/cumm",
+
         min: 1.5,
         max: 4.5,
+
         range: "1.5 - 4.5",
       },
+
       {
         name: "MPV",
-        aliases: ["Mean Platelet Volume"],
+
+        aliases: [
+          "Mean Platelet Volume",
+        ],
+
         unit: "fL",
+
         min: 7.5,
         max: 11.5,
+
         range: "7.5 - 11.5",
       },
+
       {
         name: "PDW",
-        aliases: ["Platelet Distribution Width"],
+
+        aliases: [
+          "Platelet Distribution Width",
+        ],
+
         unit: "%",
+
         min: 9,
         max: 17,
+
         range: "9 - 17",
       },
+
       {
         name: "PCT",
-        aliases: ["Plateletcrit"],
+
+        aliases: [
+          "Plateletcrit",
+        ],
+
         unit: "%",
+
         min: 0.15,
         max: 0.4,
+
         range: "0.15 - 0.40",
       },
     ],
@@ -197,18 +326,30 @@ const MASTER_TESTS = [
 
   {
     id: "esr",
-    name: "Erythrocyte Sedimentation Rate (ESR)",
+
+    name:
+      "Erythrocyte Sedimentation Rate (ESR)",
+
     short: "ESR",
+
     category: "HAEMATOLOGY",
+
     parameters: [
       {
         name: "ESR",
-        aliases: ["Erythrocyte Sedimentation Rate"],
+
+        aliases: [
+          "Erythrocyte Sedimentation Rate",
+        ],
+
         unit: "mm/hr",
+
         maleMin: 0,
         maleMax: 15,
+
         femaleMin: 0,
         femaleMax: 20,
+
         maleRange: "0 - 15",
         femaleRange: "0 - 20",
       },
@@ -217,44 +358,65 @@ const MASTER_TESTS = [
 
   {
     id: "sugar",
+
     name: "Blood Glucose",
+
     short: "Blood Sugar",
+
     category: "BIOCHEMISTRY",
+
     parameters: [
       {
-        name: "Fasting Blood Sugar",
+        name:
+          "Fasting Blood Sugar",
+
         aliases: [
           "FBS",
           "Fasting Glucose",
           "Fasting Blood Glucose",
         ],
+
         unit: "mg/dL",
+
         min: 70,
-        max: 100,
-        range: "70 - 100",
+        max: 99,
+
+        range: "70 - 99",
       },
+
       {
-        name: "Post Prandial Blood Sugar",
+        name:
+          "Post Prandial Blood Sugar",
+
         aliases: [
           "PPBS",
           "Post Prandial Glucose",
           "Postprandial Blood Sugar",
         ],
+
         unit: "mg/dL",
+
         min: 70,
         max: 140,
+
         range: "70 - 140",
       },
+
       {
-        name: "Random Blood Sugar",
+        name:
+          "Random Blood Sugar",
+
         aliases: [
           "RBS",
           "Random Glucose",
           "Random Blood Glucose",
         ],
+
         unit: "mg/dL",
+
         min: 70,
         max: 140,
+
         range: "70 - 140",
       },
     ],
@@ -262,67 +424,129 @@ const MASTER_TESTS = [
 
   {
     id: "kft",
-    name: "Kidney Function Test",
+
+    name:
+      "Kidney Function Test",
+
     short: "KFT",
+
     category: "BIOCHEMISTRY",
+
     parameters: [
       {
         name: "Blood Urea",
-        aliases: ["Urea", "Serum Urea"],
+
+        aliases: [
+          "Urea",
+          "Serum Urea",
+        ],
+
         unit: "mg/dL",
+
         min: 15,
-        max: 45,
-        range: "15 - 45",
+        max: 40,
+
+        range: "15 - 40",
       },
+
       {
-        name: "Serum Creatinine",
-        aliases: ["Creatinine"],
+        name:
+          "Serum Creatinine",
+
+        aliases: [
+          "Creatinine",
+        ],
+
         unit: "mg/dL",
+
         min: 0.6,
         max: 1.3,
+
         range: "0.6 - 1.3",
       },
+
       {
         name: "Uric Acid",
-        aliases: ["Serum Uric Acid"],
+
+        aliases: [
+          "Serum Uric Acid",
+        ],
+
         unit: "mg/dL",
+
         maleMin: 3.4,
         maleMax: 7.0,
+
         femaleMin: 2.4,
         femaleMax: 6.0,
-        maleRange: "3.4 - 7.0",
-        femaleRange: "2.4 - 6.0",
+
+        maleRange:
+          "3.4 - 7.0",
+
+        femaleRange:
+          "2.4 - 6.0",
       },
+
       {
         name: "Sodium",
-        aliases: ["Serum Sodium", "Na+"],
+
+        aliases: [
+          "Serum Sodium",
+          "Na+",
+        ],
+
         unit: "mEq/L",
+
         min: 135,
         max: 145,
+
         range: "135 - 145",
       },
+
       {
         name: "Potassium",
-        aliases: ["Serum Potassium", "K+"],
+
+        aliases: [
+          "Serum Potassium",
+          "K+",
+        ],
+
         unit: "mEq/L",
+
         min: 3.5,
         max: 5.1,
+
         range: "3.5 - 5.1",
       },
+
       {
         name: "Chloride",
-        aliases: ["Serum Chloride", "Cl-"],
+
+        aliases: [
+          "Serum Chloride",
+          "Cl-",
+        ],
+
         unit: "mEq/L",
+
         min: 98,
         max: 107,
+
         range: "98 - 107",
       },
+
       {
         name: "BUN",
-        aliases: ["Blood Urea Nitrogen"],
+
+        aliases: [
+          "Blood Urea Nitrogen",
+        ],
+
         unit: "mg/dL",
+
         min: 7,
         max: 20,
+
         range: "7 - 20",
       },
     ],
@@ -330,83 +554,153 @@ const MASTER_TESTS = [
 
   {
     id: "lft",
-    name: "Liver Function Test",
+
+    name:
+      "Liver Function Test",
+
     short: "LFT",
+
     category: "BIOCHEMISTRY",
+
     parameters: [
       {
-        name: "Total Bilirubin",
+        name:
+          "Total Bilirubin",
+
         aliases: [
           "Bilirubin Total",
           "Serum Bilirubin Total",
         ],
+
         unit: "mg/dL",
+
         min: 0.2,
         max: 1.2,
+
         range: "0.2 - 1.2",
       },
+
       {
-        name: "Direct Bilirubin",
-        aliases: ["Bilirubin Direct"],
+        name:
+          "Direct Bilirubin",
+
+        aliases: [
+          "Bilirubin Direct",
+        ],
+
         unit: "mg/dL",
+
         min: 0,
         max: 0.3,
+
         range: "0 - 0.3",
       },
+
       {
-        name: "Indirect Bilirubin",
-        aliases: ["Bilirubin Indirect"],
+        name:
+          "Indirect Bilirubin",
+
+        aliases: [
+          "Bilirubin Indirect",
+        ],
+
         unit: "mg/dL",
+
         min: 0.2,
         max: 0.9,
+
         range: "0.2 - 0.9",
       },
+
       {
         name: "SGOT / AST",
-        aliases: ["SGOT", "AST"],
+
+        aliases: [
+          "SGOT",
+          "AST",
+        ],
+
         unit: "U/L",
+
         min: 0,
         max: 40,
-        range: "0 - 40",
+
+        range: "Up to 40",
       },
+
       {
         name: "SGPT / ALT",
-        aliases: ["SGPT", "ALT"],
+
+        aliases: [
+          "SGPT",
+          "ALT",
+        ],
+
         unit: "U/L",
+
         min: 0,
         max: 40,
-        range: "0 - 40",
+
+        range: "Up to 40",
       },
+
       {
-        name: "Alkaline Phosphatase",
+        name:
+          "Alkaline Phosphatase",
+
         aliases: ["ALP"],
+
         unit: "U/L",
+
         min: 44,
         max: 147,
+
         range: "44 - 147",
       },
+
       {
-        name: "Total Protein",
-        aliases: ["Serum Total Protein"],
+        name:
+          "Total Protein",
+
+        aliases: [
+          "Serum Total Protein",
+        ],
+
         unit: "g/dL",
-        min: 6.0,
+
+        min: 6,
         max: 8.3,
+
         range: "6.0 - 8.3",
       },
+
       {
         name: "Albumin",
-        aliases: ["Serum Albumin"],
+
+        aliases: [
+          "Serum Albumin",
+        ],
+
         unit: "g/dL",
+
         min: 3.5,
-        max: 5.0,
+        max: 5,
+
         range: "3.5 - 5.0",
       },
+
       {
         name: "Globulin",
-        aliases: ["Serum Globulin"],
+
+        aliases: [
+          "Serum Globulin",
+        ],
+
         unit: "g/dL",
-        min: 2.0,
+
+        min: 2,
         max: 3.5,
+
         range: "2.0 - 3.5",
       },
     ],
@@ -414,48 +708,92 @@ const MASTER_TESTS = [
 
   {
     id: "lipid",
+
     name: "Lipid Profile",
+
     short: "Lipid Profile",
+
     category: "BIOCHEMISTRY",
+
     parameters: [
       {
-        name: "Total Cholesterol",
-        aliases: ["Cholesterol"],
+        name:
+          "Total Cholesterol",
+
+        aliases: [
+          "Cholesterol",
+        ],
+
         unit: "mg/dL",
+
         min: 0,
         max: 200,
+
         range: "< 200",
       },
+
       {
-        name: "Triglycerides",
+        name:
+          "Triglycerides",
+
         aliases: ["TG"],
+
         unit: "mg/dL",
+
         min: 0,
         max: 150,
+
         range: "< 150",
       },
+
       {
-        name: "HDL Cholesterol",
-        aliases: ["HDL", "HDL-C"],
+        name:
+          "HDL Cholesterol",
+
+        aliases: [
+          "HDL",
+          "HDL-C",
+        ],
+
         unit: "mg/dL",
+
         min: 40,
         max: 100,
+
         range: "40 - 100",
       },
+
       {
-        name: "LDL Cholesterol",
-        aliases: ["LDL", "LDL-C"],
+        name:
+          "LDL Cholesterol",
+
+        aliases: [
+          "LDL",
+          "LDL-C",
+        ],
+
         unit: "mg/dL",
+
         min: 0,
         max: 100,
+
         range: "< 100",
       },
+
       {
-        name: "VLDL Cholesterol",
-        aliases: ["VLDL", "VLDL-C"],
+        name:
+          "VLDL Cholesterol",
+
+        aliases: [
+          "VLDL",
+          "VLDL-C",
+        ],
+
         unit: "mg/dL",
+
         min: 5,
         max: 40,
+
         range: "5 - 40",
       },
     ],
@@ -463,19 +801,27 @@ const MASTER_TESTS = [
 
   {
     id: "hba1c",
+
     name: "HbA1c",
+
     short: "HbA1c",
+
     category: "BIOCHEMISTRY",
+
     parameters: [
       {
         name: "HbA1c",
+
         aliases: [
           "Glycated Hemoglobin",
           "Glycosylated Hemoglobin",
         ],
+
         unit: "%",
+
         min: 4,
         max: 5.6,
+
         range: "4.0 - 5.6",
       },
     ],
@@ -483,40 +829,59 @@ const MASTER_TESTS = [
 
   {
     id: "thyroid",
-    name: "Thyroid Profile",
+
+    name:
+      "Thyroid Profile",
+
     short: "Thyroid",
+
     category: "HORMONE",
+
     parameters: [
       {
         name: "T3",
+
         aliases: [
           "Triiodothyronine",
           "Total T3",
         ],
+
         unit: "ng/dL",
+
         min: 80,
         max: 200,
+
         range: "80 - 200",
       },
+
       {
         name: "T4",
+
         aliases: [
           "Thyroxine",
           "Total T4",
         ],
+
         unit: "µg/dL",
+
         min: 5.1,
         max: 14.1,
+
         range: "5.1 - 14.1",
       },
+
       {
         name: "TSH",
+
         aliases: [
           "Thyroid Stimulating Hormone",
         ],
+
         unit: "µIU/mL",
+
         min: 0.4,
-        max: 4.0,
+        max: 4,
+
         range: "0.4 - 4.0",
       },
     ],
@@ -524,25 +889,24 @@ const MASTER_TESTS = [
 ];
 
 /* =========================================================
-   TEXT NORMALIZATION
-========================================================= */
+   HELPERS
+   ========================================================= */
 
 function normalizeText(value) {
-  return String(value ?? "")
+  return String(value || "")
     .toLowerCase()
-    .replace(/[()[\]{}]/g, "")
-    .replace(/[./_:-]/g, " ")
-    .replace(/\+/g, " plus ")
+    .replace(/[()]/g, "")
+    .replace(/[./_-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 /* =========================================================
-   PATIENT GENDER
-========================================================= */
+   GENDER
+   ========================================================= */
 
-function getPatientGender(patient) {
-  const gender = normalizeText(
+function getGender(patient) {
+  const value = normalizeText(
     patient?.gender ||
       patient?.sex ||
       patient?.patientGender ||
@@ -550,17 +914,15 @@ function getPatientGender(patient) {
   );
 
   if (
-    gender === "male" ||
-    gender === "m" ||
-    gender.startsWith("male ")
+    value === "male" ||
+    value === "m"
   ) {
     return "male";
   }
 
   if (
-    gender === "female" ||
-    gender === "f" ||
-    gender.startsWith("female ")
+    value === "female" ||
+    value === "f"
   ) {
     return "female";
   }
@@ -569,119 +931,96 @@ function getPatientGender(patient) {
 }
 
 /* =========================================================
-   MASTER TEST FINDER
-========================================================= */
+   FIND MASTER TEST
+   ========================================================= */
 
 function findMasterTest(test) {
   if (!test) return null;
 
-  const candidates = [
-    test?.id,
-    test?.testId,
-    test?.test_id,
-    test?.name,
-    test?.testName,
-    test?.short,
-    test?.test,
-    test?.investigation,
-  ]
-    .filter(Boolean)
-    .map(normalizeText);
+  const id = normalizeText(
+    test.id ||
+      test.testId ||
+      ""
+  );
 
-  if (candidates.length === 0) {
-    return null;
-  }
+  const name = normalizeText(
+    test.name ||
+      test.testName ||
+      test.short ||
+      ""
+  );
 
-  /* First exact matching */
-  for (const master of MASTER_TESTS) {
-    const masterCandidates = [
-      master.id,
-      master.name,
-      master.short,
-    ]
-      .filter(Boolean)
-      .map(normalizeText);
+  return (
+    MASTER_TESTS.find(
+      (master) => {
+        const masterId =
+          normalizeText(
+            master.id
+          );
 
-    const exact = candidates.some((candidate) =>
-      masterCandidates.includes(candidate)
-    );
+        const masterName =
+          normalizeText(
+            master.name
+          );
 
-    if (exact) {
-      return master;
-    }
-  }
+        const masterShort =
+          normalizeText(
+            master.short
+          );
 
-  /* Then partial matching */
-  for (const master of MASTER_TESTS) {
-    const masterCandidates = [
-      master.name,
-      master.short,
-    ]
-      .filter(Boolean)
-      .map(normalizeText);
-
-    const partial = candidates.some((candidate) =>
-      masterCandidates.some(
-        (masterName) =>
-          candidate.length > 3 &&
-          masterName.length > 3 &&
-          (masterName.includes(candidate) ||
-            candidate.includes(masterName))
-      )
-    );
-
-    if (partial) {
-      return master;
-    }
-  }
-
-  return null;
+        return (
+          id === masterId ||
+          name === masterName ||
+          name === masterShort ||
+          masterName.includes(name) ||
+          name.includes(masterName)
+        );
+      }
+    ) || null
+  );
 }
 
 /* =========================================================
-   MASTER PARAMETER FINDER
-========================================================= */
+   FIND MASTER PARAMETER
+   ========================================================= */
 
-function findMasterParameter(parameterName, test = null) {
-  const target = normalizeText(parameterName);
+function findMasterParameter(
+  parameterName,
+  test
+) {
+  const target =
+    normalizeText(
+      parameterName
+    );
 
-  if (!target) {
-    return null;
-  }
+  if (!target) return null;
 
-  function matchParameter(parameter) {
-    const names = [
-      parameter?.name,
-      ...(parameter?.aliases || []),
-    ]
-      .filter(Boolean)
-      .map(normalizeText);
-
-    return names.some((name) => {
-      if (!name) return false;
-
-      if (name === target) {
-        return true;
-      }
-
-      if (
-        name.length > 3 &&
-        target.length > 3 &&
-        (name.includes(target) ||
-          target.includes(name))
-      ) {
-        return true;
-      }
-
-      return false;
-    });
-  }
-
-  const masterTest = findMasterTest(test);
+  const masterTest =
+    findMasterTest(test);
 
   if (masterTest) {
     const match =
-      masterTest.parameters.find(matchParameter);
+      masterTest.parameters.find(
+        (parameter) => {
+          const names = [
+            parameter.name,
+            ...(parameter.aliases || []),
+          ].map(normalizeText);
+
+          return names.some(
+            (name) =>
+              name === target ||
+              (
+                name.length > 3 &&
+                target.length > 3 &&
+                (
+                  name.includes(target) ||
+                  target.includes(name)
+                )
+              )
+          );
+        }
+      );
 
     if (match) {
       return match;
@@ -690,7 +1029,27 @@ function findMasterParameter(parameterName, test = null) {
 
   for (const group of MASTER_TESTS) {
     const match =
-      group.parameters.find(matchParameter);
+      group.parameters.find(
+        (parameter) => {
+          const names = [
+            parameter.name,
+            ...(parameter.aliases || []),
+          ].map(normalizeText);
+
+          return names.some(
+            (name) =>
+              name === target ||
+              (
+                name.length > 3 &&
+                target.length > 3 &&
+                (
+                  name.includes(target) ||
+                  target.includes(name)
+                )
+              )
+          );
+        }
+      );
 
     if (match) {
       return match;
@@ -702,100 +1061,187 @@ function findMasterParameter(parameterName, test = null) {
 
 /* =========================================================
    EFFECTIVE PARAMETER
-========================================================= */
+   ========================================================= */
 
-function getEffectiveParameter(parameter, test) {
+function getEffectiveParameter(
+  parameter,
+  test
+) {
   const parameterName =
-    parameter?.name ||
-    parameter?.testName ||
-    parameter?.investigation ||
-    parameter?.parameter ||
-    parameter?.label ||
-    "";
+    typeof parameter === "string"
+      ? parameter
+      : (
+          parameter?.name ||
+          parameter?.testName ||
+          parameter?.investigation ||
+          ""
+        );
 
-  const master = findMasterParameter(
-    parameterName,
-    test
-  );
+  const master =
+    findMasterParameter(
+      parameterName,
+      test
+    );
 
   if (!master) {
     return {
-      ...(parameter || {}),
+      ...(typeof parameter ===
+      "object"
+        ? parameter
+        : {}),
+
       name:
         parameterName ||
         "Investigation",
+
       unit:
-        parameter?.unit ||
-        parameter?.units ||
-        "-",
+        typeof parameter ===
+        "object"
+          ? (
+              parameter.unit ||
+              parameter.units ||
+              ""
+            )
+          : "",
+
+      range:
+        typeof parameter ===
+        "object"
+          ? (
+              parameter.range ||
+              parameter.referenceRange ||
+              parameter.reference
+            )
+          : undefined,
     };
   }
 
   return {
     ...master,
-    ...(parameter || {}),
+
+    ...(typeof parameter ===
+    "object"
+      ? parameter
+      : {}),
 
     name:
       parameterName ||
       master.name,
 
     unit:
-      parameter?.unit ||
-      parameter?.units ||
-      master.unit ||
-      "",
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.unit ||
+            parameter.units ||
+            master.unit
+          )
+        : master.unit,
 
     range:
-      parameter?.range ??
-      parameter?.referenceRange ??
-      master.range,
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.range ||
+            parameter.referenceRange ||
+            parameter.reference ||
+            master.range
+          )
+        : master.range,
 
     maleRange:
-      parameter?.maleRange ??
-      master.maleRange,
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.maleRange ||
+            master.maleRange
+          )
+        : master.maleRange,
 
     femaleRange:
-      parameter?.femaleRange ??
-      master.femaleRange,
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.femaleRange ||
+            master.femaleRange
+          )
+        : master.femaleRange,
 
     min:
-      parameter?.min ??
-      master.min,
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.min ??
+            parameter.minimum ??
+            master.min
+          )
+        : master.min,
 
     max:
-      parameter?.max ??
-      master.max,
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.max ??
+            parameter.maximum ??
+            master.max
+          )
+        : master.max,
 
     maleMin:
-      parameter?.maleMin ??
-      master.maleMin,
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.maleMin ??
+            master.maleMin
+          )
+        : master.maleMin,
 
     maleMax:
-      parameter?.maleMax ??
-      master.maleMax,
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.maleMax ??
+            master.maleMax
+          )
+        : master.maleMax,
 
     femaleMin:
-      parameter?.femaleMin ??
-      master.femaleMin,
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.femaleMin ??
+            master.femaleMin
+          )
+        : master.femaleMin,
 
     femaleMax:
-      parameter?.femaleMax ??
-      master.femaleMax,
+      typeof parameter ===
+      "object"
+        ? (
+            parameter.femaleMax ??
+            master.femaleMax
+          )
+        : master.femaleMax,
   };
 }
 
 /* =========================================================
    REFERENCE RANGE
-========================================================= */
+   ========================================================= */
 
-function getReferenceRange(parameter, patient, test) {
-  const p = getEffectiveParameter(
-    parameter,
-    test
-  );
+function getReferenceRange(
+  parameter,
+  patient,
+  test
+) {
+  const p =
+    getEffectiveParameter(
+      parameter,
+      test
+    );
 
   const gender =
-    getPatientGender(patient);
+    getGender(patient);
 
   if (
     gender === "male" &&
@@ -838,25 +1284,26 @@ function getReferenceRange(parameter, patient, test) {
     return `${p.min} - ${p.max}`;
   }
 
-  return (
-    p.referenceRange ||
-    p.reference ||
-    "-"
-  );
+  return "-";
 }
 
 /* =========================================================
-   NUMERIC LIMITS
-========================================================= */
+   LIMITS
+   ========================================================= */
 
-function getLimits(parameter, patient, test) {
-  const p = getEffectiveParameter(
-    parameter,
-    test
-  );
+function getLimits(
+  parameter,
+  patient,
+  test
+) {
+  const p =
+    getEffectiveParameter(
+      parameter,
+      test
+    );
 
   const gender =
-    getPatientGender(patient);
+    getGender(patient);
 
   if (
     gender === "male" &&
@@ -897,10 +1344,15 @@ function getLimits(parameter, patient, test) {
 }
 
 /* =========================================================
-   RESULT FLAG
-========================================================= */
+   FLAG
+   ========================================================= */
 
-function getFlag(value, parameter, patient, test) {
+function getFlag(
+  value,
+  parameter,
+  patient,
+  test
+) {
   if (
     value === "" ||
     value === null ||
@@ -909,34 +1361,39 @@ function getFlag(value, parameter, patient, test) {
     return "";
   }
 
-  const textValue = String(value)
-    .replace(/,/g, "")
-    .trim();
+  const numeric =
+    Number(
+      String(value)
+        .replace(/,/g, "")
+        .trim()
+    );
 
-  const numericValue = Number(textValue);
-
-  if (Number.isNaN(numericValue)) {
+  if (
+    Number.isNaN(numeric)
+  ) {
     return "";
   }
 
-  const { min, max } = getLimits(
-    parameter,
-    patient,
-    test
-  );
+  const {
+    min,
+    max,
+  } =
+    getLimits(
+      parameter,
+      patient,
+      test
+    );
 
   if (
     min !== null &&
-    !Number.isNaN(min) &&
-    numericValue < min
+    numeric < min
   ) {
     return "L";
   }
 
   if (
     max !== null &&
-    !Number.isNaN(max) &&
-    numericValue > max
+    numeric > max
   ) {
     return "H";
   }
@@ -945,630 +1402,399 @@ function getFlag(value, parameter, patient, test) {
 }
 
 /* =========================================================
-   DATE FORMAT
-========================================================= */
-
-function formatDate(value) {
-  if (!value) return "-";
-
-  try {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return String(value);
-    }
-
-    return date.toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return String(value);
-  }
-}
-
-/* =========================================================
-   PATIENT NAME
-========================================================= */
-
-function getPatientName(report) {
-  const data = report?.report_data || {};
-
-  const patient =
-    data?.patient ||
-    data?.patientData ||
-    data?.patientDetails ||
-    {};
-
-  return (
-    patient?.name ||
-    patient?.patientName ||
-    report?.patient_name ||
-    report?.patientName ||
-    "-"
-  );
-}
-
-/* =========================================================
-   TEST LIST
-
-   IMPORTANT FIX:
-   If saved report doesn't contain parameters,
-   MASTER_TESTS parameters are automatically used.
-========================================================= */
+   GET REPORT TESTS
+   ========================================================= */
 
 function getReportTests(report) {
   const data =
-    report?.report_data || {};
-
-  let tests = [];
+    report?.report_data ||
+    {};
 
   if (
-    Array.isArray(data.reportTests) &&
-    data.reportTests.length > 0
+    Array.isArray(
+      data.reportTests
+    ) &&
+    data.reportTests.length
   ) {
-    tests = data.reportTests;
-  } else if (
-    Array.isArray(data.selectedTests) &&
-    data.selectedTests.length > 0
-  ) {
-    tests = data.selectedTests;
-  } else if (
-    Array.isArray(data.tests) &&
-    data.tests.length > 0
-  ) {
-    tests = data.tests;
-  } else if (
-    Array.isArray(report?.tests) &&
-    report.tests.length > 0
-  ) {
-    tests = report.tests;
-  }
-
-  return tests.map((test) => {
-    const master = findMasterTest(test);
-
-    const existingParameters =
-      Array.isArray(test?.parameters)
-        ? test.parameters
-        : Array.isArray(test?.tests)
-        ? test.tests
-        : [];
-
-    /*
-      If parameters are already saved, use them.
-      Otherwise use master parameters.
-    */
-    if (
-      existingParameters.length > 0
-    ) {
-      return {
-        ...test,
-        parameters:
-          existingParameters,
-      };
-    }
-
-    if (master) {
-      return {
-        ...master,
-        ...test,
-        parameters:
-          master.parameters.map(
-            (parameter) => ({
-              ...parameter,
-            })
-          ),
-      };
-    }
-
-    return {
-      ...test,
-      parameters: [],
-    };
-  });
-}
-
-/* =========================================================
-   GET TEST PARAMETERS
-========================================================= */
-
-function getTestParameters(test) {
-  if (
-    Array.isArray(test?.parameters) &&
-    test.parameters.length > 0
-  ) {
-    return test.parameters;
+    return data.reportTests;
   }
 
   if (
-    Array.isArray(test?.tests) &&
-    test.tests.length > 0
+    Array.isArray(
+      data.selectedTests
+    ) &&
+    data.selectedTests.length
   ) {
-    return test.tests;
+    return data.selectedTests;
   }
 
-  const master =
-    findMasterTest(test);
-
-  if (master) {
-    return master.parameters;
+  if (
+    Array.isArray(
+      report?.reportTests
+    )
+  ) {
+    return report.reportTests;
   }
 
   return [];
 }
 
 /* =========================================================
-   GET TEST NAME
-========================================================= */
+   GET PARAMETERS
+   ========================================================= */
 
-function getTestDisplayName(test) {
-  const master =
-    findMasterTest(test);
-
-  return (
-    test?.name ||
-    test?.testName ||
-    test?.short ||
-    test?.test ||
-    master?.name ||
-    "Laboratory Test"
-  );
-}
-
-/* =========================================================
-   GET TEST CATEGORY
-========================================================= */
-
-function getTestCategory(test) {
-  const master =
-    findMasterTest(test);
-
-  return (
-    test?.category ||
-    test?.testCategory ||
-    master?.category ||
-    ""
-  );
-}
-
-/* =========================================================
-   PARAMETER DISPLAY NAME
-========================================================= */
-
-function getParameterDisplayName(
-  parameter,
-  test
-) {
-  const effective =
-    getEffectiveParameter(
-      parameter,
-      test
-    );
-
-  return (
-    effective?.name ||
-    parameter?.label ||
-    "Investigation"
-  );
-}
-
-/* =========================================================
-   PARAMETER UNIT
-========================================================= */
-
-function getParameterUnit(
-  parameter,
-  test
-) {
-  const effective =
-    getEffectiveParameter(
-      parameter,
-      test
-    );
-
-  return (
-    effective?.unit ||
-    effective?.units ||
-    "-"
-  );
-}
-
-/* =========================================================
-   DEEP VALUE FINDER
-
-   This is the MAIN FIX.
-
-   It tries many possible result structures.
-========================================================= */
-
-function findValueDeep(
-  source,
-  targetNames,
-  visited = new Set()
-) {
+function getParameters(test) {
   if (
-    source === null ||
-    source === undefined
+    Array.isArray(
+      test?.parameters
+    )
   ) {
-    return undefined;
+    return test.parameters;
   }
 
   if (
-    typeof source !== "object"
+    Array.isArray(
+      test?.tests
+    )
   ) {
-    return undefined;
+    return test.tests;
   }
 
-  if (visited.has(source)) {
-    return undefined;
+  if (
+    Array.isArray(
+      test?.items
+    )
+  ) {
+    return test.items;
   }
 
-  visited.add(source);
-
-  const targets = targetNames
-    .filter(Boolean)
-    .map(normalizeText)
-    .filter(Boolean);
-
-  /*
-    First pass:
-    exact key matching
-  */
-  if (!Array.isArray(source)) {
-    for (const key of Object.keys(source)) {
-      const normalizedKey =
-        normalizeText(key);
-
-      if (
-        targets.includes(
-          normalizedKey
-        )
-      ) {
-        const value =
-          source[key];
-
-        if (
-          value !== undefined &&
-          value !== null &&
-          typeof value !== "object"
-        ) {
-          return value;
-        }
-
-        if (
-          value &&
-          typeof value === "object"
-        ) {
-          const nestedValue =
-            value.result ??
-            value.value ??
-            value.resultValue ??
-            value.labResult;
-
-          if (
-            nestedValue !== undefined
-          ) {
-            return nestedValue;
-          }
-        }
-      }
-    }
-  }
-
-  /*
-    Second pass:
-    recursive search
-  */
-  if (Array.isArray(source)) {
-    for (const item of source) {
-      const found =
-        findValueDeep(
-          item,
-          targets,
-          visited
-        );
-
-      if (found !== undefined) {
-        return found;
-      }
-    }
-  } else {
-    for (const key of Object.keys(source)) {
-      const value =
-        source[key];
-
-      if (
-        value &&
-        typeof value === "object"
-      ) {
-        const found =
-          findValueDeep(
-            value,
-            targets,
-            visited
-          );
-
-        if (found !== undefined) {
-          return found;
-        }
-      }
-    }
-  }
-
-  return undefined;
+  return [];
 }
 
 /* =========================================================
-   RESULT VALUE
+   GET RESULT
+   ========================================================= */
 
-   Supports:
-   parameter.result
-   parameter.value
-   results object
-   nested result object
-   multiple naming styles
-========================================================= */
-
-function getResultValue(
+function getResult(
   report,
   test,
   parameter,
-  index
+  index,
+  testIndex
 ) {
-  /* -------------------------------------------------------
-     1. Direct parameter result
-  ------------------------------------------------------- */
-
-  const directValues = [
-    parameter?.result,
-    parameter?.value,
-    parameter?.resultValue,
-    parameter?.labResult,
-    parameter?.observedValue,
-    parameter?.result_value,
-  ];
-
-  for (const value of directValues) {
-    if (
-      value !== undefined &&
-      value !== null &&
-      value !== ""
-    ) {
-      return value;
-    }
+  if (
+    parameter?.result !==
+      undefined &&
+    parameter?.result !== null
+  ) {
+    return parameter.result;
   }
 
-  const data =
-    report?.report_data || {};
+  if (
+    parameter?.value !==
+      undefined &&
+    parameter?.value !== null
+  ) {
+    return parameter.value;
+  }
 
   const results =
-    data?.results ??
-    data?.result ??
-    data?.resultData ??
-    data?.testResults ??
-    report?.results ??
+    report?.report_data
+      ?.results ||
+    report?.results ||
     {};
 
-  const parameterName =
-    parameter?.name ||
-    parameter?.testName ||
-    parameter?.investigation ||
-    parameter?.parameter ||
-    parameter?.label ||
-    "";
+  const testId =
+    test?.id ||
+    test?.testId ||
+    `test-${testIndex}`;
 
-  const masterParameter =
-    findMasterParameter(
-      parameterName,
-      test
-    );
+  const name =
+    typeof parameter ===
+    "string"
+      ? parameter
+      : (
+          parameter?.name ||
+          parameter?.testName ||
+          parameter?.investigation ||
+          `parameter-${index}`
+        );
 
-  const parameterNames = [
-    parameterName,
-    masterParameter?.name,
-    ...(masterParameter?.aliases || []),
+  const keys = [
+    `${testId}-${name}-${index}`,
+    `${testId}-${name}`,
+    `${testIndex}-${name}-${index}`,
+    name,
+    parameter?.id,
   ].filter(Boolean);
 
-  const testNames = [
-    test?.id,
-    test?.testId,
-    test?.test_id,
-    test?.name,
-    test?.testName,
-    test?.short,
-    test?.test,
-    findMasterTest(test)?.id,
-    findMasterTest(test)?.name,
-    findMasterTest(test)?.short,
-  ].filter(Boolean);
-
-  /* -------------------------------------------------------
-     2. Direct possible keys
-  ------------------------------------------------------- */
-
-  const directKeys = [];
-
-  for (const testName of testNames) {
-    for (const parameterNameItem of parameterNames) {
-      directKeys.push(
-        `${testName}-${parameterNameItem}-${index}`,
-        `${testName}_${parameterNameItem}_${index}`,
-        `${testName}.${parameterNameItem}.${index}`,
-        `${testName}-${parameterNameItem}`,
-        `${testName}_${parameterNameItem}`,
-        `${testName}.${parameterNameItem}`,
-        `${testName}:${parameterNameItem}`,
-        `${testName}/${parameterNameItem}`
-      );
-    }
-  }
-
-  for (const parameterNameItem of parameterNames) {
-    directKeys.push(
-      `${parameterNameItem}-${index}`,
-      `${parameterNameItem}_${index}`,
-      parameterNameItem
-    );
-  }
-
-  for (const key of directKeys) {
+  for (const key of keys) {
     if (
-      results &&
-      typeof results === "object" &&
       Object.prototype.hasOwnProperty.call(
         results,
         key
       )
     ) {
-      const value =
-        results[key];
-
-      if (
-        value !== undefined &&
-        value !== null &&
-        value !== ""
-      ) {
-        return value;
-      }
+      return results[key];
     }
   }
-
-  /* -------------------------------------------------------
-     3. Nested test -> parameter
-     
-     results = {
-       cbc: {
-         Haemoglobin: 13.5
-       }
-     }
-  ------------------------------------------------------- */
-
-  if (
-    results &&
-    typeof results === "object" &&
-    !Array.isArray(results)
-  ) {
-    for (const testName of testNames) {
-      const normalizedTest =
-        normalizeText(testName);
-
-      for (const key of Object.keys(results)) {
-        if (
-          normalizeText(key) ===
-          normalizedTest
-        ) {
-          const testResult =
-            results[key];
-
-          if (
-            testResult &&
-            typeof testResult === "object"
-          ) {
-            const found =
-              findValueDeep(
-                testResult,
-                parameterNames
-              );
-
-            if (
-              found !== undefined
-            ) {
-              return found;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  /* -------------------------------------------------------
-     4. Deep search in complete results
-  ------------------------------------------------------- */
-
-  const found =
-    findValueDeep(
-      results,
-      parameterNames
-    );
-
-  if (
-    found !== undefined
-  ) {
-    return found;
-  }
-
-  /* -------------------------------------------------------
-     5. Search complete report_data
-  ------------------------------------------------------- */
-
-  const foundInData =
-    findValueDeep(
-      data,
-      parameterNames
-    );
-
-  if (
-    foundInData !== undefined
-  ) {
-    return foundInData;
-  }
-
-  /* -------------------------------------------------------
-     Nothing found
-  ------------------------------------------------------- */
 
   return "";
 }
 
 /* =========================================================
-   REPORT DATA DEBUG HELPER
-========================================================= */
+   DATE
+   ========================================================= */
 
-function getResultCount(
-  report,
-  tests
-) {
-  let count = 0;
-
-  for (
-    const test of tests
-  ) {
-    const parameters =
-      getTestParameters(test);
-
-    for (
-      let index = 0;
-      index < parameters.length;
-      index++
-    ) {
-      const value =
-        getResultValue(
-          report,
-          test,
-          parameters[index],
-          index
-        );
-
-      if (
-        value !== "" &&
-        value !== null &&
-        value !== undefined
-      ) {
-        count++;
-      }
-    }
+function formatDate(value) {
+  if (!value) {
+    return "-";
   }
 
-  return count;
+  try {
+    const date =
+      new Date(value);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return value;
+    }
+
+    return date.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }
+    );
+  } catch {
+    return value;
+  }
 }
 
 /* =========================================================
-   MAIN COMPONENT
-========================================================= */
+   PATIENT
+   ========================================================= */
+
+function getPatient(report) {
+  return (
+    report?.report_data
+      ?.patient ||
+    report?.patient ||
+    {}
+  );
+}
+
+function getPatientName(report) {
+  const patient =
+    getPatient(report);
+
+  return (
+    patient?.name ||
+    patient?.patientName ||
+    report?.patient_name ||
+    "Patient Name"
+  );
+}
+
+function getPatientId(report) {
+  const patient =
+    getPatient(report);
+
+  return (
+    patient?.patientId ||
+    patient?.id ||
+    patient?.registrationNo ||
+    report?.patient_id ||
+    "-"
+  );
+}
+
+function getPatientAge(report) {
+  const patient =
+    getPatient(report);
+
+  return (
+    patient?.age !==
+      undefined &&
+    patient?.age !== null &&
+    patient?.age !== ""
+      ? patient.age
+      : "-"
+  );
+}
+
+function getPatientGenderValue(
+  report
+) {
+  const patient =
+    getPatient(report);
+
+  return (
+    patient?.gender ||
+    patient?.sex ||
+    "-"
+  );
+}
+
+function getPatientMobile(
+  report
+) {
+  const patient =
+    getPatient(report);
+
+  return (
+    patient?.mobile ||
+    patient?.mobileNumber ||
+    patient?.phone ||
+    "-"
+  );
+}
+
+function getDoctor(report) {
+  const patient =
+    getPatient(report);
+
+  return (
+    patient?.doctor ||
+    patient?.referredBy ||
+    patient?.refDoctor ||
+    "Self"
+  );
+}
+
+function getCollectionDate(
+  report
+) {
+  const patient =
+    getPatient(report);
+
+  return (
+    patient?.sampleDate ||
+    patient?.collectionDate ||
+    formatDate(
+      report?.created_at
+    )
+  );
+}
+
+/* =========================================================
+   REPORT DATE
+   ========================================================= */
+
+function getReportDate(report) {
+  const data =
+    report?.report_data ||
+    {};
+
+  return (
+    data.reportDate ||
+    report?.report_date ||
+    report?.created_at ||
+    ""
+  );
+}
+
+/* =========================================================
+   REPORT PREVIEW DATA
+   ========================================================= */
+
+function prepareTests(report) {
+  const patient =
+    getPatient(report);
+
+  const tests =
+    getReportTests(report);
+
+  return tests.map(
+    (test, testIndex) => {
+      const parameters =
+        getParameters(test);
+
+      const testName =
+        test?.name ||
+        test?.testName ||
+        test?.short ||
+        "Laboratory Investigation";
+
+      const master =
+        findMasterTest(test);
+
+      return {
+        id:
+          test?.id ||
+          test?.testId ||
+          `test-${testIndex}`,
+
+        name: testName,
+
+        category:
+          test?.category ||
+          test?.department ||
+          master?.category ||
+          "PATHOLOGY",
+
+        parameters:
+          parameters.map(
+            (
+              parameter,
+              index
+            ) => {
+              const effective =
+                getEffectiveParameter(
+                  parameter,
+                  test
+                );
+
+              const value =
+                getResult(
+                  report,
+                  test,
+                  parameter,
+                  index,
+                  testIndex
+                );
+
+              return {
+                ...effective,
+
+                result:
+                  value ===
+                    null ||
+                  value ===
+                    undefined
+                    ? ""
+                    : value,
+
+                flag:
+                  getFlag(
+                    value,
+                    effective,
+                    patient,
+                    test
+                  ),
+
+                range:
+                  getReferenceRange(
+                    effective,
+                    patient,
+                    test
+                  ),
+              };
+            }
+          ),
+      };
+    }
+  );
+}
+
+/* =========================================================
+   MAIN PAGE
+   ========================================================= */
 
 export default function ReportsPage() {
   const [reports, setReports] =
@@ -1583,12 +1809,9 @@ export default function ReportsPage() {
   const [message, setMessage] =
     useState("");
 
-  const [search, setSearch] =
-    useState("");
-
   /* =======================================================
-     LOAD REPORTS
-  ======================================================= */
+     LOAD
+     ======================================================= */
 
   useEffect(() => {
     loadReports();
@@ -1602,12 +1825,16 @@ export default function ReportsPage() {
       const {
         data,
         error,
-      } = await supabase
-        .from("reports")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+      } =
+        await supabase
+          .from("reports")
+          .select("*")
+          .order(
+            "created_at",
+            {
+              ascending: false,
+            }
+          );
 
       if (error) {
         console.error(
@@ -1624,13 +1851,11 @@ export default function ReportsPage() {
       }
 
       setReports(
-        Array.isArray(data)
-          ? data
-          : []
+        data || []
       );
     } catch (error) {
       console.error(
-        "Reports load exception:",
+        "Reports exception:",
         error
       );
 
@@ -1643,45 +1868,8 @@ export default function ReportsPage() {
   }
 
   /* =======================================================
-     FILTER REPORTS
-  ======================================================= */
-
-  const filteredReports =
-    useMemo(() => {
-      const term =
-        normalizeText(search);
-
-      if (!term) {
-        return reports;
-      }
-
-      return reports.filter(
-        (report) => {
-          const patient =
-            getPatientName(
-              report
-            );
-
-          const reportNo =
-            report?.report_no ||
-            report?.reportNo ||
-            "";
-
-          return (
-            normalizeText(
-              patient
-            ).includes(term) ||
-            normalizeText(
-              reportNo
-            ).includes(term)
-          );
-        }
-      );
-    }, [reports, search]);
-
-  /* =======================================================
-     VIEW REPORT
-  ======================================================= */
+     VIEW
+     ======================================================= */
 
   function viewReport(report) {
     setSelectedReport(report);
@@ -1689,12 +1877,13 @@ export default function ReportsPage() {
     setTimeout(() => {
       const element =
         document.getElementById(
-          "saved-report-preview"
+          "saved-final-report"
         );
 
       if (element) {
         element.scrollIntoView({
-          behavior: "smooth",
+          behavior:
+            "smooth",
           block: "start",
         });
       }
@@ -1703,7 +1892,7 @@ export default function ReportsPage() {
 
   /* =======================================================
      CLOSE
-  ======================================================= */
+     ======================================================= */
 
   function closeReport() {
     setSelectedReport(null);
@@ -1711,17 +1900,20 @@ export default function ReportsPage() {
 
   /* =======================================================
      DELETE
-  ======================================================= */
+     ======================================================= */
 
-  async function deleteReport(report) {
+  async function deleteReport(
+    report
+  ) {
+    if (!report) return;
+
     const reportNo =
       report?.report_no ||
-      report?.reportNo ||
       "this report";
 
     const confirmed =
       window.confirm(
-        `${reportNo} delete karna hai?\n\nYe action undo nahi hoga.`
+        `${reportNo} delete karna hai? Ye action undo nahi hoga.`
       );
 
     if (!confirmed) {
@@ -1729,31 +1921,29 @@ export default function ReportsPage() {
     }
 
     try {
-      const { error } =
+      const {
+        error,
+      } =
         await supabase
           .from("reports")
           .delete()
-          .eq("id", report.id);
+          .eq(
+            "id",
+            report.id
+          );
 
       if (error) {
         console.error(
-          "Delete report error:",
+          "Delete error:",
           error
         );
 
         alert(
-          "Report delete nahi hua:\n" +
+          "Report delete nahi hua: " +
             error.message
         );
 
         return;
-      }
-
-      if (
-        selectedReport?.id ===
-        report.id
-      ) {
-        setSelectedReport(null);
       }
 
       setReports(
@@ -1764,6 +1954,15 @@ export default function ReportsPage() {
               report.id
           )
       );
+
+      if (
+        selectedReport?.id ===
+        report.id
+      ) {
+        setSelectedReport(
+          null
+        );
+      }
 
       alert(
         "Report successfully delete ho gaya."
@@ -1782,17 +1981,17 @@ export default function ReportsPage() {
 
   /* =======================================================
      PRINT
-  ======================================================= */
+     ======================================================= */
 
-  function printSelectedReport(report) {
+  function printReport(report) {
     setSelectedReport(report);
 
     setTimeout(() => {
       window.print();
-    }, 500);
+    }, 400);
   }
 
-  function printCurrentPreview() {
+  function printCurrentReport() {
     if (!selectedReport) {
       return;
     }
@@ -1801,870 +2000,738 @@ export default function ReportsPage() {
   }
 
   /* =======================================================
-     PREVIEW DATA
-  ======================================================= */
-
-  const previewData =
-    selectedReport?.report_data ||
-    {};
+     SELECTED DATA
+     ======================================================= */
 
   const previewPatient =
-    previewData?.patient ||
-    previewData?.patientData ||
-    previewData?.patientDetails ||
-    {};
-
-  const previewTests =
     selectedReport
-      ? getReportTests(
+      ? getPatient(
           selectedReport
         )
-      : [];
+      : {};
+
+  const previewTests =
+    useMemo(() => {
+      if (
+        !selectedReport
+      ) {
+        return [];
+      }
+
+      return prepareTests(
+        selectedReport
+      );
+    }, [
+      selectedReport,
+    ]);
 
   const previewReportDate =
-    previewData?.reportDate ||
-    previewData?.report_date ||
-    previewData?.date ||
-    selectedReport?.created_at ||
-    "";
-
-  const previewResultCount =
     selectedReport
-      ? getResultCount(
-          selectedReport,
-          previewTests
+      ? getReportDate(
+          selectedReport
         )
-      : 0;
+      : "";
 
   /* =======================================================
-     RENDER
-  ======================================================= */
+     UI
+     ======================================================= */
 
   return (
-    <div className="savedReportsPage">
+    <>
 
-      {/* ===================================================
-          HEADER
-      =================================================== */}
+      {/* =================================================
+          SAVED REPORTS LIST
+          SCREEN ONLY
+      ================================================= */}
 
-      <section className="savedReportsHeader">
-        <div>
-          <h1>
-            Saved Reports
-          </h1>
+      <div className="savedReportsScreen">
 
-          <p>
-            NIDAN PATHOLOGY LAB
-          </p>
-        </div>
+        <div className="savedReportsHeader">
 
-        <div className="headerControls">
-          <input
-            type="search"
-            className="reportSearchInput"
-            placeholder="Search patient / report no."
-            value={search}
-            onChange={(e) =>
-              setSearch(
-                e.target.value
-              )
-            }
-          />
+          <div>
 
-          <button
-            className="refreshReportsButton"
-            onClick={loadReports}
-            disabled={loading}
-          >
-            ↻{" "}
-            {loading
-              ? "Loading..."
-              : "Refresh"}
-          </button>
-        </div>
-      </section>
-
-      {/* ===================================================
-          MESSAGE
-      =================================================== */}
-
-      {message && (
-        <div className="reportMessage">
-          {message}
-        </div>
-      )}
-
-      {/* ===================================================
-          REPORT LIST
-      =================================================== */}
-
-      <section className="savedReportsCard">
-
-        {loading ? (
-          <div className="reportsLoading">
-            <div className="loadingCircle">
-              N+
-            </div>
-
-            <strong>
-              Saved reports loading...
-            </strong>
-          </div>
-        ) : filteredReports.length ===
-          0 ? (
-          <div className="noSavedReports">
-            <div>
-              📄
-            </div>
-
-            <h2>
-              {reports.length ===
-              0
-                ? "No Saved Reports"
-                : "No Matching Reports"}
-            </h2>
+            <h1>
+              Saved Reports
+            </h1>
 
             <p>
-              {reports.length ===
-              0
-                ? "Final report save hone ke baad yahan दिखाई देगा."
-                : "Patient name ya report number change karke search karein."}
+              NIDAN PATHOLOGY LAB
             </p>
-          </div>
-        ) : (
-          <div className="savedTableWrapper">
-
-            <table className="savedReportsTable">
-
-              <thead>
-                <tr>
-                  <th>
-                    Report No.
-                  </th>
-
-                  <th>
-                    Patient
-                  </th>
-
-                  <th>
-                    Tests
-                  </th>
-
-                  <th>
-                    Results
-                  </th>
-
-                  <th>
-                    Status
-                  </th>
-
-                  <th>
-                    Saved Date
-                  </th>
-
-                  <th>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredReports.map(
-                  (report) => {
-                    const tests =
-                      getReportTests(
-                        report
-                      );
-
-                    const resultCount =
-                      getResultCount(
-                        report,
-                        tests
-                      );
-
-                    return (
-                      <tr
-                        key={
-                          report.id ||
-                          report.report_no
-                        }
-                      >
-
-                        <td>
-                          <strong>
-                            {report.report_no ||
-                              report.reportNo ||
-                              "-"}
-                          </strong>
-                        </td>
-
-                        <td>
-                          <strong>
-                            {getPatientName(
-                              report
-                            )}
-                          </strong>
-                        </td>
-
-                        <td>
-                          {tests.length >
-                          0
-                            ? tests
-                                .map(
-                                  (
-                                    test
-                                  ) =>
-                                    test.short ||
-                                    test.name ||
-                                    test.testName ||
-                                    getTestDisplayName(
-                                      test
-                                    )
-                                )
-                                .filter(
-                                  Boolean
-                                )
-                                .join(
-                                  ", "
-                                )
-                            : "-"}
-                        </td>
-
-                        <td>
-                          <span className="resultCountBadge">
-                            {resultCount}
-                          </span>
-                        </td>
-
-                        <td>
-                          <span className="completedStatus">
-                            {report.status ||
-                              "completed"}
-                          </span>
-                        </td>
-
-                        <td>
-                          {formatDate(
-                            report.created_at
-                          )}
-                        </td>
-
-                        <td>
-                          <div className="savedReportActions">
-
-                            <button
-                              className="viewReportButton"
-                              onClick={() =>
-                                viewReport(
-                                  report
-                                )
-                              }
-                            >
-                              👁 View
-                            </button>
-
-                            <button
-                              className="printSavedButton"
-                              onClick={() =>
-                                printSelectedReport(
-                                  report
-                                )
-                              }
-                            >
-                              🖨 Print
-                            </button>
-
-                            <button
-                              className="deleteSavedButton"
-                              onClick={() =>
-                                deleteReport(
-                                  report
-                                )
-                              }
-                            >
-                              🗑 Delete
-                            </button>
-
-                          </div>
-                        </td>
-
-                      </tr>
-                    );
-                  }
-                )}
-              </tbody>
-
-            </table>
 
           </div>
-        )}
-      </section>
 
-      {/* ===================================================
-          REPORT PREVIEW
-      =================================================== */}
+          <div className="savedHeaderControls">
 
-      {selectedReport && (
-        <section
-          className="savedReportPreviewSection"
-          id="saved-report-preview"
-        >
+            <input
+              className="reportSearch"
+              placeholder="Search patient / report no."
+              onChange={(event) => {
 
-          {/* TOP BAR */}
+                const search =
+                  event.target.value
+                    .toLowerCase()
+                    .trim();
 
-          <div className="previewTopBar">
+                if (!search) {
+                  loadReports();
+                  return;
+                }
 
-            <div>
-              <h2>
-                Report Preview
-              </h2>
+                setReports(
+                  (previous) =>
+                    previous.filter(
+                      (report) => {
 
-              <strong>
-                {selectedReport.report_no ||
-                  selectedReport.reportNo ||
-                  "-"}
-              </strong>
+                        const patient =
+                          getPatientName(
+                            report
+                          ).toLowerCase();
 
-              <span className="previewResultInfo">
-                {previewResultCount} result(s) found
-              </span>
-            </div>
+                        const reportNo =
+                          String(
+                            report?.report_no ||
+                              ""
+                          ).toLowerCase();
+
+                        return (
+                          patient.includes(
+                            search
+                          ) ||
+                          reportNo.includes(
+                            search
+                          )
+                        );
+                      }
+                    )
+                );
+              }}
+            />
 
             <button
-              className="closePreviewButton"
-              onClick={closeReport}
+              className="refreshButton"
+              onClick={
+                loadReports
+              }
+              disabled={
+                loading
+              }
             >
-              × Close
+              ↻ Refresh
             </button>
 
           </div>
 
-          {/* =================================================
-              PRINTABLE REPORT
-          ================================================= */}
+        </div>
 
-          <main className="savedPrintableReport">
+        {message && (
+          <div className="reportMessage">
+            {message}
+          </div>
+        )}
 
-            {/* LAB HEADER */}
+        <div className="reportsCard">
 
-            <header className="savedLabHeader">
+          {loading ? (
 
-              <div className="savedLogo">
+            <div className="loadingBox">
+
+              <div className="loadingLogo">
                 N+
               </div>
 
-              <div className="savedLabIdentity">
-
-                <h1>
-                  NIDAN PATHOLOGY LAB
-                </h1>
-
-                <p className="savedTagline">
-                  Accurate • Reliable • Professional
-                </p>
-
-                <p>
-                  Clinical Pathology &
-                  Diagnostic Laboratory
-                </p>
-
-              </div>
-
-              <div className="savedHeaderRight">
-
-                <strong>
-                  LABORATORY REPORT
-                </strong>
-
-                <span>
-                  Report No:{" "}
-                  {selectedReport.report_no ||
-                    selectedReport.reportNo ||
-                    "-"}
-                </span>
-
-                <span>
-                  Report Date:{" "}
-                  {formatDate(
-                    previewReportDate
-                  )}
-                </span>
-
-              </div>
-
-            </header>
-
-            <div className="savedAccentLine" />
-
-            {/* =================================================
-                LAB DETAILS
-            ================================================= */}
-
-            <section className="savedLabDetails">
-
-              <span>
-                📍 Address: __________________
-              </span>
-
-              <span>
-                ☎ Mobile: ______________
-              </span>
-
-              <span>
-                ✉ Email: ______________
-              </span>
-
-            </section>
-
-            {/* =================================================
-                PATIENT INFORMATION
-            ================================================= */}
-
-            <section className="savedPatientSection">
-
-              <div className="savedSectionTitle">
-                PATIENT INFORMATION
-              </div>
-
-              <div className="savedPatientGrid">
-
-                <div>
-                  <span>
-                    Patient ID
-                  </span>
-
-                  <strong>
-                    {previewPatient.patientId ||
-                      previewPatient.patient_id ||
-                      previewPatient.id ||
-                      selectedReport.patient_id ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Patient Name
-                  </span>
-
-                  <strong>
-                    {previewPatient.name ||
-                      previewPatient.patientName ||
-                      getPatientName(
-                        selectedReport
-                      ) ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Age / Sex
-                  </span>
-
-                  <strong>
-                    {previewPatient.age ||
-                      previewPatient.patientAge ||
-                      "-"}{" "}
-                    Years /{" "}
-                    {previewPatient.gender ||
-                      previewPatient.sex ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Mobile
-                  </span>
-
-                  <strong>
-                    {previewPatient.mobile ||
-                      previewPatient.phone ||
-                      previewPatient.mobileNumber ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Ref. Doctor
-                  </span>
-
-                  <strong>
-                    {previewPatient.doctor ||
-                      previewPatient.refDoctor ||
-                      previewPatient.ref_doctor ||
-                      previewPatient.referringDoctor ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Sample Date
-                  </span>
-
-                  <strong>
-                    {previewPatient.sampleDate ||
-                      previewPatient.sample_date ||
-                      formatDate(
-                        selectedReport.created_at
-                      )}
-                  </strong>
-                </div>
-
-              </div>
-            </section>
-
-            {/* =================================================
-                TEST RESULTS
-            ================================================= */}
-
-            <section className="savedInvestigationReport">
-
-              {previewTests.length ===
-              0 ? (
-                <div className="savedReportEmpty">
-                  <strong>
-                    No investigation data available.
-                  </strong>
-
-                  <p>
-                    Saved report me test list nahi mili.
-                  </p>
-                </div>
-              ) : (
-                previewTests.map(
-                  (test, testIndex) => {
-
-                    const parameters =
-                      getTestParameters(
-                        test
-                      );
-
-                    const category =
-                      getTestCategory(
-                        test
-                      );
-
-                    return (
-                      <div
-                        className="savedTestSection"
-                        key={
-                          test.id ||
-                          test.testId ||
-                          `${getTestDisplayName(
-                            test
-                          )}-${testIndex}`
-                        }
-                      >
-
-                        {category && (
-                          <div className="savedCategory">
-                            {category}
-                          </div>
-                        )}
-
-                        <div className="savedTestHeading">
-                          {getTestDisplayName(
-                            test
-                          )}
-                        </div>
-
-                        {parameters.length ===
-                        0 ? (
-                          <div className="savedReportEmpty">
-                            No parameters found for this test.
-                          </div>
-                        ) : (
-                          <table className="savedFinalReportTable">
-
-                            <thead>
-                              <tr>
-                                <th>
-                                  INVESTIGATION
-                                </th>
-
-                                <th>
-                                  RESULT
-                                </th>
-
-                                <th>
-                                  UNIT
-                                </th>
-
-                                <th>
-                                  REFERENCE RANGE
-                                </th>
-
-                                <th>
-                                  FLAG
-                                </th>
-                              </tr>
-                            </thead>
-
-                            <tbody>
-
-                              {parameters.map(
-                                (
-                                  parameter,
-                                  index
-                                ) => {
-
-                                  const effective =
-                                    getEffectiveParameter(
-                                      parameter,
-                                      test
-                                    );
-
-                                  const value =
-                                    getResultValue(
-                                      selectedReport,
-                                      test,
-                                      parameter,
-                                      index
-                                    );
-
-                                  const flag =
-                                    getFlag(
-                                      value,
-                                      effective,
-                                      previewPatient,
-                                      test
-                                    );
-
-                                  const reference =
-                                    getReferenceRange(
-                                      effective,
-                                      previewPatient,
-                                      test
-                                    );
-
-                                  const unit =
-                                    getParameterUnit(
-                                      effective,
-                                      test
-                                    );
-
-                                  const parameterName =
-                                    getParameterDisplayName(
-                                      effective,
-                                      test
-                                    );
-
-                                  const hasValue =
-                                    value !==
-                                      "" &&
-                                    value !==
-                                      null &&
-                                    value !==
-                                      undefined;
-
-                                  return (
-                                    <tr
-                                      key={`${testIndex}-${index}-${normalizeText(
-                                        parameterName
-                                      )}`}
-                                    >
-
-                                      <td>
-                                        {
-                                          parameterName
-                                        }
-                                      </td>
-
-                                      <td
-                                        className={
-                                          flag
-                                            ? "savedAbnormalResult"
-                                            : "savedNormalResult"
-                                        }
-                                      >
-                                        {hasValue
-                                          ? String(
-                                              value
-                                            )
-                                          : "-"}
-                                      </td>
-
-                                      <td>
-                                        {unit}
-                                      </td>
-
-                                      <td>
-                                        {reference}
-                                      </td>
-
-                                      <td>
-
-                                        {flag && (
-                                          <span
-                                            className={
-                                              flag ===
-                                              "H"
-                                                ? "savedFlag savedFlagHigh"
-                                                : "savedFlag savedFlagLow"
-                                            }
-                                          >
-                                            {flag}
-                                          </span>
-                                        )}
-
-                                      </td>
-
-                                    </tr>
-                                  );
-                                }
-                              )}
-
-                            </tbody>
-
-                          </table>
-                        )}
-
-                      </div>
-                    );
-                  }
-                )
-              )}
-
-            </section>
-
-            {/* =================================================
-                REMARKS
-            ================================================= */}
-
-            <section className="savedRemarks">
-
               <strong>
-                Remarks:
+                Saved reports loading...
               </strong>
 
-              <div className="savedRemarksLine">
-                ________________________________________________
+            </div>
+
+          ) : reports.length === 0 ? (
+
+            <div className="emptyBox">
+
+              <div>
+                📄
               </div>
 
-            </section>
-
-            {/* =================================================
-                SIGNATURE
-            ================================================= */}
-
-            <section className="savedSignatureSection">
-
-              <div className="savedSignatureBox">
-
-                <div className="savedSignatureSpace" />
-
-                <strong>
-                  Lab Technician
-                </strong>
-
-                <span>
-                  NIDAN Pathology Lab
-                </span>
-
-              </div>
-
-              <div className="savedSignatureBox">
-
-                <div className="savedSignatureSpace" />
-
-                <strong>
-                  Authorized Signatory
-                </strong>
-
-                <span>
-                  Signature & Seal
-                </span>
-
-              </div>
-
-            </section>
-
-            {/* =================================================
-                NOTES
-            ================================================= */}
-
-            <section className="savedNotes">
-
-              <strong>
-                Note:
-              </strong>
+              <h2>
+                No Saved Reports
+              </h2>
 
               <p>
-                Reference intervals may vary according
-                to laboratory method, age, sex and
-                clinical circumstances. Laboratory
-                results should be interpreted with
-                relevant clinical findings.
+                Final report save hone ke baad
+                yahan दिखाई देगा.
               </p>
 
-            </section>
+            </div>
 
-            {/* =================================================
-                FOOTER
-            ================================================= */}
+          ) : (
 
-            <footer className="savedReportFooter">
+            <div className="reportsTableWrapper">
 
-              <span>
-                NIDAN PATHOLOGY LAB
-              </span>
+              <table className="reportsTable">
+
+                <thead>
+
+                  <tr>
+
+                    <th>
+                      Report No.
+                    </th>
+
+                    <th>
+                      Patient
+                    </th>
+
+                    <th>
+                      Tests
+                    </th>
+
+                    <th>
+                      Results
+                    </th>
+
+                    <th>
+                      Status
+                    </th>
+
+                    <th>
+                      Saved Date
+                    </th>
+
+                    <th>
+                      Actions
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+                <tbody>
+
+                  {reports.map(
+                    (report) => {
+
+                      const tests =
+                        getReportTests(
+                          report
+                        );
+
+                      const resultCount =
+                        tests.reduce(
+                          (
+                            total,
+                            test
+                          ) =>
+                            total +
+                            getParameters(
+                              test
+                            ).length,
+                          0
+                        );
+
+                      return (
+
+                        <tr
+                          key={
+                            report.id ||
+                            report.report_no
+                          }
+                        >
+
+                          <td>
+
+                            <strong>
+                              {report.report_no ||
+                                "-"}
+                            </strong>
+
+                          </td>
+
+                          <td>
+
+                            <strong>
+                              {getPatientName(
+                                report
+                              )}
+                            </strong>
+
+                          </td>
+
+                          <td>
+
+                            {tests
+                              .map(
+                                (
+                                  test
+                                ) =>
+                                  test?.short ||
+                                  test?.name ||
+                                  test?.testName
+                              )
+                              .filter(
+                                Boolean
+                              )
+                              .join(
+                                ", "
+                              ) ||
+                              "-"}
+
+                          </td>
+
+                          <td>
+
+                            <span className="resultCount">
+                              {resultCount}
+                            </span>
+
+                          </td>
+
+                          <td>
+
+                            <span className="pendingStatus">
+                              {report.status ||
+                                "Pending"}
+                            </span>
+
+                          </td>
+
+                          <td>
+
+                            {formatDate(
+                              report.created_at
+                            )}
+
+                          </td>
+
+                          <td>
+
+                            <div className="actionButtons">
+
+                              <button
+                                className="viewButton"
+                                onClick={() =>
+                                  viewReport(
+                                    report
+                                  )
+                                }
+                              >
+                                👁 View
+                              </button>
+
+                              <button
+                                className="printButton"
+                                onClick={() =>
+                                  printReport(
+                                    report
+                                  )
+                                }
+                              >
+                                🖨 Print
+                              </button>
+
+                              <button
+                                className="deleteButton"
+                                onClick={() =>
+                                  deleteReport(
+                                    report
+                                  )
+                                }
+                              >
+                                🗑 Delete
+                              </button>
+
+                            </div>
+
+                          </td>
+
+                        </tr>
+
+                      );
+                    }
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          )}
+
+        </div>
+
+      </div>
+
+      {/* =================================================
+          SAME FINAL REPORT PREVIEW
+      ================================================= */}
+
+      {selectedReport && (
+
+        <div
+          id="saved-final-report"
+          className="savedFinalPreviewWrapper"
+        >
+
+          {/* SCREEN PREVIEW TOOLBAR */}
+
+          <div className="previewToolbar">
+
+            <div>
 
               <strong>
-                *** END OF REPORT ***
+                Final Laboratory Report
               </strong>
 
-              <span>
-                Computer Generated Report
-              </span>
+              <small>
+                Report No:{" "}
+                {selectedReport.report_no ||
+                  "-"}
+              </small>
 
-            </footer>
+            </div>
 
-          </main>
+            <div className="previewToolbarActions">
 
-          {/* =================================================
-              PREVIEW ACTIONS
-          ================================================= */}
+              <button
+                className="previewPrint"
+                onClick={
+                  printCurrentReport
+                }
+              >
+                🖨 Print / Save PDF
+              </button>
 
-          <div className="previewBottomActions">
+              <button
+                className="previewClose"
+                onClick={
+                  closeReport
+                }
+              >
+                × Close
+              </button>
 
-            <button
-              className="previewPrintButton"
-              onClick={
-                printCurrentPreview
-              }
-            >
-              🖨 Print / Save PDF
-            </button>
-
-            <button
-              className="previewDeleteButton"
-              onClick={() =>
-                deleteReport(
-                  selectedReport
-                )
-              }
-            >
-              🗑 Delete Report
-            </button>
+            </div>
 
           </div>
 
-        </section>
+          {/* =================================================
+              EXACT A4 PAGE
+          ================================================= */}
+
+          <div className="finalPreview">
+
+            <div className="a4Page">
+
+              {/* =================================================
+                  HEADER
+              ================================================= */}
+
+              <header className="labHeader">
+
+                <div className="brand">
+
+                  <div className="mainLogo">
+
+                    <span>
+                      N
+                    </span>
+
+                    <div className="logoRay r1" />
+                    <div className="logoRay r2" />
+                    <div className="logoRay r3" />
+                    <div className="logoRay r4" />
+
+                  </div>
+
+                  <div className="brandText">
+
+                    <h1>
+                      NIDAN PATHOLOGY LAB
+                    </h1>
+
+                    <h2>
+                      {LAB.subtitle}
+                    </h2>
+
+                    <p>
+                      {LAB.slogan}
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <div className="headerRight">
+
+                  <div className="reportLabel">
+                    LABORATORY REPORT
+                  </div>
+
+                  <div>
+                    ☎ {LAB.phone}
+                  </div>
+
+                  <div>
+                    📍 {LAB.address}
+                  </div>
+
+                  <div>
+                    Report No:{" "}
+                    <b>
+                      {selectedReport.report_no ||
+                        "-"}
+                    </b>
+                  </div>
+
+                  <div>
+                    Report Date:{" "}
+                    <b>
+                      {formatDate(
+                        previewReportDate
+                      )}
+                    </b>
+                  </div>
+
+                </div>
+
+              </header>
+
+              <div className="accentBar">
+
+                <span />
+
+                <b />
+
+                <i />
+
+              </div>
+
+              {/* =================================================
+                  PATIENT INFORMATION
+              ================================================= */}
+
+              <section className="patientCard">
+
+                <div className="sectionBar">
+
+                  <span className="circleP">
+                    P
+                  </span>
+
+                  PATIENT INFORMATION
+
+                </div>
+
+                <div className="patientGrid">
+
+                  <Info
+                    label="Patient Name"
+                    value={
+                      getPatientName(
+                        selectedReport
+                      )
+                    }
+                    strong
+                  />
+
+                  <Info
+                    label="Patient ID"
+                    value={
+                      getPatientId(
+                        selectedReport
+                      )
+                    }
+                  />
+
+                  <Info
+                    label="Age / Sex"
+                    value={`
+                      ${getPatientAge(
+                        selectedReport
+                      )} / ${getPatientGenderValue(
+                        selectedReport
+                      )}
+                    `}
+                  />
+
+                  <Info
+                    label="Mobile"
+                    value={
+                      getPatientMobile(
+                        selectedReport
+                      )
+                    }
+                  />
+
+                  <Info
+                    label="Referred By"
+                    value={
+                      getDoctor(
+                        selectedReport
+                      )
+                    }
+                  />
+
+                  <Info
+                    label="Collection Date"
+                    value={
+                      getCollectionDate(
+                        selectedReport
+                      )
+                    }
+                  />
+
+                  <Info
+                    label="Report Date"
+                    value={
+                      formatDate(
+                        previewReportDate
+                      )
+                    }
+                  />
+
+                  <Info
+                    label="Report Status"
+                    value="FINAL"
+                    status
+                  />
+
+                </div>
+
+              </section>
+
+              {/* =================================================
+                  TESTS
+              ================================================= */}
+
+              <main className="tests">
+
+                {previewTests.length ===
+                0 ? (
+
+                  <div className="noTest">
+                    No laboratory investigation available.
+                  </div>
+
+                ) : (
+
+                  previewTests.map(
+                    (
+                      test,
+                      index
+                    ) => (
+
+                      <TestSection
+                        key={
+                          test.id ||
+                          index
+                        }
+                        test={
+                          test
+                        }
+                      />
+
+                    )
+                  )
+
+                )}
+
+              </main>
+
+              {/* =================================================
+                  SIGNATURES
+              ================================================= */}
+
+              <section className="signatures">
+
+                <div className="signature">
+
+                  <div className="signatureBlank" />
+
+                  <strong>
+                    Lab Technician
+                  </strong>
+
+                  <small>
+                    NIDAN PATHOLOGY LAB
+                  </small>
+
+                </div>
+
+                <div className="signature">
+
+                  <div className="signatureBlank" />
+
+                  <strong>
+                    Authorized Signatory
+                  </strong>
+
+                  <small>
+                    Signature &amp; Seal
+                  </small>
+
+                </div>
+
+              </section>
+
+              {/* =================================================
+                  NOTE
+              ================================================= */}
+
+              <div className="note">
+
+                <b>
+                  Note:
+                </b>{" "}
+
+                Reference ranges may vary according
+                to laboratory methodology, age and
+                clinical condition. Results should
+                be interpreted by a qualified
+                healthcare professional.
+
+              </div>
+
+              {/* =================================================
+                  FOOTER
+              ================================================= */}
+
+              <footer className="footer">
+
+                <strong>
+                  NIDAN PATHOLOGY LAB
+                </strong>
+
+                <span>
+                  {LAB.slogan}
+                </span>
+
+                <small>
+                  ☎ {LAB.phone}
+                  &nbsp; | &nbsp;
+                  {LAB.address}
+                </small>
+
+                <em>
+                  Page 1 of 1
+                </em>
+
+              </footer>
+
+            </div>
+
+          </div>
+
+        </div>
+
       )}
 
-      {/* =====================================================
+      {/* =================================================
           CSS
-      ===================================================== */}
+      ================================================= */}
 
       <style jsx global>{`
-
-        /* ===================================================
-           GLOBAL
-        =================================================== */
 
         * {
           box-sizing: border-box;
@@ -2674,1476 +2741,2486 @@ export default function ReportsPage() {
         body {
           margin: 0;
           padding: 0;
-        }
 
-        body {
+          background:
+            #eef3f7;
+
+          color:
+            #172033;
+
           font-family:
             Arial,
             Helvetica,
             sans-serif;
-          background: #f5f7fb;
         }
 
         button,
         input {
-          font-family: inherit;
-        }
-
-        /* ===================================================
-           PAGE
-        =================================================== */
-
-        .savedReportsPage {
-          min-height: 100vh;
-          background: #f5f7fb;
-          padding: 28px;
-          color: #172033;
-        }
-
-        /* ===================================================
-           HEADER
-        =================================================== */
-
-        .savedReportsHeader {
-          max-width: 1400px;
-          margin: 0 auto 22px;
-
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-
-          gap: 20px;
-        }
-
-        .savedReportsHeader h1 {
-          margin: 0;
-
-          font-size: 30px;
-          font-weight: 800;
-
-          color: #172033;
-        }
-
-        .savedReportsHeader p {
-          margin: 6px 0 0;
-
-          color: #697386;
-
-          font-size: 14px;
-          font-weight: 600;
-
-          letter-spacing: 0.5px;
-        }
-
-        .headerControls {
-          display: flex;
-          align-items: center;
-          gap: 9px;
-        }
-
-        .reportSearchInput {
-          width: 240px;
-
-          border: 1px solid #d6dce8;
-          background: #ffffff;
-
-          border-radius: 9px;
-
-          padding: 11px 13px;
-
-          outline: none;
-
-          font-size: 13px;
-        }
-
-        .reportSearchInput:focus {
-          border-color: #4d83c7;
-
-          box-shadow:
-            0 0 0 3px
-            rgba(
-              31,
-              95,
-              174,
-              0.08
-            );
-        }
-
-        .refreshReportsButton {
-          border: 1px solid #d6dce8;
-
-          background: #ffffff;
-          color: #172033;
-
-          border-radius: 9px;
-
-          padding: 11px 17px;
-
-          font-size: 14px;
-          font-weight: 700;
-
-          cursor: pointer;
-
-          transition: 0.2s;
-        }
-
-        .refreshReportsButton:hover {
-          background: #f0f4fa;
-        }
-
-        .refreshReportsButton:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        /* ===================================================
-           MESSAGE
-        =================================================== */
-
-        .reportMessage {
-          max-width: 1400px;
-          margin: 0 auto 18px;
-
-          background: #fff7e6;
-
-          border: 1px solid #ffd591;
-
-          border-radius: 10px;
-
-          padding: 14px 16px;
-
-          color: #8a5700;
-
-          font-size: 14px;
-        }
-
-        /* ===================================================
-           REPORT CARD
-        =================================================== */
-
-        .savedReportsCard {
-          max-width: 1400px;
-          margin: 0 auto;
-
-          background: #ffffff;
-
-          border: 1px solid #e2e7f0;
-
-          border-radius: 14px;
-
-          overflow: hidden;
-
-          box-shadow:
-            0 4px 20px
-            rgba(
-              28,
-              39,
-              60,
-              0.05
-            );
-        }
-
-        .savedTableWrapper {
-          width: 100%;
-          overflow-x: auto;
-        }
-
-        .savedReportsTable {
-          width: 100%;
-          min-width: 1050px;
-
-          border-collapse: collapse;
-        }
-
-        .savedReportsTable thead {
-          background: #f7f9fc;
-        }
-
-        .savedReportsTable th {
-          padding: 15px 16px;
-
-          text-align: left;
-
-          font-size: 12px;
-          font-weight: 800;
-
-          color: #596579;
-
-          letter-spacing: 0.4px;
-
-          border-bottom:
-            1px solid
-            #e3e8f0;
-
-          white-space: nowrap;
-        }
-
-        .savedReportsTable td {
-          padding: 16px;
-
-          border-bottom:
-            1px solid
-            #edf0f5;
-
-          font-size: 14px;
-
-          color: #273246;
-
-          vertical-align: middle;
-        }
-
-        .savedReportsTable tbody tr:hover {
-          background: #fafcff;
-        }
-
-        .savedReportsTable tbody tr:last-child td {
-          border-bottom: none;
-        }
-
-        /* ===================================================
-           STATUS
-        =================================================== */
-
-        .completedStatus {
-          display: inline-block;
-
-          background: #e9f9ef;
-
-          color: #14783b;
-
-          padding: 6px 10px;
-
-          border-radius: 20px;
-
-          font-size: 12px;
-          font-weight: 700;
-
-          text-transform: capitalize;
-        }
-
-        .resultCountBadge {
-          display: inline-flex;
-
-          min-width: 30px;
-          height: 25px;
-
-          padding: 0 8px;
-
-          align-items: center;
-          justify-content: center;
-
-          background: #eef5ff;
-
-          color: #1e5b9e;
-
-          border: 1px solid #cbdcf3;
-
-          border-radius: 20px;
-
-          font-size: 11px;
-          font-weight: 800;
-        }
-
-        /* ===================================================
-           ACTIONS
-        =================================================== */
-
-        .savedReportActions {
-          display: flex;
-
-          gap: 7px;
-
-          align-items: center;
-
-          flex-wrap: wrap;
-        }
-
-        .savedReportActions button {
-          border-radius: 7px;
-
-          padding: 7px 10px;
-
-          font-size: 12px;
-          font-weight: 700;
-
-          cursor: pointer;
-
-          background: #ffffff;
-
-          white-space: nowrap;
-        }
-
-        .viewReportButton {
-          border: 1px solid #b9c8e7;
-          color: #244c96;
-        }
-
-        .printSavedButton {
-          border: 1px solid #a8d7bd;
-          color: #137340;
-        }
-
-        .deleteSavedButton {
-          border: 1px solid #efb6b6;
-          color: #c33131;
-        }
-
-        .viewReportButton:hover {
-          background: #eef4ff;
-        }
-
-        .printSavedButton:hover {
-          background: #edf9f2;
-        }
-
-        .deleteSavedButton:hover {
-          background: #fff1f1;
-        }
-
-        /* ===================================================
-           LOADING / EMPTY
-        =================================================== */
-
-        .reportsLoading,
-        .noSavedReports {
-          min-height: 300px;
-
-          display: flex;
-
-          flex-direction: column;
-
-          align-items: center;
-
-          justify-content: center;
-
-          text-align: center;
-
-          padding: 30px;
-
-          color: #697386;
-        }
-
-        .loadingCircle {
-          width: 58px;
-          height: 58px;
-
-          border-radius: 50%;
-
-          background: #1f5fae;
-
-          color: #ffffff;
-
-          display: flex;
-
-          align-items: center;
-          justify-content: center;
-
-          font-weight: 800;
-          font-size: 18px;
-
-          margin-bottom: 15px;
-        }
-
-        .noSavedReports > div {
-          font-size: 42px;
-
-          margin-bottom: 8px;
-        }
-
-        .noSavedReports h2 {
-          margin: 5px 0;
-
-          color: #273246;
-        }
-
-        .noSavedReports p {
-          margin: 4px 0;
-        }
-
-        /* ===================================================
-           PREVIEW SECTION
-        =================================================== */
-
-        .savedReportPreviewSection {
-          max-width: 1100px;
-
-          margin: 35px auto 0;
-
-          background: #ffffff;
-
-          border:
-            1px solid
-            #e0e5ed;
-
-          border-radius: 14px;
-
-          padding: 20px;
-
-          box-shadow:
-            0 5px 25px
-            rgba(
-              20,
-              30,
-              50,
-              0.08
-            );
-        }
-
-        .previewTopBar {
-          display: flex;
-
-          align-items: center;
-
-          justify-content: space-between;
-
-          gap: 15px;
-
-          padding-bottom: 18px;
-
-          margin-bottom: 18px;
-
-          border-bottom:
-            1px solid
-            #e5e9f0;
-        }
-
-        .previewTopBar h2 {
-          margin: 0 0 5px;
-
-          font-size: 22px;
-        }
-
-        .previewTopBar strong {
-          color: #647087;
-
-          font-size: 13px;
-        }
-
-        .previewResultInfo {
-          display: inline-block;
-
-          margin-left: 12px;
-
-          color: #16803b;
-
-          font-size: 11px;
-
-          font-weight: 700;
-        }
-
-        .closePreviewButton {
-          border:
-            1px solid
-            #d5dbe6;
-
-          background: #ffffff;
-
-          padding: 9px 14px;
-
-          border-radius: 8px;
-
-          cursor: pointer;
-
-          font-weight: 700;
-        }
-
-        .closePreviewButton:hover {
-          background: #f5f7fa;
-        }
-
-        /* ===================================================
-           PRINTABLE REPORT
-        =================================================== */
-
-        .savedPrintableReport {
-          width: 100%;
-
-          max-width: 900px;
-
-          margin: 0 auto;
-
-          background: #ffffff;
-
-          color: #111111;
-
-          padding: 25px 30px;
-
-          border:
-            1px solid
-            #dce1e8;
-
           font-family:
             Arial,
             Helvetica,
             sans-serif;
         }
 
-        /* ===================================================
-           LAB HEADER
-        =================================================== */
+        /* ==================================================
+           SAVED REPORT LIST
+        ================================================== */
 
-        .savedLabHeader {
-          display: grid;
+        .savedReportsScreen {
+          min-height: 100vh;
 
-          grid-template-columns:
-            80px
-            1fr
-            190px;
+          padding:
+            22px;
 
-          gap: 18px;
-
-          align-items: center;
+          background:
+            #eef3f7;
         }
 
-        .savedLogo {
-          width: 65px;
-          height: 65px;
-
-          border-radius: 12px;
-
-          background: #145da0;
-
-          color: white;
-
-          display: flex;
-
-          align-items: center;
-          justify-content: center;
-
-          font-size: 25px;
-
-          font-weight: 900;
-        }
-
-        .savedLabIdentity h1 {
-          margin: 0;
-
-          font-size: 27px;
-
-          line-height: 1.1;
-
-          color: #124f8f;
-
-          font-weight: 900;
-        }
-
-        .savedLabIdentity p {
-          margin: 4px 0 0;
-
-          font-size: 12px;
-
-          color: #3f4856;
-        }
-
-        .savedLabIdentity .savedTagline {
-          font-weight: 700;
-
-          color: #1671b8;
-
-          margin-top: 6px;
-        }
-
-        .savedHeaderRight {
-          text-align: right;
-
-          display: flex;
-
-          flex-direction: column;
-
-          gap: 6px;
-        }
-
-        .savedHeaderRight strong {
-          font-size: 13px;
-
-          color: #124f8f;
-        }
-
-        .savedHeaderRight span {
-          font-size: 10px;
-
-          color: #555;
-        }
-
-        .savedAccentLine {
-          height: 3px;
-
-          margin: 15px 0 10px;
-
-          background: #145da0;
-        }
-
-        /* ===================================================
-           LAB DETAILS
-        =================================================== */
-
-        .savedLabDetails {
-          display: flex;
-
-          justify-content: space-between;
-
-          flex-wrap: wrap;
-
-          gap: 8px 20px;
-
-          font-size: 10px;
-
-          color: #454545;
-
-          padding: 5px 0 12px;
-
-          border-bottom:
-            1px solid
-            #d5d5d5;
-        }
-
-        /* ===================================================
-           PATIENT
-        =================================================== */
-
-        .savedPatientSection {
-          margin-top: 15px;
-
-          border:
-            1px solid
-            #ccd5df;
-        }
-
-        .savedSectionTitle {
-          background: #eef5fb;
-
-          color: #124f8f;
-
-          font-size: 12px;
-
-          font-weight: 900;
-
-          padding: 8px 10px;
-
-          letter-spacing: 0.5px;
-
-          border-bottom:
-            1px solid
-            #ccd5df;
-        }
-
-        .savedPatientGrid {
-          display: grid;
-
-          grid-template-columns:
-            repeat(3, 1fr);
-        }
-
-        .savedPatientGrid > div {
-          min-height: 55px;
-
-          padding: 9px 11px;
-
-          border-right:
-            1px solid
-            #e1e5ea;
-
-          border-bottom:
-            1px solid
-            #e1e5ea;
-        }
-
-        .savedPatientGrid > div:nth-child(3n) {
-          border-right: none;
-        }
-
-        .savedPatientGrid > div:nth-last-child(-n + 3) {
-          border-bottom: none;
-        }
-
-        .savedPatientGrid span {
-          display: block;
-
-          font-size: 9px;
-
-          font-weight: 700;
-
-          color: #717b89;
-
-          text-transform: uppercase;
-
-          margin-bottom: 5px;
-        }
-
-        .savedPatientGrid strong {
-          display: block;
-
-          font-size: 12px;
-
-          color: #111;
-
-          word-break: break-word;
-        }
-
-        /* ===================================================
-           INVESTIGATION
-        =================================================== */
-
-        .savedInvestigationReport {
-          margin-top: 18px;
-        }
-
-        .savedTestSection {
-          margin-bottom: 22px;
-
-          break-inside: avoid;
-
-          page-break-inside: avoid;
-        }
-
-        .savedCategory {
-          text-align: center;
-
-          font-size: 10px;
-
-          font-weight: 800;
-
-          color: #6a7480;
-
-          margin-bottom: 4px;
-
-          letter-spacing: 0.7px;
-        }
-
-        .savedTestHeading {
-          text-align: center;
-
-          background: #eef5fb;
-
-          border:
-            1px solid
-            #cbd6e2;
-
-          border-bottom: none;
-
-          padding: 8px 10px;
-
-          font-size: 13px;
-
-          font-weight: 900;
-
-          color: #124f8f;
-
-          text-transform: uppercase;
-        }
-
-        .savedFinalReportTable {
-          width: 100%;
-
-          border-collapse: collapse;
-
-          table-layout: fixed;
-
-          font-size: 11px;
-        }
-
-        .savedFinalReportTable th {
-          background: #f5f7fa;
-
-          border:
-            1px solid
-            #cdd4dd;
-
-          padding: 7px 6px;
-
-          font-size: 9px;
-
-          font-weight: 900;
-
-          text-align: center;
-        }
-
-        .savedFinalReportTable th:first-child {
-          width: 29%;
-
-          text-align: left;
-        }
-
-        .savedFinalReportTable th:nth-child(2) {
-          width: 14%;
-        }
-
-        .savedFinalReportTable th:nth-child(3) {
-          width: 15%;
-        }
-
-        .savedFinalReportTable th:nth-child(4) {
-          width: 30%;
-        }
-
-        .savedFinalReportTable th:nth-child(5) {
-          width: 12%;
-        }
-
-        .savedFinalReportTable td {
-          border:
-            1px solid
-            #d6dbe2;
-
-          padding: 7px 6px;
-
-          vertical-align: middle;
-
-          text-align: center;
-
-          word-break: break-word;
-        }
-
-        .savedFinalReportTable td:first-child {
-          text-align: left;
-
-          font-weight: 600;
-        }
-
-        .savedNormalResult {
-          font-weight: 800;
-
-          color: #111;
-        }
-
-        .savedAbnormalResult {
-          font-weight: 900;
-
-          color: #c51f1f;
-        }
-
-        .savedFlag {
-          display: inline-flex;
-
-          width: 24px;
-          height: 24px;
-
-          align-items: center;
-          justify-content: center;
-
-          border-radius: 50%;
-
-          font-size: 10px;
-
-          font-weight: 900;
-        }
-
-        .savedFlagHigh {
-          background: #ffe4e4;
-
-          color: #bd1f1f;
-        }
-
-        .savedFlagLow {
-          background: #fff0d8;
-
-          color: #a35d00;
-        }
-
-        .savedReportEmpty {
-          padding: 25px;
-
-          text-align: center;
-
-          border:
-            1px dashed
-            #bbc3cd;
-
-          color: #6b7480;
-        }
-
-        .savedReportEmpty p {
-          margin-bottom: 0;
-        }
-
-        /* ===================================================
-           REMARKS
-        =================================================== */
-
-        .savedRemarks {
-          margin-top: 18px;
-
-          display: flex;
-
-          gap: 10px;
-
-          align-items: center;
-
-          font-size: 11px;
-        }
-
-        .savedRemarksLine {
-          flex: 1;
-
-          border-bottom:
-            1px solid
-            #888;
-
-          color: transparent;
-        }
-
-        /* ===================================================
-           SIGNATURE
-        =================================================== */
-
-        .savedSignatureSection {
-          display: flex;
-
-          justify-content: space-between;
-
-          gap: 40px;
-
-          margin-top: 45px;
-        }
-
-        .savedSignatureBox {
-          width: 210px;
-
-          text-align: center;
-
-          font-size: 11px;
-        }
-
-        .savedSignatureSpace {
-          height: 40px;
-
-          border-bottom:
-            1px solid
-            #555;
-
-          margin-bottom: 7px;
-        }
-
-        .savedSignatureBox strong {
-          display: block;
-
-          margin-bottom: 3px;
-        }
-
-        .savedSignatureBox span {
-          color: #626262;
-
-          font-size: 10px;
-        }
-
-        /* ===================================================
-           NOTES
-        =================================================== */
-
-        .savedNotes {
-          margin-top: 25px;
-
-          border-top:
-            1px solid
-            #aaa;
-
-          padding-top: 9px;
-
-          font-size: 9px;
-
-          line-height: 1.45;
-
-          color: #4e4e4e;
-        }
-
-        .savedNotes strong {
-          color: #222;
-        }
-
-        .savedNotes p {
-          display: inline;
+        .savedReportsHeader {
+          max-width:
+            1400px;
 
           margin:
-            0
-            0
-            0
+            0 auto 16px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            15px;
+        }
+
+        .savedReportsHeader h1 {
+          margin:
+            0;
+
+          font-size:
+            28px;
+
+          font-weight:
+            900;
+        }
+
+        .savedReportsHeader p {
+          margin:
+            4px 0 0;
+
+          font-size:
+            11px;
+
+          color:
+            #667085;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            .5px;
+        }
+
+        .savedHeaderControls {
+          display:
+            flex;
+
+          gap:
+            8px;
+
+          align-items:
+            center;
+        }
+
+        .reportSearch {
+          width:
+            230px;
+
+          height:
+            38px;
+
+          padding:
+            0 12px;
+
+          border:
+            1px solid #d8e0e7;
+
+          border-radius:
+            7px;
+
+          background:
+            #ffffff;
+
+          outline:
+            none;
+
+          font-size:
+            12px;
+        }
+
+        .reportSearch:focus {
+          border-color:
+            #087f72;
+        }
+
+        .refreshButton {
+          height:
+            38px;
+
+          padding:
+            0 14px;
+
+          border:
+            1px solid #d8e0e7;
+
+          border-radius:
+            7px;
+
+          background:
+            #ffffff;
+
+          font-size:
+            12px;
+
+          font-weight:
+            800;
+
+          cursor:
+            pointer;
+        }
+
+        .refreshButton:disabled {
+          opacity:
+            .6;
+
+          cursor:
+            not-allowed;
+        }
+
+        .reportMessage {
+          max-width:
+            1400px;
+
+          margin:
+            0 auto 15px;
+
+          padding:
+            12px;
+
+          border:
+            1px solid #ffd591;
+
+          background:
+            #fff7e6;
+
+          color:
+            #8a5700;
+
+          border-radius:
+            7px;
+
+          font-size:
+            12px;
+        }
+
+        .reportsCard {
+          max-width:
+            1400px;
+
+          margin:
+            0 auto;
+
+          background:
+            #ffffff;
+
+          border:
+            1px solid #dce4eb;
+
+          border-radius:
+            10px;
+
+          overflow:
+            hidden;
+
+          box-shadow:
+            0 4px 18px
+            rgba(
+              16,
+              24,
+              40,
+              .07
+            );
+        }
+
+        .reportsTableWrapper {
+          width:
+            100%;
+
+          overflow-x:
+            auto;
+        }
+
+        .reportsTable {
+          width:
+            100%;
+
+          min-width:
+            1000px;
+
+          border-collapse:
+            collapse;
+        }
+
+        .reportsTable th {
+          padding:
+            13px 12px;
+
+          text-align:
+            left;
+
+          background:
+            #f7f9fb;
+
+          color:
+            #667085;
+
+          border-bottom:
+            1px solid #e4e9ee;
+
+          font-size:
+            10px;
+
+          font-weight:
+            900;
+        }
+
+        .reportsTable td {
+          padding:
+            14px 12px;
+
+          border-bottom:
+            1px solid #edf0f3;
+
+          font-size:
+            11px;
+
+          color:
+            #344054;
+
+          vertical-align:
+            middle;
+        }
+
+        .reportsTable tbody tr:hover {
+          background:
+            #fbfdfe;
+        }
+
+        .resultCount {
+          display:
+            inline-flex;
+
+          width:
+            23px;
+
+          height:
+            23px;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            50%;
+
+          background:
+            #eff6fb;
+
+          border:
+            1px solid #dbe8f0;
+
+          color:
+            #34536b;
+
+          font-size:
+            9px;
+
+          font-weight:
+            900;
+        }
+
+        .pendingStatus {
+          display:
+            inline-block;
+
+          padding:
+            5px 9px;
+
+          border-radius:
+            20px;
+
+          background:
+            #e9f9ef;
+
+          color:
+            #14783b;
+
+          font-size:
+            9px;
+
+          font-weight:
+            900;
+
+          text-transform:
+            capitalize;
+        }
+
+        .actionButtons {
+          display:
+            flex;
+
+          gap:
+            5px;
+
+          flex-wrap:
+            wrap;
+        }
+
+        .actionButtons button {
+          padding:
+            6px 8px;
+
+          border-radius:
+            5px;
+
+          background:
+            #ffffff;
+
+          font-size:
+            9px;
+
+          font-weight:
+            800;
+
+          cursor:
+            pointer;
+        }
+
+        .viewButton {
+          border:
+            1px solid #b9c8e7;
+
+          color:
+            #244c96;
+        }
+
+        .printButton {
+          border:
+            1px solid #a8d7bd;
+
+          color:
+            #137340;
+        }
+
+        .deleteButton {
+          border:
+            1px solid #efb6b6;
+
+          color:
+            #c33131;
+        }
+
+        .loadingBox,
+        .emptyBox {
+          min-height:
+            280px;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          text-align:
+            center;
+
+          color:
+            #667085;
+        }
+
+        .loadingLogo {
+          width:
+            55px;
+
+          height:
+            55px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          margin-bottom:
+            12px;
+
+          border-radius:
+            50%;
+
+          color:
+            #ffffff;
+
+          background:
+            linear-gradient(
+              135deg,
+              #087f72,
+              #0b6676
+            );
+
+          font-weight:
+            900;
+        }
+
+        .emptyBox > div {
+          font-size:
+            40px;
+        }
+
+        .emptyBox h2 {
+          margin:
+            8px 0 3px;
+
+          color:
+            #344054;
+        }
+
+        .emptyBox p {
+          margin:
+            0;
+
+          font-size:
+            12px;
+        }
+
+        /* ==================================================
+           PREVIEW TOOLBAR
+        ================================================== */
+
+        .savedFinalPreviewWrapper {
+          padding:
+            15px 10px 40px;
+
+          background:
+            linear-gradient(
+              180deg,
+              #eef3f7,
+              #e7edf3
+            );
+        }
+
+        .previewToolbar {
+          width:
+            calc(100% - 10px);
+
+          max-width:
+            1200px;
+
+          margin:
+            0 auto 10px;
+
+          padding:
+            9px 12px;
+
+          border:
+            1px solid #dce4eb;
+
+          border-radius:
+            8px;
+
+          background:
+            #ffffff;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            10px;
+
+          box-shadow:
+            0 2px 12px
+            rgba(
+              16,
+              24,
+              40,
+              .06
+            );
+        }
+
+        .previewToolbar strong {
+          display:
+            block;
+
+          font-size:
+            12px;
+        }
+
+        .previewToolbar small {
+          display:
+            block;
+
+          margin-top:
+            2px;
+
+          font-size:
+            7px;
+
+          color:
+            #667085;
+        }
+
+        .previewToolbarActions {
+          display:
+            flex;
+
+          gap:
+            6px;
+        }
+
+        .previewToolbarActions button {
+          padding:
+            7px 11px;
+
+          border-radius:
+            6px;
+
+          font-size:
+            8px;
+
+          font-weight:
+            900;
+
+          cursor:
+            pointer;
+        }
+
+        .previewPrint {
+          border:
+            1px solid #087f72;
+
+          background:
+            linear-gradient(
+              135deg,
+              #087f72,
+              #0b6676
+            );
+
+          color:
+            #ffffff;
+        }
+
+        .previewClose {
+          border:
+            1px solid #d0d5dd;
+
+          background:
+            #ffffff;
+
+          color:
+            #344054;
+        }
+
+        /* ==================================================
+           EXACT FINAL REPORT PREVIEW
+        ================================================== */
+
+        .finalPreview {
+          min-height:
+            100vh;
+
+          padding:
+            10px;
+
+          display:
+            flex;
+
+          justify-content:
+            center;
+        }
+
+        .a4Page {
+          position:
+            relative;
+
+          width:
+            210mm;
+
+          height:
+            297mm;
+
+          min-height:
+            297mm;
+
+          max-height:
+            297mm;
+
+          padding:
+            0 11mm 18mm;
+
+          background:
+            #ffffff;
+
+          overflow:
+            hidden;
+
+          box-shadow:
+            0 14px 40px
+            rgba(
+              16,
+              24,
+              40,
+              .15
+            );
+        }
+
+        /* ==================================================
+           HEADER
+        ================================================== */
+
+        .labHeader {
+          height:
+            35mm;
+
+          padding-top:
+            6mm;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            7mm;
+        }
+
+        .brand {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            4mm;
+        }
+
+        .mainLogo {
+          position:
+            relative;
+
+          width:
+            22mm;
+
+          height:
+            22mm;
+
+          flex-shrink:
+            0;
+
+          border:
+            1.5px solid #087f72;
+
+          border-radius:
+            50%;
+
+          background:
+            radial-gradient(
+              circle,
+              #ffffff 45%,
+              #eefbf8 100%
+            );
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          box-shadow:
+            inset 0 0 0 2px
+            #d7f2ed;
+        }
+
+        .mainLogo span {
+          position:
+            relative;
+
+          z-index:
+            2;
+
+          color:
+            #087f72;
+
+          font-size:
+            20px;
+
+          font-weight:
+            950;
+        }
+
+        .logoRay {
+          position:
+            absolute;
+
+          width:
+            14mm;
+
+          height:
+            .5px;
+
+          background:
+            #eabf43;
+        }
+
+        .r1 {
+          transform:
+            rotate(0deg);
+        }
+
+        .r2 {
+          transform:
+            rotate(45deg);
+        }
+
+        .r3 {
+          transform:
+            rotate(90deg);
+        }
+
+        .r4 {
+          transform:
+            rotate(135deg);
+        }
+
+        .brandText h1 {
+          margin:
+            0;
+
+          font-size:
+            21px;
+
+          line-height:
+            1;
+
+          font-weight:
+            950;
+
+          letter-spacing:
+            .2px;
+
+          color:
+            #101828;
+        }
+
+        .brandText h2 {
+          margin:
+            2px 0 0;
+
+          font-size:
+            7px;
+
+          letter-spacing:
+            .8px;
+
+          color:
+            #087f72;
+
+          font-weight:
+            900;
+        }
+
+        .brandText p {
+          margin:
+            4px 0 0;
+
+          font-size:
+            6px;
+
+          color:
+            #667085;
+
+          font-weight:
+            700;
+        }
+
+        .headerRight {
+          width:
+            67mm;
+
+          text-align:
+            right;
+
+          color:
+            #667085;
+
+          font-size:
+            5.7px;
+
+          line-height:
+            1.55;
+        }
+
+        .reportLabel {
+          display:
+            inline-block;
+
+          margin-bottom:
+            2px;
+
+          padding:
+            2px 5px;
+
+          border-radius:
+            3px;
+
+          background:
+            #e9f8f5;
+
+          color:
+            #087f72;
+
+          font-size:
+            6px;
+
+          font-weight:
+            950;
+
+          letter-spacing:
+            .5px;
+        }
+
+        .accentBar {
+          height:
+            1.5px;
+
+          display:
+            flex;
+
+          gap:
+            2px;
+
+          margin-bottom:
+            4mm;
+        }
+
+        .accentBar span {
+          flex:
+            4;
+
+          background:
+            #087f72;
+        }
+
+        .accentBar b {
+          flex:
+            1;
+
+          background:
+            #eabf43;
+        }
+
+        .accentBar i {
+          flex:
+            6;
+
+          background:
+            #dce5ea;
+        }
+
+        /* ==================================================
+           PATIENT
+        ================================================== */
+
+        .patientCard {
+          border:
+            1px solid #d7e0e6;
+
+          border-radius:
             4px;
+
+          overflow:
+            hidden;
+
+          margin-bottom:
+            4mm;
         }
 
-        /* ===================================================
+        .sectionBar {
+          height:
+            6.5mm;
+
+          padding:
+            0 3mm;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            5px;
+
+          background:
+            linear-gradient(
+              90deg,
+              #087f72,
+              #0c7180
+            );
+
+          color:
+            #ffffff;
+
+          font-size:
+            6.5px;
+
+          font-weight:
+            950;
+
+          letter-spacing:
+            .6px;
+        }
+
+        .circleP {
+          width:
+            15px;
+
+          height:
+            15px;
+
+          border-radius:
+            50%;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              .18
+            );
+
+          font-size:
+            6px;
+        }
+
+        .patientGrid {
+          display:
+            grid;
+
+          grid-template-columns:
+            repeat(
+              4,
+              1fr
+            );
+        }
+
+        .infoCell {
+          min-height:
+            9mm;
+
+          padding:
+            2mm 3mm;
+
+          border-right:
+            1px solid #e3e8ed;
+
+          border-bottom:
+            1px solid #e3e8ed;
+        }
+
+        .infoCell:nth-child(4n) {
+          border-right:
+            0;
+        }
+
+        .infoCell:nth-last-child(-n + 4) {
+          border-bottom:
+            0;
+        }
+
+        .infoLabel {
+          display:
+            block;
+
+          margin-bottom:
+            1px;
+
+          font-size:
+            4.7px;
+
+          color:
+            #7a8796;
+
+          font-weight:
+            800;
+
+          text-transform:
+            uppercase;
+        }
+
+        .infoValue {
+          display:
+            block;
+
+          font-size:
+            6.4px;
+
+          color:
+            #172033;
+
+          font-weight:
+            700;
+
+          overflow-wrap:
+            anywhere;
+        }
+
+        .infoValue.strong {
+          font-size:
+            7px;
+
+          font-weight:
+            950;
+        }
+
+        .infoValue.status {
+          color:
+            #15803d;
+
+          font-weight:
+            950;
+        }
+
+        /* ==================================================
+           TESTS
+        ================================================== */
+
+        .tests {
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          gap:
+            3.5mm;
+        }
+
+        .testSection {
+          break-inside:
+            avoid;
+
+          page-break-inside:
+            avoid;
+        }
+
+        .testHeader {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            2.5mm;
+
+          margin-bottom:
+            1.8mm;
+
+          min-height:
+            7mm;
+        }
+
+        .departmentTag {
+          flex-shrink:
+            0;
+
+          padding:
+            2.5px 6px;
+
+          border-radius:
+            3px;
+
+          background:
+            #e8f7f4;
+
+          color:
+            #087f72;
+
+          font-size:
+            5px;
+
+          font-weight:
+            950;
+
+          letter-spacing:
+            .6px;
+        }
+
+        .testTitleBox {
+          flex:
+            1;
+
+          padding:
+            2.2mm 3.5mm;
+
+          border-left:
+            3px solid #087f72;
+
+          border-radius:
+            3px;
+
+          background:
+            linear-gradient(
+              90deg,
+              #f0faf8,
+              #ffffff
+            );
+
+          color:
+            #101828;
+
+          font-size:
+            9.5px;
+
+          font-weight:
+            950;
+
+          letter-spacing:
+            .15px;
+        }
+
+        .testLine {
+          width:
+            18mm;
+
+          height:
+            1px;
+
+          background:
+            linear-gradient(
+              90deg,
+              #087f72,
+              transparent
+            );
+        }
+
+        /* ==================================================
+           TABLE
+        ================================================== */
+
+        .labTable {
+          width:
+            100%;
+
+          table-layout:
+            fixed;
+
+          border-collapse:
+            separate;
+
+          border-spacing:
+            0;
+
+          border:
+            1px solid #cfd9e0;
+
+          border-radius:
+            4px;
+
+          overflow:
+            hidden;
+        }
+
+        .labTable th {
+          height:
+            6.5mm;
+
+          padding:
+            1.3mm;
+
+          background:
+            linear-gradient(
+              180deg,
+              #eef5f7,
+              #e3edf0
+            );
+
+          border-right:
+            1px solid #d2dce2;
+
+          border-bottom:
+            1px solid #cbd6dc;
+
+          color:
+            #344054;
+
+          font-size:
+            5.1px;
+
+          font-weight:
+            950;
+
+          text-transform:
+            uppercase;
+
+          text-align:
+            center;
+
+          letter-spacing:
+            .2px;
+        }
+
+        .labTable th:last-child {
+          border-right:
+            0;
+        }
+
+        .labTable td {
+          height:
+            6.8mm;
+
+          padding:
+            1mm 1.8mm;
+
+          border-right:
+            1px solid #e1e7eb;
+
+          border-bottom:
+            1px solid #e5eaee;
+
+          color:
+            #273443;
+
+          font-size:
+            5.8px;
+
+          vertical-align:
+            middle;
+
+          background:
+            #ffffff;
+        }
+
+        .labTable tr:last-child td {
+          border-bottom:
+            0;
+        }
+
+        .labTable td:last-child {
+          border-right:
+            0;
+        }
+
+        .labTable tbody tr:nth-child(even) td {
+          background:
+            #fbfcfd;
+        }
+
+        .investigation {
+          width:
+            30%;
+        }
+
+        .flag {
+          width:
+            8%;
+
+          text-align:
+            center;
+        }
+
+        .result {
+          width:
+            19%;
+
+          text-align:
+            center;
+        }
+
+        .reference {
+          width:
+            28%;
+
+          text-align:
+            center;
+        }
+
+        .unit {
+          width:
+            15%;
+
+          text-align:
+            center;
+        }
+
+        .investigationText {
+          font-size:
+            6px;
+
+          font-weight:
+            800;
+
+          color:
+            #263445;
+        }
+
+        /* ==================================================
+           RESULT
+        ================================================== */
+
+        .resultBox {
+          display:
+            inline-flex;
+
+          min-width:
+            24mm;
+
+          height:
+            6mm;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          padding:
+            1mm 2.5mm;
+
+          border-radius:
+            3px;
+
+          background:
+            #f2f6f9;
+
+          color:
+            #101828;
+
+          font-size:
+            7.5px;
+
+          font-weight:
+            950;
+
+          letter-spacing:
+            .2px;
+        }
+
+        .resultBox.abnormal {
+          background:
+            #fff1f0;
+
+          border:
+            1px solid #f5c8c5;
+
+          color:
+            #b42318;
+        }
+
+        .flagBadge {
+          display:
+            inline-flex;
+
+          width:
+            14px;
+
+          height:
+            14px;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            3px;
+
+          font-size:
+            5.5px;
+
+          font-weight:
+            950;
+        }
+
+        .flagHigh {
+          color:
+            #b42318;
+
+          background:
+            #fee4e2;
+
+          border:
+            1px solid #fecdca;
+        }
+
+        .flagLow {
+          color:
+            #175cd3;
+
+          background:
+            #eff8ff;
+
+          border:
+            1px solid #b2ddff;
+        }
+
+        .normalMark {
+          color:
+            #159957;
+
+          font-size:
+            10px;
+
+          font-weight:
+            900;
+        }
+
+        /* ==================================================
+           SIGNATURE
+        ================================================== */
+
+        .signatures {
+          display:
+            grid;
+
+          grid-template-columns:
+            1fr 1fr;
+
+          gap:
+            30mm;
+
+          margin-top:
+            4.5mm;
+
+          break-inside:
+            avoid;
+
+          page-break-inside:
+            avoid;
+        }
+
+        .signature {
+          text-align:
+            center;
+
+          min-height:
+            10mm;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          align-items:
+            center;
+
+          justify-content:
+            flex-end;
+        }
+
+        .signatureBlank {
+          height:
+            5mm;
+
+          width:
+            100%;
+        }
+
+        .signature strong {
+          display:
+            block;
+
+          font-size:
+            6px;
+
+          color:
+            #172033;
+
+          font-weight:
+            800;
+        }
+
+        .signature small {
+          display:
+            block;
+
+          margin-top:
+            1px;
+
+          font-size:
+            4.5px;
+
+          color:
+            #667085;
+        }
+
+        /* ==================================================
+           NOTE
+        ================================================== */
+
+        .note {
+          margin-top:
+            2.5mm;
+
+          padding:
+            1.8mm 2.5mm;
+
+          border:
+            1px solid #dbe3e8;
+
+          border-radius:
+            3px;
+
+          background:
+            #f8fafb;
+
+          color:
+            #667085;
+
+          font-size:
+            4.5px;
+
+          line-height:
+            1.35;
+
+          break-inside:
+            avoid;
+
+          page-break-inside:
+            avoid;
+        }
+
+        /* ==================================================
            FOOTER
-        =================================================== */
+        ================================================== */
 
-        .savedReportFooter {
+        .footer {
+          position:
+            absolute;
+
+          left:
+            0;
+
+          right:
+            0;
+
+          bottom:
+            0;
+
+          height:
+            12mm;
+
+          padding:
+            2.2mm 11mm;
+
+          text-align:
+            center;
+
           border-top:
-            1px solid
-            #aaa;
+            1px solid #dce4e8;
 
-          margin-top: 16px;
-
-          padding-top: 9px;
-
-          display: flex;
-
-          align-items: center;
-
-          justify-content: space-between;
-
-          gap: 10px;
-
-          font-size: 8px;
-
-          color: #5e5e5e;
+          background:
+            linear-gradient(
+              180deg,
+              #f8fafb,
+              #eef3f5
+            );
         }
 
-        .savedReportFooter strong {
-          color: #222;
+        .footer strong {
+          display:
+            block;
+
+          color:
+            #087f72;
+
+          font-size:
+            5.8px;
+
+          font-weight:
+            950;
+
+          letter-spacing:
+            .6px;
         }
 
-        /* ===================================================
-           PREVIEW BUTTONS
-        =================================================== */
+        .footer span {
+          display:
+            block;
 
-        .previewBottomActions {
-          max-width: 900px;
+          margin-top:
+            1px;
 
-          margin: 18px auto 0;
+          color:
+            #667085;
 
-          display: flex;
+          font-size:
+            3.8px;
 
-          gap: 10px;
-
-          justify-content: flex-end;
-
-          flex-wrap: wrap;
+          font-weight:
+            700;
         }
 
-        .previewPrintButton,
-        .previewDeleteButton {
-          padding: 10px 16px;
+        .footer small {
+          display:
+            block;
 
-          border-radius: 8px;
+          margin-top:
+            1px;
 
-          font-size: 13px;
+          color:
+            #98a2b3;
 
-          font-weight: 700;
-
-          cursor: pointer;
+          font-size:
+            3.4px;
         }
 
-        .previewPrintButton {
-          background: #145da0;
+        .footer em {
+          position:
+            absolute;
 
-          color: white;
+          right:
+            7mm;
 
-          border:
-            1px solid
-            #145da0;
+          bottom:
+            3mm;
+
+          font-style:
+            normal;
+
+          color:
+            #98a2b3;
+
+          font-size:
+            3.4px;
         }
 
-        .previewPrintButton:hover {
-          background: #0f4c86;
+        .noTest {
+          padding:
+            20mm;
+
+          text-align:
+            center;
+
+          color:
+            #667085;
+
+          font-size:
+            9px;
         }
 
-        .previewDeleteButton {
-          background: white;
+        /* ==================================================
+           MOBILE
+        ================================================== */
 
-          color: #c52c2c;
+        @media (max-width: 700px) {
 
-          border:
-            1px solid
-            #e3a8a8;
-        }
-
-        .previewDeleteButton:hover {
-          background: #fff4f4;
-        }
-
-        /* ===================================================
-           TABLET
-        =================================================== */
-
-        @media (max-width: 900px) {
-
-          .savedReportsPage {
-            padding: 18px 12px;
+          .savedReportsScreen {
+            padding:
+              12px 5px;
           }
 
           .savedReportsHeader {
-            align-items: flex-start;
-
-            flex-direction: column;
-          }
-
-          .headerControls {
-            width: 100%;
-          }
-
-          .reportSearchInput {
-            flex: 1;
-
-            width: auto;
-          }
-
-          .savedPrintableReport {
-            padding: 20px 16px;
-          }
-
-          .savedLabHeader {
-            grid-template-columns:
-              65px
-              1fr;
-          }
-
-          .savedHeaderRight {
-            grid-column:
-              1 / -1;
-
-            text-align: left;
-
-            flex-direction: row;
-
-            justify-content:
-              space-between;
-
-            border-top:
-              1px solid
-              #ddd;
-
-            padding-top: 8px;
-          }
-
-          .savedPatientGrid {
-            grid-template-columns:
-              repeat(2, 1fr);
-          }
-
-          .savedPatientGrid > div {
-            border-right:
-              1px solid
-              #e1e5ea !important;
-
-            border-bottom:
-              1px solid
-              #e1e5ea !important;
-          }
-
-          .savedPatientGrid > div:nth-child(2n) {
-            border-right:
-              none !important;
-          }
-
-          .savedPatientGrid > div:nth-last-child(-n + 2) {
-            border-bottom:
-              none !important;
-          }
-        }
-
-        /* ===================================================
-           MOBILE
-        =================================================== */
-
-        @media (max-width: 600px) {
-
-          .savedReportsPage {
-            padding: 14px 8px;
+            align-items:
+              flex-start;
           }
 
           .savedReportsHeader h1 {
-            font-size: 24px;
+            font-size:
+              23px;
           }
 
-          .headerControls {
-            flex-direction: column;
+          .savedHeaderControls {
+            flex-direction:
+              column;
 
-            align-items: stretch;
+            align-items:
+              stretch;
           }
 
-          .reportSearchInput {
-            width: 100%;
+          .reportSearch {
+            width:
+              170px;
+
+            height:
+              34px;
+
+            font-size:
+              10px;
           }
 
-          .refreshReportsButton {
-            width: 100%;
+          .refreshButton {
+            height:
+              34px;
 
-            padding: 9px 11px;
+            font-size:
+              10px;
           }
 
-          .savedReportPreviewSection {
-            padding: 8px;
-
-            border-radius: 9px;
-          }
-
-          .previewTopBar {
+          .savedFinalPreviewWrapper {
             padding:
-              8px
-              4px
-              14px;
+              8px 2px 25px;
           }
 
-          .previewResultInfo {
-            display: block;
+          .previewToolbar {
+            width:
+              calc(100% - 6px);
 
             margin:
-              5px
-              0
+              0 auto 7px;
+
+            flex-direction:
+              column;
+
+            align-items:
+              stretch;
+          }
+
+          .previewToolbarActions {
+            display:
+              grid;
+
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+          .previewPrint {
+            grid-column:
+              span 2;
+          }
+
+          .finalPreview {
+            padding:
+              4px 0 20px;
+          }
+
+          .a4Page {
+            width:
+              calc(
+                100vw - 8px
+              );
+
+            height:
+              calc(
+                (100vw - 8px)
+                * 1.4142857
+              );
+
+            min-height:
+              calc(
+                (100vw - 8px)
+                * 1.4142857
+              );
+
+            max-height:
+              calc(
+                (100vw - 8px)
+                * 1.4142857
+              );
+
+            padding-left:
+              4.5mm;
+
+            padding-right:
+              4.5mm;
+
+            padding-bottom:
+              15mm;
+          }
+
+          .labHeader {
+            height:
+              31mm;
+
+            padding-top:
+              5mm;
+
+            gap:
+              3mm;
+          }
+
+          .mainLogo {
+            width:
+              17mm;
+
+            height:
+              17mm;
+          }
+
+          .mainLogo span {
+            font-size:
+              15px;
+          }
+
+          .brand {
+            gap:
+              2.5mm;
+          }
+
+          .brandText h1 {
+            font-size:
+              13px;
+          }
+
+          .brandText h2 {
+            font-size:
+              4.2px;
+          }
+
+          .brandText p {
+            font-size:
+              3.7px;
+          }
+
+          .headerRight {
+            width:
+              40mm;
+
+            font-size:
+              3.7px;
+          }
+
+          .reportLabel {
+            font-size:
+              4px;
+          }
+
+          .patientGrid {
+            grid-template-columns:
+              repeat(
+                2,
+                1fr
+              );
+          }
+
+          .infoCell:nth-child(4n) {
+            border-right:
+              1px solid #e3e8ed;
+          }
+
+          .infoCell:nth-child(2n) {
+            border-right:
               0;
           }
 
-          .savedPrintableReport {
+          .infoCell:nth-last-child(-n + 4) {
+            border-bottom:
+              1px solid #e3e8ed;
+          }
+
+          .infoCell:nth-last-child(-n + 2) {
+            border-bottom:
+              0;
+          }
+
+          .infoCell {
+            min-height:
+              8mm;
+
             padding:
-              14px
-              8px;
-
-            border: none;
+              1.5mm 2mm;
           }
 
-          .savedLabHeader {
-            grid-template-columns:
-              52px
-              1fr;
+          .sectionBar {
+            height:
+              5.5mm;
 
-            gap: 10px;
+            font-size:
+              4.5px;
           }
 
-          .savedLogo {
-            width: 48px;
-            height: 48px;
+          .circleP {
+            width:
+              11px;
 
-            font-size: 19px;
+            height:
+              11px;
 
-            border-radius: 8px;
+            font-size:
+              5px;
           }
 
-          .savedLabIdentity h1 {
-            font-size: 19px;
+          .infoLabel {
+            font-size:
+              3.5px;
           }
 
-          .savedLabIdentity p {
-            font-size: 9px;
+          .infoValue {
+            font-size:
+              4.8px;
           }
 
-          .savedHeaderRight {
-            font-size: 9px;
+          .infoValue.strong {
+            font-size:
+              5.2px;
           }
 
-          .savedHeaderRight strong {
-            font-size: 10px;
+          .testHeader {
+            min-height:
+              6mm;
+
+            margin-bottom:
+              1.3mm;
           }
 
-          .savedHeaderRight span {
-            font-size: 9px;
+          .departmentTag {
+            font-size:
+              3.5px;
           }
 
-          .savedLabDetails {
-            font-size: 8px;
-          }
+          .testTitleBox {
+            font-size:
+              6.3px;
 
-          .savedPatientGrid {
-            grid-template-columns:
-              repeat(2, 1fr);
-          }
-
-          .savedPatientGrid > div {
-            padding: 7px;
-
-            min-height: 48px;
-          }
-
-          .savedPatientGrid span {
-            font-size: 7px;
-          }
-
-          .savedPatientGrid strong {
-            font-size: 9px;
-          }
-
-          .savedTestHeading {
-            font-size: 10px;
-
-            padding: 6px;
-          }
-
-          .savedCategory {
-            font-size: 8px;
-          }
-
-          .savedFinalReportTable {
-            font-size: 8px;
-          }
-
-          .savedFinalReportTable th {
             padding:
-              5px
-              2px;
-
-            font-size: 6.5px;
+              1.7mm 2mm;
           }
 
-          .savedFinalReportTable td {
+          .labTable th {
+            height:
+              5.3mm;
+
             padding:
-              5px
-              2px;
+              1mm;
+
+            font-size:
+              3.4px;
           }
 
-          .savedFlag {
-            width: 18px;
-            height: 18px;
+          .labTable td {
+            height:
+              5.5mm;
 
-            font-size: 8px;
+            padding:
+              .7mm 1mm;
+
+            font-size:
+              3.9px;
           }
 
-          .savedSignatureSection {
-            gap: 25px;
-
-            margin-top: 35px;
+          .investigationText {
+            font-size:
+              3.9px;
           }
 
-          .savedSignatureBox {
-            width: 45%;
+          .resultBox {
+            min-width:
+              14mm;
 
-            font-size: 8px;
+            height:
+              4.8mm;
+
+            font-size:
+              5.3px;
           }
 
-          .savedSignatureBox span {
-            font-size: 7px;
+          .flagBadge {
+            width:
+              11px;
+
+            height:
+              11px;
+
+            font-size:
+              4px;
           }
 
-          .savedNotes {
-            font-size: 7px;
+          .normalMark {
+            font-size:
+              7px;
           }
 
-          .savedReportFooter {
-            font-size: 6px;
+          .signatures {
+            gap:
+              15mm;
+
+            margin-top:
+              3mm;
           }
 
-          .previewBottomActions {
-            justify-content: stretch;
+          .signatureBlank {
+            height:
+              4mm;
           }
 
-          .previewPrintButton,
-          .previewDeleteButton {
-            flex: 1;
+          .signature strong {
+            font-size:
+              4px;
           }
+
+          .signature small {
+            font-size:
+              3px;
+          }
+
+          .note {
+            font-size:
+              3px;
+
+            margin-top:
+              2mm;
+          }
+
+          .footer {
+            height:
+              10mm;
+
+            padding:
+              2mm 5mm;
+          }
+
+          .footer strong {
+            font-size:
+              4.5px;
+          }
+
+          .footer span {
+            font-size:
+              3px;
+          }
+
+          .footer small {
+            font-size:
+              2.5px;
+          }
+
+          .footer em {
+            font-size:
+              2.5px;
+          }
+
         }
 
-        /* ===================================================
-           PRINT
-        =================================================== */
+        /* ==================================================
+           PRINT / PDF
+        ================================================== */
 
         @media print {
 
           @page {
-            size: A4 portrait;
+            size:
+              A4 portrait;
 
-            margin: 7mm;
+            margin:
+              0;
           }
 
           html,
           body {
-            margin: 0 !important;
+            width:
+              210mm !important;
 
-            padding: 0 !important;
+            height:
+              297mm !important;
 
-            background:
-              white !important;
-          }
+            margin:
+              0 !important;
 
-          body * {
-            visibility:
-              hidden !important;
-          }
-
-          .savedReportPreviewSection,
-          .savedReportPreviewSection * {
-            visibility:
-              visible !important;
-          }
-
-          .savedReportPreviewSection {
-            position:
-              absolute !important;
-
-            left: 0 !important;
-
-            top: 0 !important;
-
-            width: 100% !important;
-
-            max-width:
-              none !important;
-
-            margin: 0 !important;
-
-            padding: 0 !important;
-
-            border: none !important;
-
-            box-shadow:
-              none !important;
+            padding:
+              0 !important;
 
             background:
-              white !important;
-          }
+              #ffffff !important;
 
-          .previewTopBar,
-          .previewBottomActions {
-            display:
-              none !important;
-          }
-
-          .savedPrintableReport {
-            width: 100% !important;
-
-            max-width:
-              none !important;
-
-            margin: 0 !important;
-
-            padding: 0 !important;
-
-            border: none !important;
-
-            box-shadow:
-              none !important;
-
-            background:
-              white !important;
-          }
-
-          .savedTestSection {
-            break-inside:
-              avoid;
-
-            page-break-inside:
-              avoid;
-          }
-
-          .savedFinalReportTable {
-            break-inside:
-              auto;
-          }
-
-          .savedFinalReportTable tr {
-            break-inside:
-              avoid;
-
-            page-break-inside:
-              avoid;
-          }
-
-          .savedSignatureSection,
-          .savedNotes,
-          .savedReportFooter {
-            break-inside:
-              avoid;
-
-            page-break-inside:
-              avoid;
-          }
-
-          * {
             -webkit-print-color-adjust:
               exact !important;
 
             print-color-adjust:
               exact !important;
           }
+
+          .savedReportsScreen {
+            display:
+              none !important;
+          }
+
+          .previewToolbar {
+            display:
+              none !important;
+          }
+
+          .savedFinalPreviewWrapper {
+            display:
+              block !important;
+
+            width:
+              210mm !important;
+
+            height:
+              297mm !important;
+
+            min-height:
+              297mm !important;
+
+            padding:
+              0 !important;
+
+            margin:
+              0 !important;
+
+            background:
+              #ffffff !important;
+          }
+
+          .finalPreview {
+            display:
+              block !important;
+
+            width:
+              210mm !important;
+
+            height:
+              297mm !important;
+
+            min-height:
+              297mm !important;
+
+            padding:
+              0 !important;
+
+            margin:
+              0 !important;
+
+            background:
+              #ffffff !important;
+          }
+
+          .a4Page {
+            width:
+              210mm !important;
+
+            height:
+              297mm !important;
+
+            min-height:
+              297mm !important;
+
+            max-height:
+              297mm !important;
+
+            margin:
+              0 !important;
+
+            padding:
+              0 11mm 18mm !important;
+
+            box-shadow:
+              none !important;
+
+            overflow:
+              hidden !important;
+
+            page-break-after:
+              always;
+
+            break-after:
+              page;
+
+            -webkit-print-color-adjust:
+              exact !important;
+
+            print-color-adjust:
+              exact !important;
+          }
+
+          .testSection {
+            break-inside:
+              avoid !important;
+
+            page-break-inside:
+              avoid !important;
+          }
+
+          .patientCard,
+          .signatures,
+          .note {
+            break-inside:
+              avoid !important;
+
+            page-break-inside:
+              avoid !important;
+          }
+
+          .signatureLine {
+            display:
+              none !important;
+          }
+
         }
 
       `}</style>
+    </>
+  );
+}
+
+/* =========================================================
+   INFO COMPONENT
+   ========================================================= */
+
+function Info({
+  label,
+  value,
+  strong,
+  status,
+}) {
+  return (
+    <div className="infoCell">
+
+      <span className="infoLabel">
+        {label}
+      </span>
+
+      <span
+        className={
+          "infoValue " +
+          (strong
+            ? "strong "
+            : "") +
+          (status
+            ? "status"
+            : "")
+        }
+      >
+        {value || "-"}
+      </span>
 
     </div>
+  );
+}
+
+/* =========================================================
+   TEST SECTION
+   SAME AS FINAL REPORT
+   ========================================================= */
+
+function TestSection({
+  test,
+}) {
+  return (
+    <section className="testSection">
+
+      <div className="testHeader">
+
+        <span className="departmentTag">
+          {String(
+            test.category ||
+              "PATHOLOGY"
+          ).toUpperCase()}
+        </span>
+
+        <div className="testTitleBox">
+          {test.name}
+        </div>
+
+        <span className="testLine" />
+
+      </div>
+
+      <table className="labTable">
+
+        <colgroup>
+
+          <col className="investigation" />
+
+          <col className="flag" />
+
+          <col className="result" />
+
+          <col className="reference" />
+
+          <col className="unit" />
+
+        </colgroup>
+
+        <thead>
+
+          <tr>
+
+            <th>
+              INVESTIGATION
+            </th>
+
+            <th>
+              FLAG
+            </th>
+
+            <th>
+              RESULT
+            </th>
+
+            <th>
+              REFERENCE RANGE
+            </th>
+
+            <th>
+              UNIT
+            </th>
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          {(test.parameters ||
+            []
+          ).map(
+            (
+              parameter,
+              index
+            ) => {
+
+              const abnormal =
+                parameter.flag ===
+                  "H" ||
+                parameter.flag ===
+                  "L";
+
+              const value =
+                parameter.result ===
+                  "" ||
+                parameter.result ===
+                  null ||
+                parameter.result ===
+                  undefined
+                  ? "-"
+                  : parameter.result;
+
+              return (
+                <tr
+                  key={
+                    `${parameter.name}-${index}`
+                  }
+                >
+
+                  <td>
+
+                    <span className="investigationText">
+                      {
+                        parameter.name
+                      }
+                    </span>
+
+                  </td>
+
+                  <td className="flag">
+
+                    {parameter.flag ===
+                    "H" ? (
+
+                      <span className="flagBadge flagHigh">
+                        H
+                      </span>
+
+                    ) : parameter.flag ===
+                      "L" ? (
+
+                      <span className="flagBadge flagLow">
+                        L
+                      </span>
+
+                    ) : (
+
+                      <span className="normalMark">
+                        •
+                      </span>
+
+                    )}
+
+                  </td>
+
+                  <td className="result">
+
+                    <span
+                      className={
+                        "resultBox " +
+                        (
+                          abnormal
+                            ? "abnormal"
+                            : ""
+                        )
+                      }
+                    >
+                      {value}
+                    </span>
+
+                  </td>
+
+                  <td className="reference">
+
+                    {
+                      parameter.range ||
+                      "-"
+                    }
+
+                  </td>
+
+                  <td className="unit">
+
+                    {
+                      parameter.unit ||
+                      "-"
+                    }
+
+                  </td>
+
+                </tr>
+              );
+            }
+          )}
+
+        </tbody>
+
+      </table>
+
+    </section>
   );
 }
