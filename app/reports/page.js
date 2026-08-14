@@ -1,11 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 /* =========================================================
    NIDAN PATHOLOGY LAB
-   SAVED REPORTS PAGE
+   SAVED REPORTS
+   COMPLETE FIXED VERSION
+
+   IMPORTANT:
+   This page supports multiple saved-data structures:
+   1. parameter.result
+   2. parameter.value
+   3. report_data.results
+   4. results[testId][parameter]
+   5. results[testName][parameter]
+   6. results[parameter]
+   7. results array/object
+========================================================= */
+
+/* =========================================================
    MASTER TEST DATABASE
 ========================================================= */
 
@@ -164,9 +178,7 @@ const MASTER_TESTS = [
       },
       {
         name: "PDW",
-        aliases: [
-          "Platelet Distribution Width",
-        ],
+        aliases: ["Platelet Distribution Width"],
         unit: "%",
         min: 9,
         max: 17,
@@ -191,9 +203,7 @@ const MASTER_TESTS = [
     parameters: [
       {
         name: "ESR",
-        aliases: [
-          "Erythrocyte Sedimentation Rate",
-        ],
+        aliases: ["Erythrocyte Sedimentation Rate"],
         unit: "mm/hr",
         maleMin: 0,
         maleMax: 15,
@@ -293,10 +303,7 @@ const MASTER_TESTS = [
       },
       {
         name: "Potassium",
-        aliases: [
-          "Serum Potassium",
-          "K+",
-        ],
+        aliases: ["Serum Potassium", "K+"],
         unit: "mEq/L",
         min: 3.5,
         max: 5.1,
@@ -304,10 +311,7 @@ const MASTER_TESTS = [
       },
       {
         name: "Chloride",
-        aliases: [
-          "Serum Chloride",
-          "Cl-",
-        ],
+        aliases: ["Serum Chloride", "Cl-"],
         unit: "mEq/L",
         min: 98,
         max: 107,
@@ -315,9 +319,7 @@ const MASTER_TESTS = [
       },
       {
         name: "BUN",
-        aliases: [
-          "Blood Urea Nitrogen",
-        ],
+        aliases: ["Blood Urea Nitrogen"],
         unit: "mg/dL",
         min: 7,
         max: 20,
@@ -345,9 +347,7 @@ const MASTER_TESTS = [
       },
       {
         name: "Direct Bilirubin",
-        aliases: [
-          "Bilirubin Direct",
-        ],
+        aliases: ["Bilirubin Direct"],
         unit: "mg/dL",
         min: 0,
         max: 0.3,
@@ -355,9 +355,7 @@ const MASTER_TESTS = [
       },
       {
         name: "Indirect Bilirubin",
-        aliases: [
-          "Bilirubin Indirect",
-        ],
+        aliases: ["Bilirubin Indirect"],
         unit: "mg/dL",
         min: 0.2,
         max: 0.9,
@@ -389,9 +387,7 @@ const MASTER_TESTS = [
       },
       {
         name: "Total Protein",
-        aliases: [
-          "Serum Total Protein",
-        ],
+        aliases: ["Serum Total Protein"],
         unit: "g/dL",
         min: 6.0,
         max: 8.3,
@@ -528,17 +524,22 @@ const MASTER_TESTS = [
 ];
 
 /* =========================================================
-   HELPER FUNCTIONS
+   TEXT NORMALIZATION
 ========================================================= */
 
 function normalizeText(value) {
-  return String(value || "")
+  return String(value ?? "")
     .toLowerCase()
-    .replace(/[()]/g, "")
-    .replace(/[./_-]/g, " ")
+    .replace(/[()[\]{}]/g, "")
+    .replace(/[./_:-]/g, " ")
+    .replace(/\+/g, " plus ")
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/* =========================================================
+   PATIENT GENDER
+========================================================= */
 
 function getPatientGender(patient) {
   const gender = normalizeText(
@@ -567,112 +568,172 @@ function getPatientGender(patient) {
   return "";
 }
 
+/* =========================================================
+   MASTER TEST FINDER
+========================================================= */
+
 function findMasterTest(test) {
   if (!test) return null;
 
-  const testId = normalizeText(test.id);
-  const testName = normalizeText(
-    test.name ||
-      test.testName ||
-      test.short ||
-      ""
-  );
+  const candidates = [
+    test?.id,
+    test?.testId,
+    test?.test_id,
+    test?.name,
+    test?.testName,
+    test?.short,
+    test?.test,
+    test?.investigation,
+  ]
+    .filter(Boolean)
+    .map(normalizeText);
 
-  return (
-    MASTER_TESTS.find((master) => {
-      const masterId = normalizeText(master.id);
-      const masterName = normalizeText(master.name);
-      const masterShort = normalizeText(
-        master.short
-      );
-
-      return (
-        (testId && testId === masterId) ||
-        (testName &&
-          (testName === masterName ||
-            testName === masterShort ||
-            masterName.includes(testName) ||
-            testName.includes(masterName)))
-      );
-    }) || null
-  );
-}
-
-function findMasterParameter(
-  parameterName,
-  test = null
-) {
-  const target = normalizeText(parameterName);
-
-  if (!target) return null;
-
-  const matchesParameter = (parameter) => {
-    const names = [
-      parameter.name,
-      ...(parameter.aliases || []),
-    ].map(normalizeText);
-
-    return names.some(
-      (name) =>
-        name === target ||
-        (name.length > 3 &&
-          target.length > 3 &&
-          (name.includes(target) ||
-            target.includes(name)))
-    );
-  };
-
-  const masterTest = findMasterTest(test);
-
-  if (masterTest) {
-    const match =
-      masterTest.parameters.find(
-        matchesParameter
-      );
-
-    if (match) return match;
+  if (candidates.length === 0) {
+    return null;
   }
 
-  for (const group of MASTER_TESTS) {
-    const match =
-      group.parameters.find(
-        matchesParameter
-      );
+  /* First exact matching */
+  for (const master of MASTER_TESTS) {
+    const masterCandidates = [
+      master.id,
+      master.name,
+      master.short,
+    ]
+      .filter(Boolean)
+      .map(normalizeText);
 
-    if (match) return match;
+    const exact = candidates.some((candidate) =>
+      masterCandidates.includes(candidate)
+    );
+
+    if (exact) {
+      return master;
+    }
+  }
+
+  /* Then partial matching */
+  for (const master of MASTER_TESTS) {
+    const masterCandidates = [
+      master.name,
+      master.short,
+    ]
+      .filter(Boolean)
+      .map(normalizeText);
+
+    const partial = candidates.some((candidate) =>
+      masterCandidates.some(
+        (masterName) =>
+          candidate.length > 3 &&
+          masterName.length > 3 &&
+          (masterName.includes(candidate) ||
+            candidate.includes(masterName))
+      )
+    );
+
+    if (partial) {
+      return master;
+    }
   }
 
   return null;
 }
 
-function getEffectiveParameter(
-  parameter,
-  test
-) {
+/* =========================================================
+   MASTER PARAMETER FINDER
+========================================================= */
+
+function findMasterParameter(parameterName, test = null) {
+  const target = normalizeText(parameterName);
+
+  if (!target) {
+    return null;
+  }
+
+  function matchParameter(parameter) {
+    const names = [
+      parameter?.name,
+      ...(parameter?.aliases || []),
+    ]
+      .filter(Boolean)
+      .map(normalizeText);
+
+    return names.some((name) => {
+      if (!name) return false;
+
+      if (name === target) {
+        return true;
+      }
+
+      if (
+        name.length > 3 &&
+        target.length > 3 &&
+        (name.includes(target) ||
+          target.includes(name))
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+  }
+
+  const masterTest = findMasterTest(test);
+
+  if (masterTest) {
+    const match =
+      masterTest.parameters.find(matchParameter);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  for (const group of MASTER_TESTS) {
+    const match =
+      group.parameters.find(matchParameter);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+}
+
+/* =========================================================
+   EFFECTIVE PARAMETER
+========================================================= */
+
+function getEffectiveParameter(parameter, test) {
   const parameterName =
     parameter?.name ||
     parameter?.testName ||
     parameter?.investigation ||
+    parameter?.parameter ||
+    parameter?.label ||
     "";
 
-  const master =
-    findMasterParameter(
-      parameterName,
-      test
-    );
+  const master = findMasterParameter(
+    parameterName,
+    test
+  );
 
   if (!master) {
     return {
-      ...parameter,
+      ...(parameter || {}),
       name:
         parameterName ||
         "Investigation",
+      unit:
+        parameter?.unit ||
+        parameter?.units ||
+        "-",
     };
   }
 
   return {
     ...master,
-    ...parameter,
+    ...(parameter || {}),
 
     name:
       parameterName ||
@@ -685,15 +746,16 @@ function getEffectiveParameter(
       "",
 
     range:
-      parameter?.range ||
+      parameter?.range ??
+      parameter?.referenceRange ??
       master.range,
 
     maleRange:
-      parameter?.maleRange ||
+      parameter?.maleRange ??
       master.maleRange,
 
     femaleRange:
-      parameter?.femaleRange ||
+      parameter?.femaleRange ??
       master.femaleRange,
 
     min:
@@ -722,11 +784,11 @@ function getEffectiveParameter(
   };
 }
 
-function getReferenceRange(
-  parameter,
-  patient,
-  test
-) {
+/* =========================================================
+   REFERENCE RANGE
+========================================================= */
+
+function getReferenceRange(parameter, patient, test) {
   const p = getEffectiveParameter(
     parameter,
     test
@@ -783,11 +845,11 @@ function getReferenceRange(
   );
 }
 
-function getLimits(
-  parameter,
-  patient,
-  test
-) {
+/* =========================================================
+   NUMERIC LIMITS
+========================================================= */
+
+function getLimits(parameter, patient, test) {
   const p = getEffectiveParameter(
     parameter,
     test
@@ -834,12 +896,11 @@ function getLimits(
   };
 }
 
-function getFlag(
-  value,
-  parameter,
-  patient,
-  test
-) {
+/* =========================================================
+   RESULT FLAG
+========================================================= */
+
+function getFlag(value, parameter, patient, test) {
   if (
     value === "" ||
     value === null ||
@@ -848,20 +909,21 @@ function getFlag(
     return "";
   }
 
-  const numericValue = Number(
-    String(value).replace(/,/g, "").trim()
-  );
+  const textValue = String(value)
+    .replace(/,/g, "")
+    .trim();
+
+  const numericValue = Number(textValue);
 
   if (Number.isNaN(numericValue)) {
     return "";
   }
 
-  const { min, max } =
-    getLimits(
-      parameter,
-      patient,
-      test
-    );
+  const { min, max } = getLimits(
+    parameter,
+    patient,
+    test
+  );
 
   if (
     min !== null &&
@@ -882,135 +944,184 @@ function getFlag(
   return "";
 }
 
+/* =========================================================
+   DATE FORMAT
+========================================================= */
+
 function formatDate(value) {
   if (!value) return "-";
 
   try {
     const date = new Date(value);
 
-    if (
-      Number.isNaN(date.getTime())
-    ) {
-      return value;
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
     }
 
-    return date.toLocaleString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }
-    );
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
-    return value;
+    return String(value);
   }
 }
 
+/* =========================================================
+   PATIENT NAME
+========================================================= */
+
 function getPatientName(report) {
+  const data = report?.report_data || {};
+
+  const patient =
+    data?.patient ||
+    data?.patientData ||
+    data?.patientDetails ||
+    {};
+
   return (
-    report?.report_data?.patient
-      ?.name ||
+    patient?.name ||
+    patient?.patientName ||
     report?.patient_name ||
+    report?.patientName ||
     "-"
   );
 }
+
+/* =========================================================
+   TEST LIST
+
+   IMPORTANT FIX:
+   If saved report doesn't contain parameters,
+   MASTER_TESTS parameters are automatically used.
+========================================================= */
 
 function getReportTests(report) {
   const data =
     report?.report_data || {};
 
+  let tests = [];
+
   if (
     Array.isArray(data.reportTests) &&
     data.reportTests.length > 0
   ) {
-    return data.reportTests;
-  }
-
-  if (
-    Array.isArray(
-      data.selectedTests
-    )
+    tests = data.reportTests;
+  } else if (
+    Array.isArray(data.selectedTests) &&
+    data.selectedTests.length > 0
   ) {
-    return data.selectedTests;
+    tests = data.selectedTests;
+  } else if (
+    Array.isArray(data.tests) &&
+    data.tests.length > 0
+  ) {
+    tests = data.tests;
+  } else if (
+    Array.isArray(report?.tests) &&
+    report.tests.length > 0
+  ) {
+    tests = report.tests;
   }
 
-  return [];
+  return tests.map((test) => {
+    const master = findMasterTest(test);
+
+    const existingParameters =
+      Array.isArray(test?.parameters)
+        ? test.parameters
+        : Array.isArray(test?.tests)
+        ? test.tests
+        : [];
+
+    /*
+      If parameters are already saved, use them.
+      Otherwise use master parameters.
+    */
+    if (
+      existingParameters.length > 0
+    ) {
+      return {
+        ...test,
+        parameters:
+          existingParameters,
+      };
+    }
+
+    if (master) {
+      return {
+        ...master,
+        ...test,
+        parameters:
+          master.parameters.map(
+            (parameter) => ({
+              ...parameter,
+            })
+          ),
+      };
+    }
+
+    return {
+      ...test,
+      parameters: [],
+    };
+  });
 }
+
 /* =========================================================
-   REPORT DATA HELPERS
+   GET TEST PARAMETERS
 ========================================================= */
 
 function getTestParameters(test) {
-  if (Array.isArray(test?.parameters)) {
+  if (
+    Array.isArray(test?.parameters) &&
+    test.parameters.length > 0
+  ) {
     return test.parameters;
   }
 
-  if (Array.isArray(test?.tests)) {
+  if (
+    Array.isArray(test?.tests) &&
+    test.tests.length > 0
+  ) {
     return test.tests;
+  }
+
+  const master =
+    findMasterTest(test);
+
+  if (master) {
+    return master.parameters;
   }
 
   return [];
 }
 
-function getResultValue(
-  report,
-  test,
-  parameter,
-  index
-) {
-  if (
-    parameter?.result !== undefined &&
-    parameter?.result !== null
-  ) {
-    return parameter.result;
-  }
-
-  if (
-    parameter?.value !== undefined &&
-    parameter?.value !== null
-  ) {
-    return parameter.value;
-  }
-
-  const results =
-    report?.report_data?.results || {};
-
-  const parameterName =
-    parameter?.name ||
-    parameter?.testName ||
-    parameter?.investigation ||
-    "";
-
-  const possibleKeys = [
-    `${test?.id}-${parameterName}-${index}`,
-    `${test?.id}-${parameter?.name}-${index}`,
-  ];
-
-  for (const key of possibleKeys) {
-    if (
-      Object.prototype.hasOwnProperty.call(
-        results,
-        key
-      )
-    ) {
-      return results[key];
-    }
-  }
-
-  return "";
-}
+/* =========================================================
+   GET TEST NAME
+========================================================= */
 
 function getTestDisplayName(test) {
+  const master =
+    findMasterTest(test);
+
   return (
     test?.name ||
     test?.testName ||
     test?.short ||
+    test?.test ||
+    master?.name ||
     "Laboratory Test"
   );
 }
+
+/* =========================================================
+   GET TEST CATEGORY
+========================================================= */
 
 function getTestCategory(test) {
   const master =
@@ -1018,10 +1129,15 @@ function getTestCategory(test) {
 
   return (
     test?.category ||
+    test?.testCategory ||
     master?.category ||
     ""
   );
 }
+
+/* =========================================================
+   PARAMETER DISPLAY NAME
+========================================================= */
 
 function getParameterDisplayName(
   parameter,
@@ -1035,9 +1151,14 @@ function getParameterDisplayName(
 
   return (
     effective?.name ||
+    parameter?.label ||
     "Investigation"
   );
 }
+
+/* =========================================================
+   PARAMETER UNIT
+========================================================= */
 
 function getParameterUnit(
   parameter,
@@ -1057,7 +1178,396 @@ function getParameterUnit(
 }
 
 /* =========================================================
-   MAIN SAVED REPORTS PAGE
+   DEEP VALUE FINDER
+
+   This is the MAIN FIX.
+
+   It tries many possible result structures.
+========================================================= */
+
+function findValueDeep(
+  source,
+  targetNames,
+  visited = new Set()
+) {
+  if (
+    source === null ||
+    source === undefined
+  ) {
+    return undefined;
+  }
+
+  if (
+    typeof source !== "object"
+  ) {
+    return undefined;
+  }
+
+  if (visited.has(source)) {
+    return undefined;
+  }
+
+  visited.add(source);
+
+  const targets = targetNames
+    .filter(Boolean)
+    .map(normalizeText)
+    .filter(Boolean);
+
+  /*
+    First pass:
+    exact key matching
+  */
+  if (!Array.isArray(source)) {
+    for (const key of Object.keys(source)) {
+      const normalizedKey =
+        normalizeText(key);
+
+      if (
+        targets.includes(
+          normalizedKey
+        )
+      ) {
+        const value =
+          source[key];
+
+        if (
+          value !== undefined &&
+          value !== null &&
+          typeof value !== "object"
+        ) {
+          return value;
+        }
+
+        if (
+          value &&
+          typeof value === "object"
+        ) {
+          const nestedValue =
+            value.result ??
+            value.value ??
+            value.resultValue ??
+            value.labResult;
+
+          if (
+            nestedValue !== undefined
+          ) {
+            return nestedValue;
+          }
+        }
+      }
+    }
+  }
+
+  /*
+    Second pass:
+    recursive search
+  */
+  if (Array.isArray(source)) {
+    for (const item of source) {
+      const found =
+        findValueDeep(
+          item,
+          targets,
+          visited
+        );
+
+      if (found !== undefined) {
+        return found;
+      }
+    }
+  } else {
+    for (const key of Object.keys(source)) {
+      const value =
+        source[key];
+
+      if (
+        value &&
+        typeof value === "object"
+      ) {
+        const found =
+          findValueDeep(
+            value,
+            targets,
+            visited
+          );
+
+        if (found !== undefined) {
+          return found;
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/* =========================================================
+   RESULT VALUE
+
+   Supports:
+   parameter.result
+   parameter.value
+   results object
+   nested result object
+   multiple naming styles
+========================================================= */
+
+function getResultValue(
+  report,
+  test,
+  parameter,
+  index
+) {
+  /* -------------------------------------------------------
+     1. Direct parameter result
+  ------------------------------------------------------- */
+
+  const directValues = [
+    parameter?.result,
+    parameter?.value,
+    parameter?.resultValue,
+    parameter?.labResult,
+    parameter?.observedValue,
+    parameter?.result_value,
+  ];
+
+  for (const value of directValues) {
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+    ) {
+      return value;
+    }
+  }
+
+  const data =
+    report?.report_data || {};
+
+  const results =
+    data?.results ??
+    data?.result ??
+    data?.resultData ??
+    data?.testResults ??
+    report?.results ??
+    {};
+
+  const parameterName =
+    parameter?.name ||
+    parameter?.testName ||
+    parameter?.investigation ||
+    parameter?.parameter ||
+    parameter?.label ||
+    "";
+
+  const masterParameter =
+    findMasterParameter(
+      parameterName,
+      test
+    );
+
+  const parameterNames = [
+    parameterName,
+    masterParameter?.name,
+    ...(masterParameter?.aliases || []),
+  ].filter(Boolean);
+
+  const testNames = [
+    test?.id,
+    test?.testId,
+    test?.test_id,
+    test?.name,
+    test?.testName,
+    test?.short,
+    test?.test,
+    findMasterTest(test)?.id,
+    findMasterTest(test)?.name,
+    findMasterTest(test)?.short,
+  ].filter(Boolean);
+
+  /* -------------------------------------------------------
+     2. Direct possible keys
+  ------------------------------------------------------- */
+
+  const directKeys = [];
+
+  for (const testName of testNames) {
+    for (const parameterNameItem of parameterNames) {
+      directKeys.push(
+        `${testName}-${parameterNameItem}-${index}`,
+        `${testName}_${parameterNameItem}_${index}`,
+        `${testName}.${parameterNameItem}.${index}`,
+        `${testName}-${parameterNameItem}`,
+        `${testName}_${parameterNameItem}`,
+        `${testName}.${parameterNameItem}`,
+        `${testName}:${parameterNameItem}`,
+        `${testName}/${parameterNameItem}`
+      );
+    }
+  }
+
+  for (const parameterNameItem of parameterNames) {
+    directKeys.push(
+      `${parameterNameItem}-${index}`,
+      `${parameterNameItem}_${index}`,
+      parameterNameItem
+    );
+  }
+
+  for (const key of directKeys) {
+    if (
+      results &&
+      typeof results === "object" &&
+      Object.prototype.hasOwnProperty.call(
+        results,
+        key
+      )
+    ) {
+      const value =
+        results[key];
+
+      if (
+        value !== undefined &&
+        value !== null &&
+        value !== ""
+      ) {
+        return value;
+      }
+    }
+  }
+
+  /* -------------------------------------------------------
+     3. Nested test -> parameter
+     
+     results = {
+       cbc: {
+         Haemoglobin: 13.5
+       }
+     }
+  ------------------------------------------------------- */
+
+  if (
+    results &&
+    typeof results === "object" &&
+    !Array.isArray(results)
+  ) {
+    for (const testName of testNames) {
+      const normalizedTest =
+        normalizeText(testName);
+
+      for (const key of Object.keys(results)) {
+        if (
+          normalizeText(key) ===
+          normalizedTest
+        ) {
+          const testResult =
+            results[key];
+
+          if (
+            testResult &&
+            typeof testResult === "object"
+          ) {
+            const found =
+              findValueDeep(
+                testResult,
+                parameterNames
+              );
+
+            if (
+              found !== undefined
+            ) {
+              return found;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /* -------------------------------------------------------
+     4. Deep search in complete results
+  ------------------------------------------------------- */
+
+  const found =
+    findValueDeep(
+      results,
+      parameterNames
+    );
+
+  if (
+    found !== undefined
+  ) {
+    return found;
+  }
+
+  /* -------------------------------------------------------
+     5. Search complete report_data
+  ------------------------------------------------------- */
+
+  const foundInData =
+    findValueDeep(
+      data,
+      parameterNames
+    );
+
+  if (
+    foundInData !== undefined
+  ) {
+    return foundInData;
+  }
+
+  /* -------------------------------------------------------
+     Nothing found
+  ------------------------------------------------------- */
+
+  return "";
+}
+
+/* =========================================================
+   REPORT DATA DEBUG HELPER
+========================================================= */
+
+function getResultCount(
+  report,
+  tests
+) {
+  let count = 0;
+
+  for (
+    const test of tests
+  ) {
+    const parameters =
+      getTestParameters(test);
+
+    for (
+      let index = 0;
+      index < parameters.length;
+      index++
+    ) {
+      const value =
+        getResultValue(
+          report,
+          test,
+          parameters[index],
+          index
+        );
+
+      if (
+        value !== "" &&
+        value !== null &&
+        value !== undefined
+      ) {
+        count++;
+      }
+    }
+  }
+
+  return count;
+}
+
+/* =========================================================
+   MAIN COMPONENT
 ========================================================= */
 
 export default function ReportsPage() {
@@ -1073,6 +1583,13 @@ export default function ReportsPage() {
   const [message, setMessage] =
     useState("");
 
+  const [search, setSearch] =
+    useState("");
+
+  /* =======================================================
+     LOAD REPORTS
+  ======================================================= */
+
   useEffect(() => {
     loadReports();
   }, []);
@@ -1082,13 +1599,15 @@ export default function ReportsPage() {
       setLoading(true);
       setMessage("");
 
-      const { data, error } =
-        await supabase
-          .from("reports")
-          .select("*")
-          .order("created_at", {
-            ascending: false,
-          });
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("reports")
+        .select("*")
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (error) {
         console.error(
@@ -1104,7 +1623,11 @@ export default function ReportsPage() {
         return;
       }
 
-      setReports(data || []);
+      setReports(
+        Array.isArray(data)
+          ? data
+          : []
+      );
     } catch (error) {
       console.error(
         "Reports load exception:",
@@ -1118,6 +1641,47 @@ export default function ReportsPage() {
       setLoading(false);
     }
   }
+
+  /* =======================================================
+     FILTER REPORTS
+  ======================================================= */
+
+  const filteredReports =
+    useMemo(() => {
+      const term =
+        normalizeText(search);
+
+      if (!term) {
+        return reports;
+      }
+
+      return reports.filter(
+        (report) => {
+          const patient =
+            getPatientName(
+              report
+            );
+
+          const reportNo =
+            report?.report_no ||
+            report?.reportNo ||
+            "";
+
+          return (
+            normalizeText(
+              patient
+            ).includes(term) ||
+            normalizeText(
+              reportNo
+            ).includes(term)
+          );
+        }
+      );
+    }, [reports, search]);
+
+  /* =======================================================
+     VIEW REPORT
+  ======================================================= */
 
   function viewReport(report) {
     setSelectedReport(report);
@@ -1137,21 +1701,32 @@ export default function ReportsPage() {
     }, 100);
   }
 
+  /* =======================================================
+     CLOSE
+  ======================================================= */
+
   function closeReport() {
     setSelectedReport(null);
   }
 
+  /* =======================================================
+     DELETE
+  ======================================================= */
+
   async function deleteReport(report) {
     const reportNo =
       report?.report_no ||
+      report?.reportNo ||
       "this report";
 
     const confirmed =
       window.confirm(
-        `${reportNo} delete karna hai? Ye action undo nahi hoga.`
+        `${reportNo} delete karna hai?\n\nYe action undo nahi hoga.`
       );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       const { error } =
@@ -1167,7 +1742,7 @@ export default function ReportsPage() {
         );
 
         alert(
-          "Report delete nahi hua: " +
+          "Report delete nahi hua:\n" +
             error.message
         );
 
@@ -1181,11 +1756,13 @@ export default function ReportsPage() {
         setSelectedReport(null);
       }
 
-      setReports((previous) =>
-        previous.filter(
-          (item) =>
-            item.id !== report.id
-        )
+      setReports(
+        (previous) =>
+          previous.filter(
+            (item) =>
+              item.id !==
+              report.id
+          )
       );
 
       alert(
@@ -1203,26 +1780,39 @@ export default function ReportsPage() {
     }
   }
 
+  /* =======================================================
+     PRINT
+  ======================================================= */
+
   function printSelectedReport(report) {
     setSelectedReport(report);
 
     setTimeout(() => {
       window.print();
-    }, 300);
+    }, 500);
   }
 
   function printCurrentPreview() {
-    if (!selectedReport) return;
+    if (!selectedReport) {
+      return;
+    }
 
     window.print();
   }
+
+  /* =======================================================
+     PREVIEW DATA
+  ======================================================= */
 
   const previewData =
     selectedReport?.report_data ||
     {};
 
   const previewPatient =
-    previewData?.patient || {};
+    previewData?.patient ||
+    previewData?.patientData ||
+    previewData?.patientDetails ||
+    {};
 
   const previewTests =
     selectedReport
@@ -1233,35 +1823,70 @@ export default function ReportsPage() {
 
   const previewReportDate =
     previewData?.reportDate ||
+    previewData?.report_date ||
+    previewData?.date ||
     selectedReport?.created_at ||
     "";
 
+  const previewResultCount =
+    selectedReport
+      ? getResultCount(
+          selectedReport,
+          previewTests
+        )
+      : 0;
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
   return (
     <div className="savedReportsPage">
-      {/* ===============================================
-          SAVED REPORTS LIST
-      =============================================== */}
+
+      {/* ===================================================
+          HEADER
+      =================================================== */}
 
       <section className="savedReportsHeader">
         <div>
-          <h1>Saved Reports</h1>
+          <h1>
+            Saved Reports
+          </h1>
 
           <p>
             NIDAN PATHOLOGY LAB
           </p>
         </div>
 
-        <button
-          className="refreshReportsButton"
-          onClick={loadReports}
-          disabled={loading}
-        >
-          ↻{" "}
-          {loading
-            ? "Loading..."
-            : "Refresh"}
-        </button>
+        <div className="headerControls">
+          <input
+            type="search"
+            className="reportSearchInput"
+            placeholder="Search patient / report no."
+            value={search}
+            onChange={(e) =>
+              setSearch(
+                e.target.value
+              )
+            }
+          />
+
+          <button
+            className="refreshReportsButton"
+            onClick={loadReports}
+            disabled={loading}
+          >
+            ↻{" "}
+            {loading
+              ? "Loading..."
+              : "Refresh"}
+          </button>
+        </div>
       </section>
+
+      {/* ===================================================
+          MESSAGE
+      =================================================== */}
 
       {message && (
         <div className="reportMessage">
@@ -1269,7 +1894,12 @@ export default function ReportsPage() {
         </div>
       )}
 
+      {/* ===================================================
+          REPORT LIST
+      =================================================== */}
+
       <section className="savedReportsCard">
+
         {loading ? (
           <div className="reportsLoading">
             <div className="loadingCircle">
@@ -1280,39 +1910,76 @@ export default function ReportsPage() {
               Saved reports loading...
             </strong>
           </div>
-        ) : reports.length === 0 ? (
+        ) : filteredReports.length ===
+          0 ? (
           <div className="noSavedReports">
-            <div>📄</div>
+            <div>
+              📄
+            </div>
 
             <h2>
-              No Saved Reports
+              {reports.length ===
+              0
+                ? "No Saved Reports"
+                : "No Matching Reports"}
             </h2>
 
             <p>
-              Final report save hone ke
-              baad yahan दिखाई देगा.
+              {reports.length ===
+              0
+                ? "Final report save hone ke baad yahan दिखाई देगा."
+                : "Patient name ya report number change karke search karein."}
             </p>
           </div>
         ) : (
           <div className="savedTableWrapper">
+
             <table className="savedReportsTable">
+
               <thead>
                 <tr>
-                  <th>Report No.</th>
-                  <th>Patient</th>
-                  <th>Tests</th>
-                  <th>Status</th>
-                  <th>Saved Date</th>
-                  <th>Actions</th>
+                  <th>
+                    Report No.
+                  </th>
+
+                  <th>
+                    Patient
+                  </th>
+
+                  <th>
+                    Tests
+                  </th>
+
+                  <th>
+                    Results
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
+
+                  <th>
+                    Saved Date
+                  </th>
+
+                  <th>
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
-                {reports.map(
+                {filteredReports.map(
                   (report) => {
                     const tests =
                       getReportTests(
                         report
+                      );
+
+                    const resultCount =
+                      getResultCount(
+                        report,
+                        tests
                       );
 
                     return (
@@ -1322,17 +1989,21 @@ export default function ReportsPage() {
                           report.report_no
                         }
                       >
+
                         <td>
                           <strong>
                             {report.report_no ||
+                              report.reportNo ||
                               "-"}
                           </strong>
                         </td>
 
                         <td>
-                          {getPatientName(
-                            report
-                          )}
+                          <strong>
+                            {getPatientName(
+                              report
+                            )}
+                          </strong>
                         </td>
 
                         <td>
@@ -1345,13 +2016,24 @@ export default function ReportsPage() {
                                   ) =>
                                     test.short ||
                                     test.name ||
-                                    test.testName
+                                    test.testName ||
+                                    getTestDisplayName(
+                                      test
+                                    )
                                 )
                                 .filter(
                                   Boolean
                                 )
-                                .join(", ")
+                                .join(
+                                  ", "
+                                )
                             : "-"}
+                        </td>
+
+                        <td>
+                          <span className="resultCountBadge">
+                            {resultCount}
+                          </span>
                         </td>
 
                         <td>
@@ -1369,6 +2051,7 @@ export default function ReportsPage() {
 
                         <td>
                           <div className="savedReportActions">
+
                             <button
                               className="viewReportButton"
                               onClick={() =>
@@ -1401,28 +2084,36 @@ export default function ReportsPage() {
                             >
                               🗑 Delete
                             </button>
+
                           </div>
                         </td>
+
                       </tr>
                     );
                   }
                 )}
               </tbody>
+
             </table>
+
           </div>
         )}
       </section>
 
-      {/* ===============================================
+      {/* ===================================================
           REPORT PREVIEW
-      =============================================== */}
+      =================================================== */}
 
       {selectedReport && (
         <section
           className="savedReportPreviewSection"
           id="saved-report-preview"
         >
+
+          {/* TOP BAR */}
+
           <div className="previewTopBar">
+
             <div>
               <h2>
                 Report Preview
@@ -1430,8 +2121,13 @@ export default function ReportsPage() {
 
               <strong>
                 {selectedReport.report_no ||
+                  selectedReport.reportNo ||
                   "-"}
               </strong>
+
+              <span className="previewResultInfo">
+                {previewResultCount} result(s) found
+              </span>
             </div>
 
             <button
@@ -1440,40 +2136,52 @@ export default function ReportsPage() {
             >
               × Close
             </button>
+
           </div>
 
-          {/* ===========================================
-              PRINTABLE SAVED REPORT
-          =========================================== */}
+          {/* =================================================
+              PRINTABLE REPORT
+          ================================================= */}
 
           <main className="savedPrintableReport">
-            {/* HEADER */}
+
+            {/* LAB HEADER */}
 
             <header className="savedLabHeader">
+
               <div className="savedLogo">
                 N+
               </div>
 
               <div className="savedLabIdentity">
+
                 <h1>
                   NIDAN PATHOLOGY LAB
                 </h1>
 
                 <p className="savedTagline">
-                  Accurate • Reliable •
-                  Professional
+                  Accurate • Reliable • Professional
                 </p>
 
                 <p>
                   Clinical Pathology &
                   Diagnostic Laboratory
                 </p>
+
               </div>
 
               <div className="savedHeaderRight">
+
                 <strong>
                   LABORATORY REPORT
                 </strong>
+
+                <span>
+                  Report No:{" "}
+                  {selectedReport.report_no ||
+                    selectedReport.reportNo ||
+                    "-"}
+                </span>
 
                 <span>
                   Report Date:{" "}
@@ -1481,38 +2189,45 @@ export default function ReportsPage() {
                     previewReportDate
                   )}
                 </span>
+
               </div>
+
             </header>
 
             <div className="savedAccentLine" />
 
-            {/* LAB DETAILS */}
+            {/* =================================================
+                LAB DETAILS
+            ================================================= */}
 
             <section className="savedLabDetails">
+
               <span>
-                📍 Address:
-                ______________________
+                📍 Address: __________________
               </span>
 
               <span>
-                ☎ Mobile:
-                ______________
+                ☎ Mobile: ______________
               </span>
 
               <span>
-                ✉ Email:
-                ______________
+                ✉ Email: ______________
               </span>
+
             </section>
 
-            {/* PATIENT INFO */}
+            {/* =================================================
+                PATIENT INFORMATION
+            ================================================= */}
 
             <section className="savedPatientSection">
+
               <div className="savedSectionTitle">
                 PATIENT INFORMATION
               </div>
 
               <div className="savedPatientGrid">
+
                 <div>
                   <span>
                     Patient ID
@@ -1520,6 +2235,7 @@ export default function ReportsPage() {
 
                   <strong>
                     {previewPatient.patientId ||
+                      previewPatient.patient_id ||
                       previewPatient.id ||
                       selectedReport.patient_id ||
                       "-"}
@@ -1533,6 +2249,10 @@ export default function ReportsPage() {
 
                   <strong>
                     {previewPatient.name ||
+                      previewPatient.patientName ||
+                      getPatientName(
+                        selectedReport
+                      ) ||
                       "-"}
                   </strong>
                 </div>
@@ -1544,6 +2264,7 @@ export default function ReportsPage() {
 
                   <strong>
                     {previewPatient.age ||
+                      previewPatient.patientAge ||
                       "-"}{" "}
                     Years /{" "}
                     {previewPatient.gender ||
@@ -1559,6 +2280,8 @@ export default function ReportsPage() {
 
                   <strong>
                     {previewPatient.mobile ||
+                      previewPatient.phone ||
+                      previewPatient.mobileNumber ||
                       "-"}
                   </strong>
                 </div>
@@ -1571,6 +2294,8 @@ export default function ReportsPage() {
                   <strong>
                     {previewPatient.doctor ||
                       previewPatient.refDoctor ||
+                      previewPatient.ref_doctor ||
+                      previewPatient.referringDoctor ||
                       "-"}
                   </strong>
                 </div>
@@ -1582,28 +2307,37 @@ export default function ReportsPage() {
 
                   <strong>
                     {previewPatient.sampleDate ||
+                      previewPatient.sample_date ||
                       formatDate(
                         selectedReport.created_at
                       )}
                   </strong>
                 </div>
+
               </div>
             </section>
 
-            {/* ===========================================
+            {/* =================================================
                 TEST RESULTS
-            =========================================== */}
+            ================================================= */}
 
             <section className="savedInvestigationReport">
+
               {previewTests.length ===
               0 ? (
                 <div className="savedReportEmpty">
-                  No investigation data
-                  available.
+                  <strong>
+                    No investigation data available.
+                  </strong>
+
+                  <p>
+                    Saved report me test list nahi mili.
+                  </p>
                 </div>
               ) : (
                 previewTests.map(
                   (test, testIndex) => {
+
                     const parameters =
                       getTestParameters(
                         test
@@ -1619,11 +2353,13 @@ export default function ReportsPage() {
                         className="savedTestSection"
                         key={
                           test.id ||
+                          test.testId ||
                           `${getTestDisplayName(
                             test
                           )}-${testIndex}`
                         }
                       >
+
                         {category && (
                           <div className="savedCategory">
                             {category}
@@ -1636,157 +2372,189 @@ export default function ReportsPage() {
                           )}
                         </div>
 
-                        <table className="savedFinalReportTable">
-                          <thead>
-                            <tr>
-                              <th>
-                                INVESTIGATION
-                              </th>
+                        {parameters.length ===
+                        0 ? (
+                          <div className="savedReportEmpty">
+                            No parameters found for this test.
+                          </div>
+                        ) : (
+                          <table className="savedFinalReportTable">
 
-                              <th>
-                                RESULT
-                              </th>
+                            <thead>
+                              <tr>
+                                <th>
+                                  INVESTIGATION
+                                </th>
 
-                              <th>
-                                UNIT
-                              </th>
+                                <th>
+                                  RESULT
+                                </th>
 
-                              <th>
-                                REFERENCE
-                                RANGE
-                              </th>
+                                <th>
+                                  UNIT
+                                </th>
 
-                              <th>
-                                FLAG
-                              </th>
-                            </tr>
-                          </thead>
+                                <th>
+                                  REFERENCE RANGE
+                                </th>
 
-                          <tbody>
-                            {parameters.map(
-                              (
-                                parameter,
-                                index
-                              ) => {
-                                const effective =
-                                  getEffectiveParameter(
-                                    parameter,
-                                    test
-                                  );
+                                <th>
+                                  FLAG
+                                </th>
+                              </tr>
+                            </thead>
 
-                                const value =
-                                  getResultValue(
-                                    selectedReport,
-                                    test,
-                                    parameter,
-                                    index
-                                  );
+                            <tbody>
 
-                                const flag =
-                                  getFlag(
-                                    value,
-                                    effective,
-                                    previewPatient,
-                                    test
-                                  );
+                              {parameters.map(
+                                (
+                                  parameter,
+                                  index
+                                ) => {
 
-                                const reference =
-                                  getReferenceRange(
-                                    effective,
-                                    previewPatient,
-                                    test
-                                  );
+                                  const effective =
+                                    getEffectiveParameter(
+                                      parameter,
+                                      test
+                                    );
 
-                                const unit =
-                                  getParameterUnit(
-                                    effective,
-                                    test
-                                  );
+                                  const value =
+                                    getResultValue(
+                                      selectedReport,
+                                      test,
+                                      parameter,
+                                      index
+                                    );
 
-                                return (
-                                  <tr
-                                    key={`${test.id}-${index}-${getParameterDisplayName(
+                                  const flag =
+                                    getFlag(
+                                      value,
+                                      effective,
+                                      previewPatient,
+                                      test
+                                    );
+
+                                  const reference =
+                                    getReferenceRange(
+                                      effective,
+                                      previewPatient,
+                                      test
+                                    );
+
+                                  const unit =
+                                    getParameterUnit(
                                       effective,
                                       test
-                                    )}`}
-                                  >
-                                    <td>
-                                      {getParameterDisplayName(
-                                        effective,
-                                        test
-                                      )}
-                                    </td>
+                                    );
 
-                                    <td
-                                      className={
-                                        flag
-                                          ? "savedAbnormalResult"
-                                          : "savedNormalResult"
-                                      }
+                                  const parameterName =
+                                    getParameterDisplayName(
+                                      effective,
+                                      test
+                                    );
+
+                                  const hasValue =
+                                    value !==
+                                      "" &&
+                                    value !==
+                                      null &&
+                                    value !==
+                                      undefined;
+
+                                  return (
+                                    <tr
+                                      key={`${testIndex}-${index}-${normalizeText(
+                                        parameterName
+                                      )}`}
                                     >
-                                      {value !==
-                                        "" &&
-                                      value !==
-                                        null &&
-                                      value !==
-                                        undefined
-                                        ? value
-                                        : "-"}
-                                    </td>
 
-                                    <td>
-                                      {unit}
-                                    </td>
+                                      <td>
+                                        {
+                                          parameterName
+                                        }
+                                      </td>
 
-                                    <td>
-                                      {reference}
-                                    </td>
+                                      <td
+                                        className={
+                                          flag
+                                            ? "savedAbnormalResult"
+                                            : "savedNormalResult"
+                                        }
+                                      >
+                                        {hasValue
+                                          ? String(
+                                              value
+                                            )
+                                          : "-"}
+                                      </td>
 
-                                    <td>
-                                      {flag && (
-                                        <span
-                                          className={
-                                            flag ===
-                                            "H"
-                                              ? "savedFlag savedFlagHigh"
-                                              : "savedFlag savedFlagLow"
-                                          }
-                                        >
-                                          {
-                                            flag
-                                          }
-                                        </span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              }
-                            )}
-                          </tbody>
-                        </table>
+                                      <td>
+                                        {unit}
+                                      </td>
+
+                                      <td>
+                                        {reference}
+                                      </td>
+
+                                      <td>
+
+                                        {flag && (
+                                          <span
+                                            className={
+                                              flag ===
+                                              "H"
+                                                ? "savedFlag savedFlagHigh"
+                                                : "savedFlag savedFlagLow"
+                                            }
+                                          >
+                                            {flag}
+                                          </span>
+                                        )}
+
+                                      </td>
+
+                                    </tr>
+                                  );
+                                }
+                              )}
+
+                            </tbody>
+
+                          </table>
+                        )}
+
                       </div>
                     );
                   }
                 )
               )}
+
             </section>
 
-            {/* REMARKS */}
+            {/* =================================================
+                REMARKS
+            ================================================= */}
 
             <section className="savedRemarks">
+
               <strong>
                 Remarks:
               </strong>
 
               <div className="savedRemarksLine">
-                ______________________________________
+                ________________________________________________
               </div>
+
             </section>
 
-            {/* SIGNATURE */}
+            {/* =================================================
+                SIGNATURE
+            ================================================= */}
 
             <section className="savedSignatureSection">
+
               <div className="savedSignatureBox">
+
                 <div className="savedSignatureSpace" />
 
                 <strong>
@@ -1796,9 +2564,11 @@ export default function ReportsPage() {
                 <span>
                   NIDAN Pathology Lab
                 </span>
+
               </div>
 
               <div className="savedSignatureBox">
+
                 <div className="savedSignatureSpace" />
 
                 <strong>
@@ -1808,32 +2578,37 @@ export default function ReportsPage() {
                 <span>
                   Signature & Seal
                 </span>
+
               </div>
+
             </section>
 
-            {/* NOTE */}
+            {/* =================================================
+                NOTES
+            ================================================= */}
 
             <section className="savedNotes">
+
               <strong>
                 Note:
               </strong>
 
               <p>
-                Reference intervals may
-                vary according to
-                laboratory method, age,
-                sex and clinical
-                circumstances.
-                Laboratory results
-                should be interpreted
-                with relevant clinical
-                findings.
+                Reference intervals may vary according
+                to laboratory method, age, sex and
+                clinical circumstances. Laboratory
+                results should be interpreted with
+                relevant clinical findings.
               </p>
+
             </section>
 
-            {/* FOOTER */}
+            {/* =================================================
+                FOOTER
+            ================================================= */}
 
             <footer className="savedReportFooter">
+
               <span>
                 NIDAN PATHOLOGY LAB
               </span>
@@ -1843,15 +2618,19 @@ export default function ReportsPage() {
               </strong>
 
               <span>
-                Computer Generated
-                Report
+                Computer Generated Report
               </span>
+
             </footer>
+
           </main>
 
-          {/* PREVIEW ACTIONS */}
+          {/* =================================================
+              PREVIEW ACTIONS
+          ================================================= */}
 
           <div className="previewBottomActions">
+
             <button
               className="previewPrintButton"
               onClick={
@@ -1871,69 +2650,140 @@ export default function ReportsPage() {
             >
               🗑 Delete Report
             </button>
+
           </div>
+
         </section>
       )}
 
-      {/* PART 3 CSS YAHAN SE CONTINUE HOGA */}
+      {/* =====================================================
+          CSS
+      ===================================================== */}
+
       <style jsx global>{`
-        /* =================================================
-           SAVED REPORTS PAGE
-        ================================================= */
+
+        /* ===================================================
+           GLOBAL
+        =================================================== */
 
         * {
           box-sizing: border-box;
         }
 
+        html,
         body {
           margin: 0;
+          padding: 0;
         }
+
+        body {
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+          background: #f5f7fb;
+        }
+
+        button,
+        input {
+          font-family: inherit;
+        }
+
+        /* ===================================================
+           PAGE
+        =================================================== */
 
         .savedReportsPage {
           min-height: 100vh;
           background: #f5f7fb;
           padding: 28px;
           color: #172033;
-          font-family: Arial, Helvetica, sans-serif;
         }
 
-        /* =================================================
-           TOP HEADER
-        ================================================= */
+        /* ===================================================
+           HEADER
+        =================================================== */
 
         .savedReportsHeader {
           max-width: 1400px;
           margin: 0 auto 22px;
+
           display: flex;
           align-items: center;
           justify-content: space-between;
+
           gap: 20px;
         }
 
         .savedReportsHeader h1 {
           margin: 0;
+
           font-size: 30px;
           font-weight: 800;
+
           color: #172033;
         }
 
         .savedReportsHeader p {
           margin: 6px 0 0;
+
           color: #697386;
+
           font-size: 14px;
           font-weight: 600;
+
           letter-spacing: 0.5px;
+        }
+
+        .headerControls {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+        }
+
+        .reportSearchInput {
+          width: 240px;
+
+          border: 1px solid #d6dce8;
+          background: #ffffff;
+
+          border-radius: 9px;
+
+          padding: 11px 13px;
+
+          outline: none;
+
+          font-size: 13px;
+        }
+
+        .reportSearchInput:focus {
+          border-color: #4d83c7;
+
+          box-shadow:
+            0 0 0 3px
+            rgba(
+              31,
+              95,
+              174,
+              0.08
+            );
         }
 
         .refreshReportsButton {
           border: 1px solid #d6dce8;
+
           background: #ffffff;
           color: #172033;
+
           border-radius: 9px;
+
           padding: 11px 17px;
+
           font-size: 14px;
           font-weight: 700;
+
           cursor: pointer;
+
           transition: 0.2s;
         }
 
@@ -1946,33 +2796,51 @@ export default function ReportsPage() {
           cursor: not-allowed;
         }
 
-        /* =================================================
+        /* ===================================================
            MESSAGE
-        ================================================= */
+        =================================================== */
 
         .reportMessage {
           max-width: 1400px;
           margin: 0 auto 18px;
+
           background: #fff7e6;
+
           border: 1px solid #ffd591;
+
           border-radius: 10px;
+
           padding: 14px 16px;
+
           color: #8a5700;
+
           font-size: 14px;
         }
 
-        /* =================================================
-           REPORT LIST CARD
-        ================================================= */
+        /* ===================================================
+           REPORT CARD
+        =================================================== */
 
         .savedReportsCard {
           max-width: 1400px;
           margin: 0 auto;
+
           background: #ffffff;
+
           border: 1px solid #e2e7f0;
+
           border-radius: 14px;
+
           overflow: hidden;
-          box-shadow: 0 4px 20px rgba(28, 39, 60, 0.05);
+
+          box-shadow:
+            0 4px 20px
+            rgba(
+              28,
+              39,
+              60,
+              0.05
+            );
         }
 
         .savedTableWrapper {
@@ -1982,7 +2850,8 @@ export default function ReportsPage() {
 
         .savedReportsTable {
           width: 100%;
-          min-width: 950px;
+          min-width: 1050px;
+
           border-collapse: collapse;
         }
 
@@ -1992,20 +2861,34 @@ export default function ReportsPage() {
 
         .savedReportsTable th {
           padding: 15px 16px;
+
           text-align: left;
+
           font-size: 12px;
           font-weight: 800;
+
           color: #596579;
+
           letter-spacing: 0.4px;
-          border-bottom: 1px solid #e3e8f0;
+
+          border-bottom:
+            1px solid
+            #e3e8f0;
+
           white-space: nowrap;
         }
 
         .savedReportsTable td {
           padding: 16px;
-          border-bottom: 1px solid #edf0f5;
+
+          border-bottom:
+            1px solid
+            #edf0f5;
+
           font-size: 14px;
+
           color: #273246;
+
           vertical-align: middle;
         }
 
@@ -2017,35 +2900,76 @@ export default function ReportsPage() {
           border-bottom: none;
         }
 
+        /* ===================================================
+           STATUS
+        =================================================== */
+
         .completedStatus {
           display: inline-block;
+
           background: #e9f9ef;
+
           color: #14783b;
+
           padding: 6px 10px;
+
           border-radius: 20px;
+
           font-size: 12px;
           font-weight: 700;
+
           text-transform: capitalize;
         }
 
-        /* =================================================
-           ACTION BUTTONS
-        ================================================= */
+        .resultCountBadge {
+          display: inline-flex;
+
+          min-width: 30px;
+          height: 25px;
+
+          padding: 0 8px;
+
+          align-items: center;
+          justify-content: center;
+
+          background: #eef5ff;
+
+          color: #1e5b9e;
+
+          border: 1px solid #cbdcf3;
+
+          border-radius: 20px;
+
+          font-size: 11px;
+          font-weight: 800;
+        }
+
+        /* ===================================================
+           ACTIONS
+        =================================================== */
 
         .savedReportActions {
           display: flex;
+
           gap: 7px;
+
           align-items: center;
+
           flex-wrap: wrap;
         }
 
         .savedReportActions button {
           border-radius: 7px;
+
           padding: 7px 10px;
+
           font-size: 12px;
           font-weight: 700;
+
           cursor: pointer;
+
           background: #ffffff;
+
           white-space: nowrap;
         }
 
@@ -2076,43 +3000,59 @@ export default function ReportsPage() {
           background: #fff1f1;
         }
 
-        /* =================================================
+        /* ===================================================
            LOADING / EMPTY
-        ================================================= */
+        =================================================== */
 
         .reportsLoading,
         .noSavedReports {
           min-height: 300px;
+
           display: flex;
+
           flex-direction: column;
+
           align-items: center;
+
           justify-content: center;
+
           text-align: center;
+
           padding: 30px;
+
           color: #697386;
         }
 
         .loadingCircle {
           width: 58px;
           height: 58px;
+
           border-radius: 50%;
+
           background: #1f5fae;
+
           color: #ffffff;
+
           display: flex;
+
           align-items: center;
           justify-content: center;
+
           font-weight: 800;
           font-size: 18px;
+
           margin-bottom: 15px;
         }
 
         .noSavedReports > div {
           font-size: 42px;
+
           margin-bottom: 8px;
         }
 
         .noSavedReports h2 {
           margin: 5px 0;
+
           color: #273246;
         }
 
@@ -2120,175 +3060,292 @@ export default function ReportsPage() {
           margin: 4px 0;
         }
 
-        /* =================================================
+        /* ===================================================
            PREVIEW SECTION
-        ================================================= */
+        =================================================== */
 
         .savedReportPreviewSection {
           max-width: 1100px;
+
           margin: 35px auto 0;
+
           background: #ffffff;
-          border: 1px solid #e0e5ed;
+
+          border:
+            1px solid
+            #e0e5ed;
+
           border-radius: 14px;
+
           padding: 20px;
-          box-shadow: 0 5px 25px rgba(20, 30, 50, 0.08);
+
+          box-shadow:
+            0 5px 25px
+            rgba(
+              20,
+              30,
+              50,
+              0.08
+            );
         }
 
         .previewTopBar {
           display: flex;
+
           align-items: center;
+
           justify-content: space-between;
+
           gap: 15px;
+
           padding-bottom: 18px;
+
           margin-bottom: 18px;
-          border-bottom: 1px solid #e5e9f0;
+
+          border-bottom:
+            1px solid
+            #e5e9f0;
         }
 
         .previewTopBar h2 {
           margin: 0 0 5px;
+
           font-size: 22px;
         }
 
         .previewTopBar strong {
           color: #647087;
+
           font-size: 13px;
         }
 
-        .closePreviewButton {
-          border: 1px solid #d5dbe6;
-          background: #ffffff;
-          padding: 9px 14px;
-          border-radius: 8px;
-          cursor: pointer;
+        .previewResultInfo {
+          display: inline-block;
+
+          margin-left: 12px;
+
+          color: #16803b;
+
+          font-size: 11px;
+
           font-weight: 700;
         }
 
-        /* =================================================
-           PRINTABLE REPORT PAPER
-        ================================================= */
+        .closePreviewButton {
+          border:
+            1px solid
+            #d5dbe6;
+
+          background: #ffffff;
+
+          padding: 9px 14px;
+
+          border-radius: 8px;
+
+          cursor: pointer;
+
+          font-weight: 700;
+        }
+
+        .closePreviewButton:hover {
+          background: #f5f7fa;
+        }
+
+        /* ===================================================
+           PRINTABLE REPORT
+        =================================================== */
 
         .savedPrintableReport {
           width: 100%;
+
           max-width: 900px;
+
           margin: 0 auto;
+
           background: #ffffff;
+
           color: #111111;
+
           padding: 25px 30px;
-          border: 1px solid #dce1e8;
-          font-family: Arial, Helvetica, sans-serif;
+
+          border:
+            1px solid
+            #dce1e8;
+
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
         }
 
-        /* =================================================
+        /* ===================================================
            LAB HEADER
-        ================================================= */
+        =================================================== */
 
         .savedLabHeader {
           display: grid;
-          grid-template-columns: 80px 1fr 190px;
+
+          grid-template-columns:
+            80px
+            1fr
+            190px;
+
           gap: 18px;
+
           align-items: center;
         }
 
         .savedLogo {
           width: 65px;
           height: 65px;
+
           border-radius: 12px;
+
           background: #145da0;
+
           color: white;
+
           display: flex;
+
           align-items: center;
           justify-content: center;
+
           font-size: 25px;
+
           font-weight: 900;
         }
 
         .savedLabIdentity h1 {
           margin: 0;
+
           font-size: 27px;
+
           line-height: 1.1;
+
           color: #124f8f;
+
           font-weight: 900;
         }
 
         .savedLabIdentity p {
           margin: 4px 0 0;
+
           font-size: 12px;
+
           color: #3f4856;
         }
 
         .savedLabIdentity .savedTagline {
           font-weight: 700;
+
           color: #1671b8;
+
           margin-top: 6px;
         }
 
         .savedHeaderRight {
           text-align: right;
+
           display: flex;
+
           flex-direction: column;
-          gap: 7px;
+
+          gap: 6px;
         }
 
         .savedHeaderRight strong {
           font-size: 13px;
+
           color: #124f8f;
         }
 
         .savedHeaderRight span {
-          font-size: 11px;
+          font-size: 10px;
+
           color: #555;
         }
 
         .savedAccentLine {
           height: 3px;
+
           margin: 15px 0 10px;
+
           background: #145da0;
         }
 
-        /* =================================================
-           LAB CONTACT DETAILS
-        ================================================= */
+        /* ===================================================
+           LAB DETAILS
+        =================================================== */
 
         .savedLabDetails {
           display: flex;
+
           justify-content: space-between;
+
           flex-wrap: wrap;
+
           gap: 8px 20px;
+
           font-size: 10px;
+
           color: #454545;
+
           padding: 5px 0 12px;
-          border-bottom: 1px solid #d5d5d5;
+
+          border-bottom:
+            1px solid
+            #d5d5d5;
         }
 
-        /* =================================================
-           PATIENT INFORMATION
-        ================================================= */
+        /* ===================================================
+           PATIENT
+        =================================================== */
 
         .savedPatientSection {
           margin-top: 15px;
-          border: 1px solid #ccd5df;
+
+          border:
+            1px solid
+            #ccd5df;
         }
 
         .savedSectionTitle {
           background: #eef5fb;
+
           color: #124f8f;
+
           font-size: 12px;
+
           font-weight: 900;
+
           padding: 8px 10px;
+
           letter-spacing: 0.5px;
-          border-bottom: 1px solid #ccd5df;
+
+          border-bottom:
+            1px solid
+            #ccd5df;
         }
 
         .savedPatientGrid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+
+          grid-template-columns:
+            repeat(3, 1fr);
         }
 
         .savedPatientGrid > div {
           min-height: 55px;
+
           padding: 9px 11px;
-          border-right: 1px solid #e1e5ea;
-          border-bottom: 1px solid #e1e5ea;
+
+          border-right:
+            1px solid
+            #e1e5ea;
+
+          border-bottom:
+            1px solid
+            #e1e5ea;
         }
 
         .savedPatientGrid > div:nth-child(3n) {
@@ -2301,23 +3358,31 @@ export default function ReportsPage() {
 
         .savedPatientGrid span {
           display: block;
+
           font-size: 9px;
+
           font-weight: 700;
+
           color: #717b89;
+
           text-transform: uppercase;
+
           margin-bottom: 5px;
         }
 
         .savedPatientGrid strong {
           display: block;
+
           font-size: 12px;
+
           color: #111;
+
           word-break: break-word;
         }
 
-        /* =================================================
-           INVESTIGATION REPORT
-        ================================================= */
+        /* ===================================================
+           INVESTIGATION
+        =================================================== */
 
         .savedInvestigationReport {
           margin-top: 18px;
@@ -2325,49 +3390,77 @@ export default function ReportsPage() {
 
         .savedTestSection {
           margin-bottom: 22px;
+
           break-inside: avoid;
+
           page-break-inside: avoid;
         }
 
         .savedCategory {
           text-align: center;
+
           font-size: 10px;
+
           font-weight: 800;
+
           color: #6a7480;
+
           margin-bottom: 4px;
+
           letter-spacing: 0.7px;
         }
 
         .savedTestHeading {
           text-align: center;
+
           background: #eef5fb;
-          border: 1px solid #cbd6e2;
+
+          border:
+            1px solid
+            #cbd6e2;
+
           border-bottom: none;
+
           padding: 8px 10px;
+
           font-size: 13px;
+
           font-weight: 900;
+
           color: #124f8f;
+
           text-transform: uppercase;
         }
 
         .savedFinalReportTable {
           width: 100%;
+
           border-collapse: collapse;
+
           table-layout: fixed;
+
           font-size: 11px;
         }
 
         .savedFinalReportTable th {
           background: #f5f7fa;
-          border: 1px solid #cdd4dd;
+
+          border:
+            1px solid
+            #cdd4dd;
+
           padding: 7px 6px;
+
           font-size: 9px;
+
           font-weight: 900;
+
           text-align: center;
         }
 
         .savedFinalReportTable th:first-child {
           width: 29%;
+
           text-align: left;
         }
 
@@ -2388,117 +3481,168 @@ export default function ReportsPage() {
         }
 
         .savedFinalReportTable td {
-          border: 1px solid #d6dbe2;
+          border:
+            1px solid
+            #d6dbe2;
+
           padding: 7px 6px;
+
           vertical-align: middle;
+
           text-align: center;
+
           word-break: break-word;
         }
 
         .savedFinalReportTable td:first-child {
           text-align: left;
+
           font-weight: 600;
         }
 
         .savedNormalResult {
           font-weight: 800;
+
           color: #111;
         }
 
         .savedAbnormalResult {
           font-weight: 900;
+
           color: #c51f1f;
         }
 
         .savedFlag {
           display: inline-flex;
+
           width: 24px;
           height: 24px;
+
           align-items: center;
           justify-content: center;
+
           border-radius: 50%;
+
           font-size: 10px;
+
           font-weight: 900;
         }
 
         .savedFlagHigh {
           background: #ffe4e4;
+
           color: #bd1f1f;
         }
 
         .savedFlagLow {
           background: #fff0d8;
+
           color: #a35d00;
         }
 
         .savedReportEmpty {
           padding: 25px;
+
           text-align: center;
-          border: 1px dashed #bbc3cd;
+
+          border:
+            1px dashed
+            #bbc3cd;
+
           color: #6b7480;
         }
 
-        /* =================================================
+        .savedReportEmpty p {
+          margin-bottom: 0;
+        }
+
+        /* ===================================================
            REMARKS
-        ================================================= */
+        =================================================== */
 
         .savedRemarks {
           margin-top: 18px;
+
           display: flex;
+
           gap: 10px;
+
           align-items: center;
+
           font-size: 11px;
         }
 
         .savedRemarksLine {
           flex: 1;
-          border-bottom: 1px solid #888;
+
+          border-bottom:
+            1px solid
+            #888;
+
           color: transparent;
         }
 
-        /* =================================================
+        /* ===================================================
            SIGNATURE
-        ================================================= */
+        =================================================== */
 
         .savedSignatureSection {
           display: flex;
+
           justify-content: space-between;
+
           gap: 40px;
+
           margin-top: 45px;
         }
 
         .savedSignatureBox {
           width: 210px;
+
           text-align: center;
+
           font-size: 11px;
         }
 
         .savedSignatureSpace {
           height: 40px;
-          border-bottom: 1px solid #555;
+
+          border-bottom:
+            1px solid
+            #555;
+
           margin-bottom: 7px;
         }
 
         .savedSignatureBox strong {
           display: block;
+
           margin-bottom: 3px;
         }
 
         .savedSignatureBox span {
           color: #626262;
+
           font-size: 10px;
         }
 
-        /* =================================================
+        /* ===================================================
            NOTES
-        ================================================= */
+        =================================================== */
 
         .savedNotes {
           margin-top: 25px;
-          border-top: 1px solid #aaa;
+
+          border-top:
+            1px solid
+            #aaa;
+
           padding-top: 9px;
+
           font-size: 9px;
+
           line-height: 1.45;
+
           color: #4e4e4e;
         }
 
@@ -2508,22 +3652,37 @@ export default function ReportsPage() {
 
         .savedNotes p {
           display: inline;
-          margin: 0 0 0 4px;
+
+          margin:
+            0
+            0
+            0
+            4px;
         }
 
-        /* =================================================
-           REPORT FOOTER
-        ================================================= */
+        /* ===================================================
+           FOOTER
+        =================================================== */
 
         .savedReportFooter {
-          border-top: 1px solid #aaa;
+          border-top:
+            1px solid
+            #aaa;
+
           margin-top: 16px;
+
           padding-top: 9px;
+
           display: flex;
+
           align-items: center;
+
           justify-content: space-between;
+
           gap: 10px;
+
           font-size: 8px;
+
           color: #5e5e5e;
         }
 
@@ -2531,47 +3690,89 @@ export default function ReportsPage() {
           color: #222;
         }
 
-        /* =================================================
-           PREVIEW BOTTOM BUTTONS
-        ================================================= */
+        /* ===================================================
+           PREVIEW BUTTONS
+        =================================================== */
 
         .previewBottomActions {
           max-width: 900px;
+
           margin: 18px auto 0;
+
           display: flex;
+
           gap: 10px;
+
           justify-content: flex-end;
+
           flex-wrap: wrap;
         }
 
         .previewPrintButton,
         .previewDeleteButton {
           padding: 10px 16px;
+
           border-radius: 8px;
+
           font-size: 13px;
+
           font-weight: 700;
+
           cursor: pointer;
         }
 
         .previewPrintButton {
           background: #145da0;
+
           color: white;
-          border: 1px solid #145da0;
+
+          border:
+            1px solid
+            #145da0;
+        }
+
+        .previewPrintButton:hover {
+          background: #0f4c86;
         }
 
         .previewDeleteButton {
           background: white;
+
           color: #c52c2c;
-          border: 1px solid #e3a8a8;
+
+          border:
+            1px solid
+            #e3a8a8;
         }
 
-        /* =================================================
+        .previewDeleteButton:hover {
+          background: #fff4f4;
+        }
+
+        /* ===================================================
            TABLET
-        ================================================= */
+        =================================================== */
 
         @media (max-width: 900px) {
+
           .savedReportsPage {
             padding: 18px 12px;
+          }
+
+          .savedReportsHeader {
+            align-items: flex-start;
+
+            flex-direction: column;
+          }
+
+          .headerControls {
+            width: 100%;
+          }
+
+          .reportSearchInput {
+            flex: 1;
+
+            width: auto;
           }
 
           .savedPrintableReport {
@@ -2579,80 +3780,129 @@ export default function ReportsPage() {
           }
 
           .savedLabHeader {
-            grid-template-columns: 65px 1fr;
+            grid-template-columns:
+              65px
+              1fr;
           }
 
           .savedHeaderRight {
-            grid-column: 1 / -1;
+            grid-column:
+              1 / -1;
+
             text-align: left;
+
             flex-direction: row;
-            justify-content: space-between;
-            border-top: 1px solid #ddd;
+
+            justify-content:
+              space-between;
+
+            border-top:
+              1px solid
+              #ddd;
+
             padding-top: 8px;
           }
 
           .savedPatientGrid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns:
+              repeat(2, 1fr);
           }
 
           .savedPatientGrid > div {
-            border-right: 1px solid #e1e5ea !important;
-            border-bottom: 1px solid #e1e5ea !important;
+            border-right:
+              1px solid
+              #e1e5ea !important;
+
+            border-bottom:
+              1px solid
+              #e1e5ea !important;
           }
 
           .savedPatientGrid > div:nth-child(2n) {
-            border-right: none !important;
+            border-right:
+              none !important;
           }
 
           .savedPatientGrid > div:nth-last-child(-n + 2) {
-            border-bottom: none !important;
+            border-bottom:
+              none !important;
           }
         }
 
-        /* =================================================
+        /* ===================================================
            MOBILE
-        ================================================= */
+        =================================================== */
 
         @media (max-width: 600px) {
+
           .savedReportsPage {
             padding: 14px 8px;
-          }
-
-          .savedReportsHeader {
-            align-items: flex-start;
           }
 
           .savedReportsHeader h1 {
             font-size: 24px;
           }
 
+          .headerControls {
+            flex-direction: column;
+
+            align-items: stretch;
+          }
+
+          .reportSearchInput {
+            width: 100%;
+          }
+
           .refreshReportsButton {
+            width: 100%;
+
             padding: 9px 11px;
           }
 
           .savedReportPreviewSection {
             padding: 8px;
+
             border-radius: 9px;
           }
 
           .previewTopBar {
-            padding: 8px 4px 14px;
+            padding:
+              8px
+              4px
+              14px;
+          }
+
+          .previewResultInfo {
+            display: block;
+
+            margin:
+              5px
+              0
+              0;
           }
 
           .savedPrintableReport {
-            padding: 14px 8px;
+            padding:
+              14px
+              8px;
+
             border: none;
           }
 
           .savedLabHeader {
-            grid-template-columns: 52px 1fr;
+            grid-template-columns:
+              52px
+              1fr;
+
             gap: 10px;
           }
 
           .savedLogo {
             width: 48px;
             height: 48px;
+
             font-size: 19px;
+
             border-radius: 8px;
           }
 
@@ -2681,11 +3931,13 @@ export default function ReportsPage() {
           }
 
           .savedPatientGrid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns:
+              repeat(2, 1fr);
           }
 
           .savedPatientGrid > div {
             padding: 7px;
+
             min-height: 48px;
           }
 
@@ -2699,6 +3951,7 @@ export default function ReportsPage() {
 
           .savedTestHeading {
             font-size: 10px;
+
             padding: 6px;
           }
 
@@ -2711,27 +3964,35 @@ export default function ReportsPage() {
           }
 
           .savedFinalReportTable th {
-            padding: 5px 2px;
+            padding:
+              5px
+              2px;
+
             font-size: 6.5px;
           }
 
           .savedFinalReportTable td {
-            padding: 5px 2px;
+            padding:
+              5px
+              2px;
           }
 
           .savedFlag {
             width: 18px;
             height: 18px;
+
             font-size: 8px;
           }
 
           .savedSignatureSection {
             gap: 25px;
+
             margin-top: 35px;
           }
 
           .savedSignatureBox {
             width: 45%;
+
             font-size: 8px;
           }
 
@@ -2757,87 +4018,132 @@ export default function ReportsPage() {
           }
         }
 
-        /* =================================================
-           PRINT / SAVE PDF
-        ================================================= */
+        /* ===================================================
+           PRINT
+        =================================================== */
 
         @media print {
+
           @page {
             size: A4 portrait;
+
             margin: 7mm;
           }
 
           html,
           body {
             margin: 0 !important;
+
             padding: 0 !important;
-            background: white !important;
+
+            background:
+              white !important;
           }
 
           body * {
-            visibility: hidden !important;
+            visibility:
+              hidden !important;
           }
 
           .savedReportPreviewSection,
           .savedReportPreviewSection * {
-            visibility: visible !important;
+            visibility:
+              visible !important;
           }
 
           .savedReportPreviewSection {
-            position: absolute !important;
+            position:
+              absolute !important;
+
             left: 0 !important;
+
             top: 0 !important;
+
             width: 100% !important;
-            max-width: none !important;
+
+            max-width:
+              none !important;
+
             margin: 0 !important;
+
             padding: 0 !important;
+
             border: none !important;
-            box-shadow: none !important;
-            background: white !important;
+
+            box-shadow:
+              none !important;
+
+            background:
+              white !important;
           }
 
           .previewTopBar,
           .previewBottomActions {
-            display: none !important;
+            display:
+              none !important;
           }
 
           .savedPrintableReport {
             width: 100% !important;
-            max-width: none !important;
+
+            max-width:
+              none !important;
+
             margin: 0 !important;
+
             padding: 0 !important;
+
             border: none !important;
-            box-shadow: none !important;
-            background: white !important;
+
+            box-shadow:
+              none !important;
+
+            background:
+              white !important;
           }
 
           .savedTestSection {
-            break-inside: avoid;
-            page-break-inside: avoid;
+            break-inside:
+              avoid;
+
+            page-break-inside:
+              avoid;
           }
 
           .savedFinalReportTable {
-            break-inside: auto;
+            break-inside:
+              auto;
           }
 
           .savedFinalReportTable tr {
-            break-inside: avoid;
-            page-break-inside: avoid;
+            break-inside:
+              avoid;
+
+            page-break-inside:
+              avoid;
           }
 
           .savedSignatureSection,
           .savedNotes,
           .savedReportFooter {
-            break-inside: avoid;
-            page-break-inside: avoid;
+            break-inside:
+              avoid;
+
+            page-break-inside:
+              avoid;
           }
 
           * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            -webkit-print-color-adjust:
+              exact !important;
+
+            print-color-adjust:
+              exact !important;
           }
         }
+
       `}</style>
+
     </div>
   );
 }
