@@ -2,122 +2,253 @@
 
 import { useEffect, useState } from "react";
 
+/* =====================================================
+   NIDAN PATHOLOGY LAB
+   CENTRAL SETTINGS
+   ===================================================== */
+
+export const SETTINGS_KEY = "nidanLabSettings";
+
 const DEFAULT_SETTINGS = {
   labName: "NIDAN PATHOLOGY LAB",
+
+  slogan:
+    "Accurate Diagnosis • Trusted Care • Better Health",
+
   labAddress: "",
+
   phone: "",
+
   email: "",
+
   registrationNo: "",
+
   doctorName: "",
 
-  // Letterhead
+  // Laboratory Logo / Letterhead
   letterhead: "",
 
-  // Report settings
+  // Report Settings
   reportHeader: true,
+
   showLogo: true,
+
   showReferenceRange: true,
+
   showFlag: true,
+
   autoSave: true,
 };
 
-export default function SettingsPage() {
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [loaded, setLoaded] = useState(false);
+/* =====================================================
+   SETTINGS PAGE
+   ===================================================== */
 
-  // =====================================================
-  // LOAD SETTINGS
-  // =====================================================
+export default function SettingsPage() {
+  const [settings, setSettings] =
+    useState(DEFAULT_SETTINGS);
+
+  const [loaded, setLoaded] =
+    useState(false);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  /* ===================================================
+     LOAD SETTINGS
+     =================================================== */
 
   useEffect(() => {
+    loadSettings();
+  }, []);
+
+  function loadSettings() {
     try {
-      const saved = localStorage.getItem("nidanLabSettings");
+      const saved =
+        localStorage.getItem(
+          SETTINGS_KEY
+        );
 
       if (saved) {
-        const parsed = JSON.parse(saved);
+        const parsed =
+          JSON.parse(saved);
 
         setSettings({
           ...DEFAULT_SETTINGS,
           ...parsed,
         });
+      } else {
+        setSettings(
+          DEFAULT_SETTINGS
+        );
       }
     } catch (error) {
-      console.error("Settings load error:", error);
+      console.error(
+        "Settings load error:",
+        error
+      );
+
+      setSettings(
+        DEFAULT_SETTINGS
+      );
     } finally {
       setLoaded(true);
     }
-  }, []);
+  }
 
-  // =====================================================
-  // UPDATE SETTING
-  // =====================================================
+  /* ===================================================
+     UPDATE SETTING
+     =================================================== */
 
-  function updateSetting(key, value) {
-    setSettings((prev) => ({
-      ...prev,
+  function updateSetting(
+    key,
+    value
+  ) {
+    setSettings((previous) => ({
+      ...previous,
       [key]: value,
     }));
   }
 
-  // =====================================================
-  // SAVE SETTINGS
-  // =====================================================
+  /* ===================================================
+     SAVE SETTINGS
+     =================================================== */
 
   function saveSettings() {
     try {
+      setSaving(true);
+
+      const finalSettings = {
+        ...DEFAULT_SETTINGS,
+        ...settings,
+      };
+
       localStorage.setItem(
-        "nidanLabSettings",
-        JSON.stringify(settings)
+        SETTINGS_KEY,
+        JSON.stringify(
+          finalSettings
+        )
       );
 
-      alert("✓ Settings saved successfully");
+      /*
+       * Notify other pages/components
+       * in the same browser.
+       */
+
+      window.dispatchEvent(
+        new CustomEvent(
+          "nidan-settings-updated",
+          {
+            detail:
+              finalSettings,
+          }
+        )
+      );
+
+      /*
+       * Also trigger normal storage
+       * event compatibility.
+       */
+
+      window.dispatchEvent(
+        new Event("storage")
+      );
+
+      alert(
+        "✓ Settings saved successfully.\n\nFinal Report aur Saved Reports me ye settings use hongi."
+      );
     } catch (error) {
-      console.error("Settings save error:", error);
+      console.error(
+        "Settings save error:",
+        error
+      );
 
       if (
-        error?.name === "QuotaExceededError" ||
-        error?.message?.toLowerCase().includes("quota")
+        error?.name ===
+          "QuotaExceededError" ||
+        error?.message
+          ?.toLowerCase()
+          .includes("quota")
       ) {
         alert(
           "Letterhead image bahut badi hai. Please 2 MB se kam image upload karein."
         );
       } else {
-        alert("Settings save nahi ho payi.");
+        alert(
+          "Settings save nahi ho payi."
+        );
       }
+    } finally {
+      setSaving(false);
     }
   }
 
-  // =====================================================
-  // RESET SETTINGS
-  // =====================================================
+  /* ===================================================
+     RESET SETTINGS
+     =================================================== */
 
   function resetSettings() {
-    const confirmReset = window.confirm(
-      "Kya aap Settings ko default par reset karna chahte hain?"
-    );
+    const confirmed =
+      window.confirm(
+        "Kya aap Settings ko default par reset karna chahte hain?"
+      );
 
-    if (!confirmReset) return;
+    if (!confirmed) {
+      return;
+    }
 
-    setSettings(DEFAULT_SETTINGS);
+    try {
+      const resetData = {
+        ...DEFAULT_SETTINGS,
+      };
 
-    localStorage.setItem(
-      "nidanLabSettings",
-      JSON.stringify(DEFAULT_SETTINGS)
-    );
+      setSettings(resetData);
 
-    alert("✓ Settings reset ho gayi.");
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify(
+          resetData
+        )
+      );
+
+      window.dispatchEvent(
+        new CustomEvent(
+          "nidan-settings-updated",
+          {
+            detail: resetData,
+          }
+        )
+      );
+
+      alert(
+        "✓ Settings reset ho gayi."
+      );
+    } catch (error) {
+      console.error(
+        "Settings reset error:",
+        error
+      );
+
+      alert(
+        "Settings reset nahi ho payi."
+      );
+    }
   }
 
-  // =====================================================
-  // LETTERHEAD UPLOAD
-  // =====================================================
+  /* ===================================================
+     LETTERHEAD / LOGO UPLOAD
+     =================================================== */
 
-  function handleLetterheadUpload(event) {
-    const file = event.target.files?.[0];
+  function handleLetterheadUpload(
+    event
+  ) {
+    const file =
+      event.target.files?.[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
-    // Allowed formats
     const allowedTypes = [
       "image/png",
       "image/jpeg",
@@ -125,22 +256,39 @@ export default function SettingsPage() {
       "image/webp",
     ];
 
-    if (!allowedTypes.includes(file.type)) {
-      alert("Sirf PNG, JPG, JPEG ya WEBP image upload karein.");
-      event.target.value = "";
-      return;
-    }
-
-    // Maximum 2 MB
-    if (file.size > 2 * 1024 * 1024) {
+    if (
+      !allowedTypes.includes(
+        file.type
+      )
+    ) {
       alert(
-        "Letterhead image 2 MB se kam honi chahiye."
+        "Sirf PNG, JPG, JPEG ya WEBP image upload karein."
       );
+
       event.target.value = "";
+
       return;
     }
 
-    const reader = new FileReader();
+    /*
+     * Maximum 2 MB
+     */
+
+    if (
+      file.size >
+      2 * 1024 * 1024
+    ) {
+      alert(
+        "Letterhead / Logo image 2 MB se kam honi chahiye."
+      );
+
+      event.target.value = "";
+
+      return;
+    }
+
+    const reader =
+      new FileReader();
 
     reader.onload = () => {
       updateSetting(
@@ -150,25 +298,37 @@ export default function SettingsPage() {
     };
 
     reader.onerror = () => {
-      alert("Letterhead upload nahi ho paya.");
+      alert(
+        "Letterhead upload nahi ho paya."
+      );
     };
 
     reader.readAsDataURL(file);
   }
 
-  // =====================================================
-  // REMOVE LETTERHEAD
-  // =====================================================
+  /* ===================================================
+     REMOVE LETTERHEAD
+     =================================================== */
 
   function removeLetterhead() {
-    const confirmRemove = window.confirm(
-      "Kya aap uploaded letterhead remove karna chahte hain?"
+    const confirmed =
+      window.confirm(
+        "Kya aap uploaded logo / letterhead remove karna chahte hain?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    updateSetting(
+      "letterhead",
+      ""
     );
-
-    if (!confirmRemove) return;
-
-    updateSetting("letterhead", "");
   }
+
+  /* ===================================================
+     LOADING
+     =================================================== */
 
   if (!loaded) {
     return (
@@ -178,6 +338,10 @@ export default function SettingsPage() {
     );
   }
 
+  /* ===================================================
+     UI
+     =================================================== */
+
   return (
     <div className="settingsPage">
 
@@ -186,23 +350,33 @@ export default function SettingsPage() {
       ================================================= */}
 
       <div className="settingsHeader">
+
         <div>
+
           <div className="settingsSmallTitle">
             LABORATORY SETTINGS
           </div>
 
-          <h1>Settings</h1>
+          <h1>
+            Settings
+          </h1>
 
           <p>
-            NIDAN Pathology Lab ki laboratory
-            configuration manage karein.
+            NIDAN Pathology Lab ki
+            laboratory configuration
+            manage karein.
           </p>
+
         </div>
 
         <div className="settingsStatus">
-          <span></span>
+
+          <span />
+
           System Active
+
         </div>
+
       </div>
 
 
@@ -213,145 +387,219 @@ export default function SettingsPage() {
       <section className="settingsCard">
 
         <div className="cardTitle">
+
           <div className="cardIcon">
             🏥
           </div>
 
           <div>
-            <h2>Laboratory Information</h2>
+
+            <h2>
+              Laboratory Information
+            </h2>
+
             <p>
-              Lab ki basic information yahan set karein.
+              Ye information Final Report,
+              Saved Reports aur PDF me
+              automatically use hogi.
             </p>
+
           </div>
+
         </div>
 
 
         <div className="settingsGrid">
 
-          {/* Laboratory Name */}
+          {/* LAB NAME */}
 
           <div className="field">
-            <label>Laboratory Name</label>
+
+            <label>
+              Laboratory Name
+            </label>
 
             <input
               type="text"
-              value={settings.labName}
-              onChange={(e) =>
+              value={
+                settings.labName
+              }
+              onChange={(event) =>
                 updateSetting(
                   "labName",
-                  e.target.value
+                  event.target.value
                 )
               }
               placeholder="NIDAN PATHOLOGY LAB"
             />
+
           </div>
 
 
-          {/* Registration Number */}
+          {/* REGISTRATION NUMBER */}
 
           <div className="field">
-            <label>Registration Number</label>
+
+            <label>
+              Registration Number
+            </label>
 
             <input
               type="text"
-              value={settings.registrationNo}
-              onChange={(e) =>
+              value={
+                settings.registrationNo
+              }
+              onChange={(event) =>
                 updateSetting(
                   "registrationNo",
-                  e.target.value
+                  event.target.value
                 )
               }
               placeholder="Lab registration number"
             />
+
           </div>
 
 
-          {/* Laboratory Address */}
+          {/* SLOGAN */}
 
           <div className="field full">
-            <label>Laboratory Address</label>
+
+            <label>
+              Laboratory Slogan
+            </label>
+
+            <input
+              type="text"
+              value={
+                settings.slogan
+              }
+              onChange={(event) =>
+                updateSetting(
+                  "slogan",
+                  event.target.value
+                )
+              }
+              placeholder="Accurate Diagnosis • Trusted Care • Better Health"
+            />
+
+            <small className="fieldHelp">
+              Ye slogan Final Report aur
+              Saved Report ke header/footer
+              me show hoga.
+            </small>
+
+          </div>
+
+
+          {/* ADDRESS */}
+
+          <div className="field full">
+
+            <label>
+              Laboratory Address
+            </label>
 
             <textarea
-              value={settings.labAddress}
-              onChange={(e) =>
+              value={
+                settings.labAddress
+              }
+              onChange={(event) =>
                 updateSetting(
                   "labAddress",
-                  e.target.value
+                  event.target.value
                 )
               }
               placeholder="Complete laboratory address"
               rows={3}
             />
+
           </div>
 
 
-          {/* Mobile */}
+          {/* PHONE */}
 
           <div className="field">
-            <label>Mobile / Phone</label>
+
+            <label>
+              Mobile / Phone
+            </label>
 
             <input
               type="tel"
-              value={settings.phone}
-              onChange={(e) =>
+              value={
+                settings.phone
+              }
+              onChange={(event) =>
                 updateSetting(
                   "phone",
-                  e.target.value
+                  event.target.value
                 )
               }
               placeholder="Mobile number"
             />
+
           </div>
 
 
-          {/* Email */}
+          {/* EMAIL */}
 
           <div className="field">
-            <label>Email</label>
+
+            <label>
+              Email
+            </label>
 
             <input
               type="email"
-              value={settings.email}
-              onChange={(e) =>
+              value={
+                settings.email
+              }
+              onChange={(event) =>
                 updateSetting(
                   "email",
-                  e.target.value
+                  event.target.value
                 )
               }
               placeholder="Lab email"
             />
+
           </div>
 
 
-          {/* Doctor */}
+          {/* DOCTOR */}
 
-          <div className="field">
+          <div className="field full">
+
             <label>
               Medical / Reporting Doctor
             </label>
 
             <input
               type="text"
-              value={settings.doctorName}
-              onChange={(e) =>
+              value={
+                settings.doctorName
+              }
+              onChange={(event) =>
                 updateSetting(
                   "doctorName",
-                  e.target.value
+                  event.target.value
                 )
               }
               placeholder="Doctor name"
             />
+
           </div>
 
 
           {/* =================================================
-              LETTERHEAD UPLOAD
+              LOGO / LETTERHEAD
           ================================================= */}
 
           <div className="field full">
 
             <label>
-              📄 Laboratory Letterhead
+              🖼 Laboratory Logo / Letterhead
             </label>
 
             <div className="letterheadUpload">
@@ -359,64 +607,74 @@ export default function SettingsPage() {
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/jpg,image/webp"
-                onChange={handleLetterheadUpload}
+                onChange={
+                  handleLetterheadUpload
+                }
               />
 
               <small>
-                PNG, JPG, JPEG ya WEBP image upload karein.
-                Maximum size: 2 MB.
+                PNG, JPG, JPEG ya WEBP.
+                Maximum size 2 MB.
               </small>
 
             </div>
 
 
-            {/* LETTERHEAD PREVIEW */}
-
             {settings.letterhead ? (
+
               <div className="letterheadPreview">
 
                 <div className="previewHeader">
 
                   <strong>
-                    Letterhead Preview
+                    Uploaded Logo /
+                    Letterhead
                   </strong>
 
                   <button
                     type="button"
                     className="removeLetterhead"
-                    onClick={removeLetterhead}
+                    onClick={
+                      removeLetterhead
+                    }
                   >
                     Remove
                   </button>
 
                 </div>
 
-
                 <div className="previewImageBox">
 
                   <img
-                    src={settings.letterhead}
-                    alt="Laboratory Letterhead"
+                    src={
+                      settings.letterhead
+                    }
+                    alt="Laboratory Logo"
                   />
 
                 </div>
 
               </div>
+
             ) : (
+
               <div className="noLetterhead">
+
                 <div className="noLetterheadIcon">
-                  📄
+                  🖼️
                 </div>
 
                 <strong>
-                  No Letterhead Uploaded
+                  No Logo / Letterhead Uploaded
                 </strong>
 
                 <small>
-                  Report ke liye laboratory letterhead
-                  yahan upload karein.
+                  Report ke header me use
+                  karne ke liye logo upload karein.
                 </small>
+
               </div>
+
             )}
 
           </div>
@@ -439,11 +697,16 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <h2>Report Settings</h2>
+
+            <h2>
+              Report Settings
+            </h2>
 
             <p>
-              Laboratory report ke display options.
+              Final aur Saved Report ke
+              display options.
             </p>
+
           </div>
 
         </div>
@@ -454,7 +717,9 @@ export default function SettingsPage() {
           <SettingToggle
             title="Report Header"
             description="Report ke top par laboratory header show karein."
-            checked={settings.reportHeader}
+            checked={
+              settings.reportHeader
+            }
             onChange={(value) =>
               updateSetting(
                 "reportHeader",
@@ -466,8 +731,10 @@ export default function SettingsPage() {
 
           <SettingToggle
             title="Show Laboratory Logo"
-            description="Final report me laboratory logo display karein."
-            checked={settings.showLogo}
+            description="Final aur Saved Report me laboratory logo display karein."
+            checked={
+              settings.showLogo
+            }
             onChange={(value) =>
               updateSetting(
                 "showLogo",
@@ -480,7 +747,9 @@ export default function SettingsPage() {
           <SettingToggle
             title="Show Reference Range"
             description="Report me reference range display karein."
-            checked={settings.showReferenceRange}
+            checked={
+              settings.showReferenceRange
+            }
             onChange={(value) =>
               updateSetting(
                 "showReferenceRange",
@@ -493,7 +762,9 @@ export default function SettingsPage() {
           <SettingToggle
             title="Show Result Flag"
             description="LOW / HIGH / NORMAL flag show karein."
-            checked={settings.showFlag}
+            checked={
+              settings.showFlag
+            }
             onChange={(value) =>
               updateSetting(
                 "showFlag",
@@ -506,7 +777,9 @@ export default function SettingsPage() {
           <SettingToggle
             title="Auto Save Results"
             description="Result entry ke dauran data automatically save karein."
-            checked={settings.autoSave}
+            checked={
+              settings.autoSave
+            }
             onChange={(value) =>
               updateSetting(
                 "autoSave",
@@ -533,11 +806,16 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <h2>System Settings</h2>
+
+            <h2>
+              System Settings
+            </h2>
 
             <p>
-              Laboratory software ke general controls.
+              Laboratory software ke
+              general controls.
             </p>
+
           </div>
 
         </div>
@@ -545,82 +823,29 @@ export default function SettingsPage() {
 
         <div className="systemOptions">
 
-          {/* Test Master */}
+          <SystemItem
+            title="Test Master"
+            description="Laboratory tests, parameters, units aur reference ranges manage karein."
+            href="/tests"
+          />
 
-          <div className="systemItem">
+          <SystemItem
+            title="Doctors"
+            description="Referring doctors add aur manage karein."
+            href="/doctors"
+          />
 
-            <div>
-              <strong>Test Master</strong>
+          <SystemItem
+            title="Patients"
+            description="Registered patients manage karein."
+            href="/patients"
+          />
 
-              <small>
-                Laboratory tests, parameters,
-                units aur reference ranges manage karein.
-              </small>
-            </div>
-
-            <a href="/tests">
-              Open →
-            </a>
-
-          </div>
-
-
-          {/* Doctors */}
-
-          <div className="systemItem">
-
-            <div>
-              <strong>Doctors</strong>
-
-              <small>
-                Referring doctors add aur manage karein.
-              </small>
-            </div>
-
-            <a href="/doctors">
-              Open →
-            </a>
-
-          </div>
-
-
-          {/* Patients */}
-
-          <div className="systemItem">
-
-            <div>
-              <strong>Patients</strong>
-
-              <small>
-                Registered patients manage karein.
-              </small>
-            </div>
-
-            <a href="/patients">
-              Open →
-            </a>
-
-          </div>
-
-
-          {/* Reports */}
-
-          <div className="systemItem">
-
-            <div>
-              <strong>Reports</strong>
-
-              <small>
-                Final laboratory reports dekhein
-                aur print karein.
-              </small>
-            </div>
-
-            <a href="/reports">
-              Open →
-            </a>
-
-          </div>
+          <SystemItem
+            title="Reports"
+            description="Final laboratory reports dekhein aur print karein."
+            href="/reports"
+          />
 
         </div>
 
@@ -635,7 +860,10 @@ export default function SettingsPage() {
 
         <button
           className="resetBtn"
-          onClick={resetSettings}
+          onClick={
+            resetSettings
+          }
+          disabled={saving}
         >
           Reset Settings
         </button>
@@ -643,9 +871,14 @@ export default function SettingsPage() {
 
         <button
           className="saveBtn"
-          onClick={saveSettings}
+          onClick={
+            saveSettings
+          }
+          disabled={saving}
         >
-          Save Settings
+          {saving
+            ? "Saving..."
+            : "Save Settings"}
         </button>
 
       </div>
@@ -724,7 +957,9 @@ export default function SettingsPage() {
           border-radius: 16px;
           padding: 22px;
           margin-bottom: 18px;
-          box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
+          box-shadow:
+            0 3px 12px
+            rgba(15, 23, 42, 0.04);
         }
 
         .cardTitle {
@@ -780,6 +1015,13 @@ export default function SettingsPage() {
           font-weight: 700;
         }
 
+        .fieldHelp {
+          display: block;
+          margin-top: 6px;
+          color: #718096;
+          font-size: 11px;
+        }
+
         .field input,
         .field textarea {
           width: 100%;
@@ -801,12 +1043,10 @@ export default function SettingsPage() {
         .field input:focus,
         .field textarea:focus {
           border-color: #0f9d9a;
-          box-shadow: 0 0 0 3px rgba(15, 157, 154, 0.10);
+          box-shadow:
+            0 0 0 3px
+            rgba(15, 157, 154, 0.10);
         }
-
-        /* ===============================
-           LETTERHEAD
-        =============================== */
 
         .letterheadUpload {
           padding: 16px;
@@ -911,10 +1151,6 @@ export default function SettingsPage() {
           font-size: 11px;
         }
 
-        /* ===============================
-           TOGGLES
-        =============================== */
-
         .settingOptions {
           display: flex;
           flex-direction: column;
@@ -975,10 +1211,6 @@ export default function SettingsPage() {
           transform: translateX(21px);
         }
 
-        /* ===============================
-           SYSTEM OPTIONS
-        =============================== */
-
         .systemOptions {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -1021,10 +1253,6 @@ export default function SettingsPage() {
           text-decoration: underline;
         }
 
-        /* ===============================
-           ACTIONS
-        =============================== */
-
         .settingsActions {
           display: flex;
           justify-content: flex-end;
@@ -1042,13 +1270,19 @@ export default function SettingsPage() {
           font-size: 13px;
         }
 
+        .resetBtn:disabled,
+        .saveBtn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .resetBtn {
           background: #ffffff;
           border: 1px solid #d5dde4;
           color: #475569;
         }
 
-        .resetBtn:hover {
+        .resetBtn:hover:not(:disabled) {
           background: #f8fafc;
         }
 
@@ -1058,7 +1292,7 @@ export default function SettingsPage() {
           color: #ffffff;
         }
 
-        .saveBtn:hover {
+        .saveBtn:hover:not(:disabled) {
           background: #087f7d;
         }
 
@@ -1102,7 +1336,6 @@ export default function SettingsPage() {
           .saveBtn {
             width: 100%;
           }
-
         }
 
         @media (max-width: 420px) {
@@ -1122,7 +1355,6 @@ export default function SettingsPage() {
           .previewHeader {
             align-items: flex-start;
           }
-
         }
 
       `}</style>
@@ -1132,9 +1364,9 @@ export default function SettingsPage() {
 }
 
 
-// =====================================================
-// TOGGLE COMPONENT
-// =====================================================
+/* =====================================================
+   TOGGLE COMPONENT
+   ===================================================== */
 
 function SettingToggle({
   title,
@@ -1146,8 +1378,15 @@ function SettingToggle({
     <div className="toggleItem">
 
       <div>
-        <strong>{title}</strong>
-        <small>{description}</small>
+
+        <strong>
+          {title}
+        </strong>
+
+        <small>
+          {description}
+        </small>
+
       </div>
 
       <button
@@ -1163,7 +1402,9 @@ function SettingToggle({
         aria-label={title}
         aria-pressed={checked}
       >
-        <span></span>
+
+        <span />
+
       </button>
 
     </div>
@@ -1171,9 +1412,42 @@ function SettingToggle({
 }
 
 
-// =====================================================
-// LOADING STYLE
-// =====================================================
+/* =====================================================
+   SYSTEM ITEM
+   ===================================================== */
+
+function SystemItem({
+  title,
+  description,
+  href,
+}) {
+  return (
+    <div className="systemItem">
+
+      <div>
+
+        <strong>
+          {title}
+        </strong>
+
+        <small>
+          {description}
+        </small>
+
+      </div>
+
+      <a href={href}>
+        Open →
+      </a>
+
+    </div>
+  );
+}
+
+
+/* =====================================================
+   LOADING STYLE
+   ===================================================== */
 
 const styles = {
   loading: {
@@ -1181,7 +1455,8 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontFamily: "Arial, sans-serif",
+    fontFamily:
+      "Arial, sans-serif",
     color: "#64748b",
     fontSize: "14px",
   },
