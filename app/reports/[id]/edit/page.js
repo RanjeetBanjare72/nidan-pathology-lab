@@ -4,16 +4,42 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
+/*
+  NIDAN PATHOLOGY LAB
+  Universal Edit Report Page
+
+  This page tries to support different report_data structures:
+  - selectedTests
+  - tests
+  - investigations
+  - reportTests
+  - parameters
+  - test.parameters
+  - test.tests
+  - test.items
+  - test.fields
+  - results
+  - testResults
+  - patient
+  - patientData
+
+  It also supports report_data being stored as JSON string.
+*/
+
 export default function EditLaboratoryReportPage() {
   const params = useParams();
   const router = useRouter();
 
   const reportId = useMemo(() => {
     if (!params?.id) return "";
-    return Array.isArray(params.id) ? params.id[0] : params.id;
+
+    return Array.isArray(params.id)
+      ? params.id[0]
+      : String(params.id);
   }, [params]);
 
   const [report, setReport] = useState(null);
+
   const [patient, setPatient] = useState({
     name: "",
     patient_id: "",
@@ -28,6 +54,7 @@ export default function EditLaboratoryReportPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -36,9 +63,9 @@ export default function EditLaboratoryReportPage() {
   // =========================================================
 
   useEffect(() => {
-    if (reportId) {
-      loadReport();
-    }
+    if (!reportId) return;
+
+    loadReport();
   }, [reportId]);
 
   async function loadReport() {
@@ -61,135 +88,131 @@ export default function EditLaboratoryReportPage() {
         throw new Error("Report not found.");
       }
 
-      console.log("========== EDIT REPORT ==========");
-      console.log("FULL REPORT:", data);
-      console.log("REPORT DATA:", data.report_data);
+      console.log("====================================");
+      console.log("NIDAN EDIT - COMPLETE REPORT");
+      console.log(data);
+      console.log("====================================");
 
       setReport(data);
 
-      let reportData = data.report_data || {};
+      // -------------------------------------------------------
+      // Parse report_data
+      // -------------------------------------------------------
 
-      // Sometimes JSON can be stored as a string.
-      if (typeof reportData === "string") {
-        try {
-          reportData = JSON.parse(reportData);
-        } catch (e) {
-          console.error("REPORT DATA JSON PARSE ERROR:", e);
-          reportData = {};
-        }
-      }
+      const reportData = parseJSON(
+        data.report_data
+      );
+
+      console.log(
+        "NIDAN EDIT - REPORT DATA:",
+        reportData
+      );
 
       // -------------------------------------------------------
       // PATIENT
       // -------------------------------------------------------
 
-      const savedPatient = findPatient(reportData, data);
+      const foundPatient =
+        findPatient(
+          data,
+          reportData
+        );
 
-      console.log("FOUND PATIENT:", savedPatient);
+      console.log(
+        "NIDAN EDIT - FOUND PATIENT:",
+        foundPatient
+      );
 
-      setPatient({
-        name:
-          savedPatient?.name ??
-          savedPatient?.patientName ??
-          savedPatient?.patient_name ??
-          "",
-
-        patient_id:
-          savedPatient?.id ??
-          savedPatient?.patient_id ??
-          savedPatient?.patientId ??
-          "",
-
-        age:
-          savedPatient?.age ??
-          savedPatient?.patientAge ??
-          "",
-
-        gender:
-          savedPatient?.gender ??
-          savedPatient?.sex ??
-          savedPatient?.patientGender ??
-          "",
-
-        mobile:
-          savedPatient?.mobile ??
-          savedPatient?.phone ??
-          savedPatient?.phoneNumber ??
-          "",
-
-        doctor:
-          savedPatient?.doctor ??
-          savedPatient?.referring_doctor ??
-          savedPatient?.referringDoctor ??
-          savedPatient?.refDoctor ??
-          "",
-      });
+      setPatient(
+        normalizePatient(
+          foundPatient
+        )
+      );
 
       // -------------------------------------------------------
       // RESULTS
       // -------------------------------------------------------
 
-      const savedResults = findResults(reportData);
+      const foundResults =
+        findResults(
+          data,
+          reportData
+        );
 
-      console.log("FOUND RESULTS:", savedResults);
-
-      setResults(
-        savedResults &&
-          typeof savedResults === "object" &&
-          !Array.isArray(savedResults)
-          ? savedResults
-          : {}
+      console.log(
+        "NIDAN EDIT - FOUND RESULTS:",
+        foundResults
       );
+
+      setResults(foundResults);
 
       // -------------------------------------------------------
       // TESTS
       // -------------------------------------------------------
 
-      const savedTests = findTestCollection(reportData);
-
-      console.log("FOUND TEST COLLECTION:", savedTests);
-
-      let normalized = normalizeTests(savedTests);
-
-      // -------------------------------------------------------
-      // FALLBACK:
-      // If selectedTests wasn't found, search the complete
-      // report_data recursively.
-      // -------------------------------------------------------
-
-      if (normalized.length === 0) {
-        normalized = discoverTests(reportData);
-
-        console.log(
-          "DISCOVERED TESTS:",
-          normalized
+      const foundTests =
+        findAllTests(
+          data,
+          reportData
         );
-      }
+
+      console.log(
+        "===================================="
+      );
+
+      console.log(
+        "NIDAN EDIT - FOUND TEST COLLECTION:"
+      );
+
+      console.log(foundTests);
+
+      console.log(
+        "===================================="
+      );
+
+      const normalizedTests =
+        normalizeTestCollection(
+          foundTests
+        );
+
+      console.log(
+        "NIDAN EDIT - NORMALIZED TESTS:",
+        normalizedTests
+      );
+
+      setTests(normalizedTests);
 
       // -------------------------------------------------------
-      // FALLBACK:
-      // If results contain parameter keys but no test list,
-      // construct editable parameters from those keys.
+      // If result keys exist but test values aren't connected,
+      // inject result values into parameters.
+      // -------------------------------------------------------
+
+      const testsWithValues =
+        attachResultsToTests(
+          normalizedTests,
+          foundResults
+        );
+
+      setTests(testsWithValues);
+
+      // -------------------------------------------------------
+      // If nothing found, print complete JSON in console.
       // -------------------------------------------------------
 
       if (
-        normalized.length === 0 &&
-        Object.keys(savedResults || {}).length > 0
+        testsWithValues.length === 0
       ) {
-        normalized = buildTestsFromResults(
-          savedResults
+        console.warn(
+          "NIDAN EDIT: No tests detected."
         );
 
-        console.log(
-          "TESTS BUILT FROM RESULTS:",
-          normalized
+        console.warn(
+          "OPEN BROWSER CONSOLE AND CHECK COMPLETE REPORT JSON."
         );
       }
-
-      setTests(normalized);
     } catch (error) {
       console.error(
-        "LOAD REPORT ERROR:",
+        "NIDAN EDIT LOAD ERROR:",
         error
       );
 
@@ -203,621 +226,962 @@ export default function EditLaboratoryReportPage() {
   }
 
   // =========================================================
+  // SAFE JSON PARSER
+  // =========================================================
+
+  function parseJSON(value) {
+    if (
+      value === null ||
+      value === undefined
+    ) {
+      return {};
+    }
+
+    if (
+      typeof value === "object"
+    ) {
+      return value;
+    }
+
+    if (
+      typeof value === "string"
+    ) {
+      const text =
+        value.trim();
+
+      if (!text) {
+        return {};
+      }
+
+      try {
+        return JSON.parse(text);
+      } catch {
+        return value;
+      }
+    }
+
+    return value;
+  }
+
+  // =========================================================
+  // NORMALIZE PATIENT
+  // =========================================================
+
+  function normalizePatient(p) {
+    const patientData =
+      parseJSON(p) || {};
+
+    return {
+      name:
+        firstValue(
+          patientData.name,
+          patientData.patientName,
+          patientData.patient_name,
+          patientData.fullName,
+          patientData.full_name
+        ) || "",
+
+      patient_id:
+        firstValue(
+          patientData.patient_id,
+          patientData.patientId,
+          patientData.patientID,
+          patientData.id,
+          patientData.registrationNo,
+          patientData.registration_no
+        ) || "",
+
+      age:
+        firstValue(
+          patientData.age,
+          patientData.patientAge,
+          patientData.patient_age
+        ) ?? "",
+
+      gender:
+        firstValue(
+          patientData.gender,
+          patientData.sex,
+          patientData.patientGender,
+          patientData.patient_gender
+        ) || "",
+
+      mobile:
+        firstValue(
+          patientData.mobile,
+          patientData.phone,
+          patientData.phoneNumber,
+          patientData.phone_number,
+          patientData.contact
+        ) || "",
+
+      doctor:
+        firstValue(
+          patientData.doctor,
+          patientData.referring_doctor,
+          patientData.referringDoctor,
+          patientData.refDoctor,
+          patientData.doctorName,
+          patientData.doctor_name
+        ) || "",
+    };
+  }
+
+  // =========================================================
+  // FIRST VALUE
+  // =========================================================
+
+  function firstValue(...values) {
+    for (const value of values) {
+      if (
+        value !== undefined &&
+        value !== null &&
+        String(value).trim() !== ""
+      ) {
+        return value;
+      }
+    }
+
+    return "";
+  }
+
+  // =========================================================
   // FIND PATIENT
   // =========================================================
 
-  function findPatient(reportData, fullData) {
-    const possible = [
+  function findPatient(
+    root,
+    reportData
+  ) {
+    const directCandidates = [
       reportData?.patient,
       reportData?.patientData,
       reportData?.patient_info,
       reportData?.patientInformation,
-      fullData?.patient,
+      reportData?.patientDetails,
+
+      root?.patient,
+      root?.patientData,
+      root?.patient_info,
+      root?.patientInformation,
+      root?.patientDetails,
     ];
 
-    for (const item of possible) {
+    for (
+      const candidate of directCandidates
+    ) {
       if (
-        item &&
-        typeof item === "object" &&
-        !Array.isArray(item)
+        isPatientObject(candidate)
       ) {
-        return item;
+        return parseJSON(candidate);
       }
     }
 
-    return {};
+    const recursive =
+      recursivelyFind(
+        root,
+        (value) =>
+          isPatientObject(value)
+      );
+
+    return recursive || {};
+  }
+
+  // =========================================================
+  // PATIENT DETECTOR
+  // =========================================================
+
+  function isPatientObject(value) {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value)
+    ) {
+      return false;
+    }
+
+    const keys =
+      Object.keys(value).map(
+        (k) => k.toLowerCase()
+      );
+
+    const hasName =
+      keys.includes("name") ||
+      keys.includes("patientname") ||
+      keys.includes("patient_name") ||
+      keys.includes("fullname") ||
+      keys.includes("full_name");
+
+    const hasAge =
+      keys.includes("age") ||
+      keys.includes("patientage") ||
+      keys.includes("patient_age");
+
+    const hasGender =
+      keys.includes("gender") ||
+      keys.includes("sex") ||
+      keys.includes("patientgender");
+
+    return (
+      hasName &&
+      (hasAge || hasGender)
+    );
   }
 
   // =========================================================
   // FIND RESULTS
   // =========================================================
 
-  function findResults(reportData) {
-    const possible = [
+  function findResults(
+    root,
+    reportData
+  ) {
+    const candidates = [
       reportData?.results,
       reportData?.result,
       reportData?.testResults,
+      reportData?.test_results,
       reportData?.investigationResults,
       reportData?.investigation_results,
+
+      root?.results,
+      root?.result,
+      root?.testResults,
+      root?.test_results,
     ];
 
-    for (const item of possible) {
-      if (
-        item &&
-        typeof item === "object" &&
-        !Array.isArray(item)
-      ) {
-        return item;
-      }
-    }
-
-    // Recursive search
-    const found = recursiveFindObject(
-      reportData,
-      [
-        "results",
-        "testResults",
-        "investigationResults",
-      ]
-    );
-
-    return found || {};
-  }
-
-  // =========================================================
-  // FIND TEST COLLECTION
-  // =========================================================
-
-  function findTestCollection(reportData) {
-    const possible = [
-      reportData?.selectedTests,
-      reportData?.tests,
-      reportData?.investigations,
-      reportData?.selected_tests,
-      reportData?.investigationTests,
-    ];
-
-    for (const item of possible) {
-      if (
-        Array.isArray(item) &&
-        item.length > 0
-      ) {
-        return item;
-      }
-
-      if (
-        item &&
-        typeof item === "object"
-      ) {
-        if (Array.isArray(item.tests)) {
-          return item.tests;
-        }
-
-        if (Array.isArray(item.selectedTests)) {
-          return item.selectedTests;
-        }
-
-        if (Array.isArray(item.investigations)) {
-          return item.investigations;
-        }
-      }
-    }
-
-    // Recursive search for common collection names
-    const found = recursiveFindArray(
-      reportData,
-      [
-        "selectedTests",
-        "selected_tests",
-        "tests",
-        "investigations",
-        "investigationTests",
-      ]
-    );
-
-    return found || [];
-  }
-
-  // =========================================================
-  // RECURSIVE FIND ARRAY
-  // =========================================================
-
-  function recursiveFindArray(
-    value,
-    wantedKeys,
-    depth = 0
-  ) {
-    if (depth > 10 || value == null) {
-      return null;
-    }
-
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        const found = recursiveFindArray(
-          item,
-          wantedKeys,
-          depth + 1
-        );
-
-        if (found) return found;
-      }
-
-      return null;
-    }
-
-    if (
-      typeof value !== "object"
+    for (
+      const candidate of candidates
     ) {
-      return null;
-    }
-
-    for (const key of Object.keys(value)) {
-      const current = value[key];
+      const parsed =
+        parseJSON(candidate);
 
       if (
-        wantedKeys.includes(key) &&
-        Array.isArray(current) &&
-        current.length > 0
+        parsed &&
+        typeof parsed === "object" &&
+        !Array.isArray(parsed)
       ) {
-        return current;
-      }
-
-      const found = recursiveFindArray(
-        current,
-        wantedKeys,
-        depth + 1
-      );
-
-      if (found) return found;
-    }
-
-    return null;
-  }
-
-  // =========================================================
-  // RECURSIVE FIND OBJECT
-  // =========================================================
-
-  function recursiveFindObject(
-    value,
-    wantedKeys,
-    depth = 0
-  ) {
-    if (depth > 10 || value == null) {
-      return null;
-    }
-
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        const found = recursiveFindObject(
-          item,
-          wantedKeys,
-          depth + 1
-        );
-
-        if (found) return found;
-      }
-
-      return null;
-    }
-
-    if (
-      typeof value !== "object"
-    ) {
-      return null;
-    }
-
-    for (const key of Object.keys(value)) {
-      const current = value[key];
-
-      if (
-        wantedKeys.includes(key) &&
-        current &&
-        typeof current === "object" &&
-        !Array.isArray(current)
-      ) {
-        return current;
-      }
-
-      const found = recursiveFindObject(
-        current,
-        wantedKeys,
-        depth + 1
-      );
-
-      if (found) return found;
-    }
-
-    return null;
-  }
-
-  // =========================================================
-  // NORMALIZE TESTS
-  // =========================================================
-
-  function normalizeTests(input) {
-    if (!input) {
-      return [];
-    }
-
-    let list = [];
-
-    if (Array.isArray(input)) {
-      list = input;
-    } else if (
-      typeof input === "object"
-    ) {
-      if (Array.isArray(input.selectedTests)) {
-        list = input.selectedTests;
-      } else if (Array.isArray(input.tests)) {
-        list = input.tests;
-      } else if (
-        Array.isArray(input.investigations)
-      ) {
-        list = input.investigations;
-      } else {
-        list = [input];
+        return {
+          ...parsed,
+        };
       }
     }
 
-    const output = [];
-
-    list.forEach((test, index) => {
-      if (!test) return;
-
-      // -------------------------------------------------------
-      // If test is a string
-      // -------------------------------------------------------
-
-      if (typeof test === "string") {
-        output.push({
-          id: `test-${index}`,
-          name: test,
-          tests: [],
-          originalTest: test,
-        });
-
-        return;
-      }
-
-      let parameters = [];
-
-      // Most common structures
-      const parameterSources = [
-        test.tests,
-        test.parameters,
-        test.items,
-        test.investigations,
-        test.fields,
-        test.parametersList,
-        test.testParameters,
-        test.resultFields,
-      ];
-
-      for (
-        const source of parameterSources
-      ) {
-        if (
-          Array.isArray(source) &&
-          source.length > 0
-        ) {
-          parameters = source;
-          break;
-        }
-      }
-
-      // -------------------------------------------------------
-      // Some systems save parameter map as object
-      // -------------------------------------------------------
-
-      if (
-        parameters.length === 0 &&
-        test.parameters &&
-        typeof test.parameters === "object" &&
-        !Array.isArray(test.parameters)
-      ) {
-        parameters = Object.entries(
-          test.parameters
-        ).map(([key, value]) => ({
-          id: key,
-          name: key,
-          result:
-            typeof value === "object"
-              ? value.result ??
-                value.value ??
-                ""
-              : value,
-          unit:
-            typeof value === "object"
-              ? value.unit || ""
-              : "",
-          range:
-            typeof value === "object"
-              ? value.range ||
-                value.referenceRange ||
-                ""
-              : "",
-        }));
-      }
-
-      // -------------------------------------------------------
-      // Direct single parameter
-      // -------------------------------------------------------
-
-      if (
-        parameters.length === 0 &&
-        (
-          test.parameter ||
-          test.parameterName ||
-          test.result !== undefined ||
-          test.value !== undefined
-        )
-      ) {
-        parameters = [
-          {
-            id:
-              test.parameterId ||
-              test.parameter_id ||
-              test.id ||
-              `parameter-${index}`,
-
-            name:
-              test.parameter ||
-              test.parameterName ||
-              test.name ||
-              "Investigation",
-
-            result:
-              test.result ??
-              test.value ??
-              "",
-
-            value:
-              test.value ??
-              test.result ??
-              "",
-
-            unit:
-              test.unit ||
-              test.units ||
-              "",
-
-            range:
-              test.range ||
-              test.referenceRange ||
-              test.reference ||
-              "",
-          },
-        ];
-      }
-
-      // -------------------------------------------------------
-      // Normalize parameters
-      // -------------------------------------------------------
-
-      const normalizedParameters =
-        parameters.map(
-          (
-            parameter,
-            parameterIndex
-          ) => {
-            if (
-              typeof parameter === "string"
-            ) {
-              return {
-                id: `${index}-${parameterIndex}`,
-                name: parameter,
-                unit: "",
-                range: "",
-                result: "",
-              };
-            }
-
-            const p = parameter || {};
-
-            return {
-              ...p,
-
-              id:
-                p.id ??
-                p.parameterId ??
-                p.parameter_id ??
-                p.code ??
-                `${index}-${parameterIndex}`,
-
-              name:
-                p.name ??
-                p.parameterName ??
-                p.parameter_name ??
-                p.parameter ??
-                p.title ??
-                p.label ??
-                "Investigation",
-
-              unit:
-                p.unit ??
-                p.units ??
-                "",
-
-              range:
-                p.range ??
-                p.referenceRange ??
-                p.reference_range ??
-                p.reference ??
-                p.normalRange ??
-                (
-                  p.min !== undefined &&
-                  p.max !== undefined
-                    ? `${p.min} - ${p.max}`
-                    : ""
-                ),
-
-              result:
-                p.result ??
-                p.value ??
-                p.resultValue ??
-                "",
-            };
+    // Search recursively
+    const found =
+      recursivelyFind(
+        root,
+        (value, key) => {
+          if (
+            !key ||
+            !value ||
+            typeof value !==
+              "object" ||
+            Array.isArray(value)
+          ) {
+            return false;
           }
-        );
 
-      output.push({
-        ...test,
+          const k =
+            String(key).toLowerCase();
 
-        id:
-          test.id ??
-          test.testId ??
-          test.test_id ??
-          `test-${index}`,
+          return (
+            k === "results" ||
+            k === "result" ||
+            k === "testresults" ||
+            k === "test_results" ||
+            k ===
+              "investigationresults"
+          );
+        }
+      );
 
-        name:
-          test.name ??
-          test.testName ??
-          test.test_name ??
-          test.title ??
-          test.label ??
-          "Investigation",
+    if (
+      found &&
+      typeof found === "object"
+    ) {
+      return found;
+    }
 
-        tests: normalizedParameters,
-      });
-    });
-
-    return output;
+    return {};
   }
 
   // =========================================================
-  // DISCOVER TESTS RECURSIVELY
+  // FIND ALL TESTS
   // =========================================================
 
-  function discoverTests(reportData) {
-    const candidates = [];
+  function findAllTests(
+    root,
+    reportData
+  ) {
+    // -------------------------------------------------------
+    // First: known locations
+    // -------------------------------------------------------
 
-    function walk(value, depth = 0) {
-      if (
-        depth > 10 ||
-        value == null
-      ) {
-        return;
-      }
+    const knownCandidates = [
+      reportData?.selectedTests,
+      reportData?.selected_tests,
 
-      if (Array.isArray(value)) {
-        if (
-          value.length > 0 &&
-          value.some(
-            (item) =>
-              item &&
-              typeof item === "object" &&
-              (
-                item.parameter ||
-                item.parameterName ||
-                item.parameters ||
-                item.tests ||
-                item.items ||
-                item.fields
-              )
-          )
-        ) {
-          candidates.push(value);
-        }
+      reportData?.tests,
+      reportData?.test,
 
-        value.forEach((item) =>
-          walk(item, depth + 1)
+      reportData?.investigations,
+      reportData?.investigation,
+
+      reportData?.reportTests,
+      reportData?.report_tests,
+
+      reportData?.testData,
+      reportData?.test_data,
+
+      root?.selectedTests,
+      root?.selected_tests,
+
+      root?.tests,
+      root?.test,
+
+      root?.investigations,
+      root?.investigation,
+
+      root?.reportTests,
+      root?.report_tests,
+    ];
+
+    for (
+      const candidate of knownCandidates
+    ) {
+      const parsed =
+        parseJSON(candidate);
+
+      const extracted =
+        convertCandidateToTests(
+          parsed
         );
 
-        return;
-      }
-
       if (
-        typeof value !== "object"
+        extracted.length > 0
       ) {
-        return;
-      }
+        console.log(
+          "NIDAN EDIT - TESTS FOUND FROM KNOWN LOCATION:",
+          extracted
+        );
 
-      Object.values(value).forEach(
-        (child) =>
-          walk(child, depth + 1)
-      );
+        return extracted;
+      }
     }
 
-    walk(reportData);
+    // -------------------------------------------------------
+    // Second: recursively discover arrays
+    // -------------------------------------------------------
 
-    // Try candidates from largest to smallest
-    candidates.sort(
-      (a, b) => b.length - a.length
+    const discovered = [];
+
+    recursivelyWalk(
+      root,
+      (value, key, path) => {
+        if (
+          !Array.isArray(value)
+        ) {
+          return;
+        }
+
+        const converted =
+          convertCandidateToTests(
+            value
+          );
+
+        if (
+          converted.length > 0
+        ) {
+          discovered.push({
+            path,
+            tests: converted,
+          });
+        }
+      }
     );
 
-    for (const candidate of candidates) {
-      const normalized =
-        normalizeTests(candidate);
+    console.log(
+      "NIDAN EDIT - DISCOVERED TEST COLLECTIONS:",
+      discovered
+    );
 
-      if (
-        normalized.some(
-          (test) =>
-            Array.isArray(test.tests) &&
-            test.tests.length > 0
-        )
-      ) {
-        return normalized;
+    if (
+      discovered.length > 0
+    ) {
+      // Prefer collection having most parameters
+      discovered.sort(
+        (a, b) =>
+          countParameters(
+            b.tests
+          ) -
+          countParameters(
+            a.tests
+          )
+      );
+
+      return discovered[0].tests;
+    }
+
+    // -------------------------------------------------------
+    // Third: recursively search for single test object
+    // -------------------------------------------------------
+
+    const singleTests = [];
+
+    recursivelyWalk(
+      root,
+      (value) => {
+        if (
+          isTestObject(value)
+        ) {
+          singleTests.push(value);
+        }
       }
+    );
+
+    if (
+      singleTests.length > 0
+    ) {
+      return singleTests;
     }
 
     return [];
   }
 
   // =========================================================
-  // BUILD TESTS FROM RESULTS
+  // CONVERT CANDIDATE TO TESTS
   // =========================================================
 
-  function buildTestsFromResults(
-    savedResults
+  function convertCandidateToTests(
+    candidate
   ) {
-    const entries =
-      Object.entries(savedResults);
-
-    if (!entries.length) {
+    if (!candidate) {
       return [];
     }
 
-    const parameters = entries.map(
-      ([key, value], index) => ({
-        id: key,
-        name: extractParameterName(key),
-        result: value ?? "",
-        value: value ?? "",
-        unit: "",
-        range: "",
-      })
-    );
+    if (
+      typeof candidate ===
+        "object" &&
+      !Array.isArray(candidate)
+    ) {
+      // Object wrapping an array
+      const possibleArrays = [
+        candidate.selectedTests,
+        candidate.selected_tests,
+        candidate.tests,
+        candidate.investigations,
+        candidate.items,
+        candidate.data,
+      ];
 
-    return [
-      {
-        id: "saved-results",
-        name: "Investigation Results",
-        tests: parameters,
-      },
-    ];
-  }
+      for (
+        const arr of possibleArrays
+      ) {
+        if (
+          Array.isArray(arr)
+        ) {
+          return convertCandidateToTests(
+            arr
+          );
+        }
+      }
 
-  // =========================================================
-  // EXTRACT PARAMETER NAME
-  // =========================================================
+      // Single test object
+      if (
+        isTestObject(candidate)
+      ) {
+        return [candidate];
+      }
 
-  function extractParameterName(key) {
-    if (!key) return "Investigation";
-
-    const parts = String(key).split("-");
-
-    if (parts.length >= 3) {
-      return parts
-        .slice(1, -1)
-        .join("-");
+      return [];
     }
 
-    return key;
+    if (
+      !Array.isArray(candidate)
+    ) {
+      return [];
+    }
+
+    // Empty
+    if (
+      candidate.length === 0
+    ) {
+      return [];
+    }
+
+    // Array of test objects
+    const testObjects =
+      candidate.filter(
+        (item) =>
+          isTestObject(item)
+      );
+
+    if (
+      testObjects.length > 0
+    ) {
+      return testObjects;
+    }
+
+    // Array of parameters
+    const parameterObjects =
+      candidate.filter(
+        (item) =>
+          isParameterObject(item)
+      );
+
+    if (
+      parameterObjects.length >=
+      1
+    ) {
+      return [
+        {
+          id: "auto-cbc-test",
+          name:
+            inferTestName(
+              candidate
+            ),
+          tests:
+            parameterObjects,
+        },
+      ];
+    }
+
+    return [];
   }
 
   // =========================================================
-  // GET RESULT
+  // TEST DETECTOR
+  // =========================================================
+
+  function isTestObject(
+    value
+  ) {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value)
+    ) {
+      return false;
+    }
+
+    const nested =
+      value.tests ||
+      value.parameters ||
+      value.items ||
+      value.fields ||
+      value.investigations;
+
+    if (
+      Array.isArray(nested) &&
+      nested.length > 0
+    ) {
+      return true;
+    }
+
+    const keys =
+      Object.keys(value).map(
+        (k) => k.toLowerCase()
+      );
+
+    const hasTestName =
+      keys.includes("testname") ||
+      keys.includes("test_name") ||
+      keys.includes("testid") ||
+      keys.includes("test_id") ||
+      keys.includes("investigation") ||
+      keys.includes("title");
+
+    const hasName =
+      keys.includes("name");
+
+    return (
+      hasTestName ||
+      (
+        hasName &&
+        (
+          keys.includes("result") ||
+          keys.includes("value") ||
+          keys.includes("unit") ||
+          keys.includes("range")
+        )
+      )
+    );
+  }
+
+  // =========================================================
+  // PARAMETER DETECTOR
+  // =========================================================
+
+  function isParameterObject(
+    value
+  ) {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value)
+    ) {
+      return false;
+    }
+
+    const keys =
+      Object.keys(value).map(
+        (k) => k.toLowerCase()
+      );
+
+    const hasName =
+      keys.includes("name") ||
+      keys.includes("parameter") ||
+      keys.includes("parametername") ||
+      keys.includes("parameter_name");
+
+    const hasResult =
+      keys.includes("result") ||
+      keys.includes("value") ||
+      keys.includes("unit") ||
+      keys.includes("range") ||
+      keys.includes("reference") ||
+      keys.includes("referencerange") ||
+      keys.includes("reference_range");
+
+    return (
+      hasName &&
+      hasResult
+    );
+  }
+
+  // =========================================================
+  // NORMALIZE TEST COLLECTION
+  // =========================================================
+
+  function normalizeTestCollection(
+    input
+  ) {
+    if (
+      !Array.isArray(input)
+    ) {
+      return [];
+    }
+
+    return input.map(
+      (test, testIndex) => {
+        const parsed =
+          parseJSON(test) || {};
+
+        let parameters = [];
+
+        if (
+          Array.isArray(
+            parsed.tests
+          )
+        ) {
+          parameters =
+            parsed.tests;
+        } else if (
+          Array.isArray(
+            parsed.parameters
+          )
+        ) {
+          parameters =
+            parsed.parameters;
+        } else if (
+          Array.isArray(
+            parsed.items
+          )
+        ) {
+          parameters =
+            parsed.items;
+        } else if (
+          Array.isArray(
+            parsed.fields
+          )
+        ) {
+          parameters =
+            parsed.fields;
+        } else if (
+          Array.isArray(
+            parsed.investigations
+          )
+        ) {
+          parameters =
+            parsed.investigations;
+        } else if (
+          isParameterObject(parsed)
+        ) {
+          parameters = [
+            parsed,
+          ];
+        }
+
+        const normalizedParameters =
+          parameters.map(
+            (
+              parameter,
+              parameterIndex
+            ) =>
+              normalizeParameter(
+                parameter,
+                testIndex,
+                parameterIndex
+              )
+          );
+
+        return {
+          ...parsed,
+
+          id:
+            parsed.id ||
+            parsed.testId ||
+            parsed.test_id ||
+            `test-${testIndex}`,
+
+          name:
+            parsed.name ||
+            parsed.testName ||
+            parsed.test_name ||
+            parsed.title ||
+            parsed.investigation ||
+            "Investigation",
+
+          tests:
+            normalizedParameters,
+        };
+      }
+    );
+  }
+
+  // =========================================================
+  // NORMALIZE PARAMETER
+  // =========================================================
+
+  function normalizeParameter(
+    parameter,
+    testIndex,
+    parameterIndex
+  ) {
+    const p =
+      parseJSON(parameter) || {};
+
+    return {
+      ...p,
+
+      id:
+        p.id ||
+        p.parameterId ||
+        p.parameter_id ||
+        `parameter-${testIndex}-${parameterIndex}`,
+
+      name:
+        p.name ||
+        p.parameterName ||
+        p.parameter_name ||
+        p.parameter ||
+        `Parameter ${parameterIndex + 1}`,
+
+      unit:
+        p.unit ||
+        p.units ||
+        "",
+
+      range:
+        p.range ||
+        p.referenceRange ||
+        p.reference_range ||
+        p.reference ||
+        (
+          p.min !== undefined &&
+          p.max !== undefined
+            ? `${p.min} - ${p.max}`
+            : ""
+        ),
+
+      result:
+        p.result ??
+        p.value ??
+        "",
+    };
+  }
+
+  // =========================================================
+  // ATTACH RESULTS TO TESTS
+  // =========================================================
+
+  function attachResultsToTests(
+    testCollection,
+    resultObject
+  ) {
+    return testCollection.map(
+      (test, testIndex) => {
+        const updatedParameters =
+          Array.isArray(
+            test.tests
+          )
+            ? test.tests.map(
+                (
+                  parameter,
+                  parameterIndex
+                ) => {
+                  const value =
+                    findResultForParameter(
+                      test,
+                      parameter,
+                      testIndex,
+                      parameterIndex,
+                      resultObject
+                    );
+
+                  return {
+                    ...parameter,
+
+                    result:
+                      value !==
+                        undefined &&
+                      value !== null
+                        ? value
+                        : parameter.result ??
+                          "",
+                  };
+                }
+              )
+            : [];
+
+        return {
+          ...test,
+          tests:
+            updatedParameters,
+        };
+      }
+    );
+  }
+
+  // =========================================================
+  // FIND RESULT FOR PARAMETER
+  // =========================================================
+
+  function findResultForParameter(
+    test,
+    parameter,
+    testIndex,
+    parameterIndex,
+    resultObject
+  ) {
+    if (
+      !resultObject ||
+      typeof resultObject !==
+        "object"
+    ) {
+      return parameter.result ?? "";
+    }
+
+    const testId =
+      test?.id ||
+      test?.testId ||
+      test?.test_id ||
+      `test-${testIndex}`;
+
+    const parameterId =
+      parameter?.id ||
+      parameter?.parameterId ||
+      parameter?.parameter_id ||
+      "";
+
+    const parameterName =
+      parameter?.name ||
+      parameter?.parameterName ||
+      parameter?.parameter ||
+      "";
+
+    const testName =
+      test?.name ||
+      test?.testName ||
+      test?.test_name ||
+      "";
+
+    const possibleKeys = [
+      `${testId}-${parameterName}-${parameterIndex}`,
+
+      `${testId}-${parameterId}`,
+
+      `${testId}_${parameterName}`,
+
+      `${testName}-${parameterName}`,
+
+      `${testName}_${parameterName}`,
+
+      `${testIndex}-${parameterIndex}`,
+
+      `${testIndex}-${parameterName}`,
+
+      parameterId,
+
+      parameterName,
+
+      parameter?.parameter_id,
+
+      parameter?.parameterId,
+    ].filter(Boolean);
+
+    for (
+      const key of possibleKeys
+    ) {
+      if (
+        Object.prototype.hasOwnProperty.call(
+          resultObject,
+          key
+        )
+      ) {
+        return resultObject[key];
+      }
+    }
+
+    // Case-insensitive key search
+    const resultKeys =
+      Object.keys(
+        resultObject
+      );
+
+    for (
+      const possibleKey of possibleKeys
+    ) {
+      const foundKey =
+        resultKeys.find(
+          (key) =>
+            String(key)
+              .toLowerCase() ===
+            String(
+              possibleKey
+            ).toLowerCase()
+        );
+
+      if (
+        foundKey !== undefined
+      ) {
+        return resultObject[
+          foundKey
+        ];
+      }
+    }
+
+    // Parameter's own saved value
+    if (
+      parameter?.result !==
+      undefined
+    ) {
+      return parameter.result;
+    }
+
+    if (
+      parameter?.value !==
+      undefined
+    ) {
+      return parameter.value;
+    }
+
+    return "";
+  }
+
+  // =========================================================
+  // GET RESULT VALUE FROM STATE
   // =========================================================
 
   function getResultValue(
@@ -826,108 +1190,20 @@ export default function EditLaboratoryReportPage() {
     testIndex,
     parameterIndex
   ) {
-    const parameterId =
-      parameter?.id ??
-      parameter?.parameterId ??
-      parameter?.parameter_id ??
-      "";
-
-    const parameterName =
-      parameter?.name ??
-      parameter?.parameterName ??
-      parameter?.parameter ??
-      "";
-
-    const testId =
-      test?.id ??
-      test?.testId ??
-      test?.test_id ??
-      `test-${testIndex}`;
-
-    const testName =
-      test?.name ??
-      test?.testName ??
-      test?.test_name ??
-      "";
-
-    // Exact key used by your Report View
-    const possibleKeys = [
-      `${testId}-${parameterName}-${parameterIndex}`,
-
-      `${testId}-${parameterName}`,
-
-      `${testId}-${parameterId}`,
-
-      parameterId,
-
-      parameterName,
-
-      `${testIndex}-${parameterIndex}`,
-
-      `${testIndex}-${parameterName}`,
-
-      `${testName}-${parameterName}`,
-
-      `${testName}-${parameterId}`,
-    ];
-
-    for (
-      const key of possibleKeys
-    ) {
-      if (
-        key &&
-        Object.prototype.hasOwnProperty.call(
-          results,
-          key
-        )
-      ) {
-        return results[key];
-      }
-    }
-
-    // Search results key by parameter name
-    if (
-      parameterName &&
-      results &&
-      typeof results === "object"
-    ) {
-      const matchingKey =
-        Object.keys(results).find(
-          (key) =>
-            key
-              .toLowerCase()
-              .includes(
-                String(
-                  parameterName
-                ).toLowerCase()
-              )
-        );
-
-      if (matchingKey) {
-        return results[matchingKey];
-      }
-    }
-
-    // Saved directly in parameter
-    if (
-      parameter?.result !== undefined &&
-      parameter?.result !== null
-    ) {
-      return parameter.result;
-    }
+    const found =
+      findResultForParameter(
+        test,
+        parameter,
+        testIndex,
+        parameterIndex,
+        results
+      );
 
     if (
-      parameter?.value !== undefined &&
-      parameter?.value !== null
+      found !== undefined &&
+      found !== null
     ) {
-      return parameter.value;
-    }
-
-    if (
-      parameter?.resultValue !== undefined &&
-      parameter?.resultValue !== null
-    ) {
-      return parameter.resultValue;
+      return found;
     }
 
     return "";
@@ -941,10 +1217,12 @@ export default function EditLaboratoryReportPage() {
     field,
     value
   ) {
-    setPatient((old) => ({
-      ...old,
-      [field]: value,
-    }));
+    setPatient(
+      (previous) => ({
+        ...previous,
+        [field]: value,
+      })
+    );
   }
 
   // =========================================================
@@ -959,123 +1237,157 @@ export default function EditLaboratoryReportPage() {
     value
   ) {
     const testId =
-      test?.id ??
-      test?.testId ??
-      test?.test_id ??
+      test?.id ||
+      test?.testId ||
+      test?.test_id ||
       `test-${testIndex}`;
 
     const parameterId =
-      parameter?.id ??
-      parameter?.parameterId ??
-      parameter?.parameter_id ??
+      parameter?.id ||
+      parameter?.parameterId ||
+      parameter?.parameter_id ||
       "";
 
     const parameterName =
-      parameter?.name ??
-      parameter?.parameterName ??
-      parameter?.parameter ??
+      parameter?.name ||
+      parameter?.parameterName ||
+      parameter?.parameter ||
       "";
 
-    const primaryKey =
-      `${testId}-${parameterName}-${parameterIndex}`;
+    const testName =
+      test?.name ||
+      test?.testName ||
+      test?.test_name ||
+      "";
 
-    setResults((old) => ({
-      ...old,
+    const keys = [
+      `${testId}-${parameterName}-${parameterIndex}`,
 
-      [primaryKey]: value,
+      `${testId}-${parameterId}`,
 
-      ...(parameterId
-        ? {
-            [parameterId]: value,
+      `${testId}_${parameterName}`,
+
+      `${testName}-${parameterName}`,
+
+      `${testName}_${parameterName}`,
+
+      `${testIndex}-${parameterIndex}`,
+
+      `${testIndex}-${parameterName}`,
+
+      parameterId,
+
+      parameterName,
+    ].filter(Boolean);
+
+    setResults(
+      (previous) => {
+        const updated = {
+          ...previous,
+        };
+
+        keys.forEach(
+          (key) => {
+            updated[key] =
+              value;
           }
-        : {}),
+        );
 
-      ...(parameterName
-        ? {
-            [parameterName]: value,
-          }
-        : {}),
-    }));
+        return updated;
+      }
+    );
 
-    // Also immediately update local parameter value
-    setTests((oldTests) =>
-      oldTests.map(
-        (oldTest, ti) => {
-          if (ti !== testIndex) {
-            return oldTest;
-          }
+    // Also immediately update parameter object
+    setTests(
+      (previous) =>
+        previous.map(
+          (
+            currentTest,
+            currentTestIndex
+          ) => {
+            if (
+              currentTestIndex !==
+              testIndex
+            ) {
+              return currentTest;
+            }
 
-          return {
-            ...oldTest,
+            return {
+              ...currentTest,
 
-            tests:
-              Array.isArray(
-                oldTest.tests
-              )
-                ? oldTest.tests.map(
-                    (
-                      oldParameter,
-                      pi
-                    ) => {
-                      if (
-                        pi !==
-                        parameterIndex
-                      ) {
-                        return oldParameter;
-                      }
-
-                      return {
-                        ...oldParameter,
-                        result: value,
-                        value: value,
-                      };
+              tests:
+                currentTest.tests.map(
+                  (
+                    currentParameter,
+                    currentParameterIndex
+                  ) => {
+                    if (
+                      currentParameterIndex !==
+                      parameterIndex
+                    ) {
+                      return currentParameter;
                     }
-                  )
-                : oldTest.tests,
-          };
-        }
+
+                    return {
+                      ...currentParameter,
+
+                      result:
+                        value,
+
+                      value:
+                        value,
+                    };
+                  }
+                ),
+            };
+          }
+        )
+    );
+  }
+
+  // =========================================================
+  // REFERENCE
+  // =========================================================
+
+  function getReference(
+    parameter
+  ) {
+    if (!parameter) {
+      return "-";
+    }
+
+    return (
+      parameter.range ||
+      parameter.referenceRange ||
+      parameter.reference_range ||
+      parameter.reference ||
+      (
+        parameter.min !==
+          undefined &&
+        parameter.max !==
+          undefined
+          ? `${parameter.min} - ${parameter.max}`
+          : "-"
       )
     );
   }
 
   // =========================================================
-  // PATIENT SAVE OBJECT
+  // UNIT
   // =========================================================
 
-  function createUpdatedPatient(
-    oldPatient
+  function getUnit(
+    parameter
   ) {
-    return {
-      ...(oldPatient || {}),
-
-      name: patient.name,
-      patientName: patient.name,
-      patient_name: patient.name,
-
-      id: patient.patient_id,
-      patient_id: patient.patient_id,
-      patientId: patient.patient_id,
-
-      age: patient.age,
-      patientAge: patient.age,
-
-      gender: patient.gender,
-      sex: patient.gender,
-      patientGender: patient.gender,
-
-      mobile: patient.mobile,
-      phone: patient.mobile,
-      phoneNumber: patient.mobile,
-
-      doctor: patient.doctor,
-      referring_doctor: patient.doctor,
-      referringDoctor: patient.doctor,
-      refDoctor: patient.doctor,
-    };
+    return (
+      parameter?.unit ||
+      parameter?.units ||
+      "-"
+    );
   }
 
   // =========================================================
-  // SAVE CHANGES
+  // SAVE
   // =========================================================
 
   async function saveChanges() {
@@ -1090,44 +1402,84 @@ export default function EditLaboratoryReportPage() {
         );
       }
 
-      let oldReportData =
-        report.report_data || {};
-
-      if (
-        typeof oldReportData ===
-        "string"
-      ) {
-        try {
-          oldReportData =
-            JSON.parse(oldReportData);
-        } catch {
-          oldReportData = {};
-        }
-      }
-
-      // -------------------------------------------------------
-      // OLD PATIENT
-      // -------------------------------------------------------
-
-      const oldPatient =
-        oldReportData.patient ||
-        oldReportData.patientData ||
-        {};
-
-      const updatedPatient =
-        createUpdatedPatient(
-          oldPatient
+      const oldReportData =
+        parseJSON(
+          report.report_data
         );
 
       // -------------------------------------------------------
-      // UPDATE PARAMETERS WITH CURRENT VALUES
+      // PATIENT UPDATE
+      // -------------------------------------------------------
+
+      const oldPatient =
+        findPatient(
+          report,
+          oldReportData
+        );
+
+      const updatedPatient = {
+        ...oldPatient,
+
+        name:
+          patient.name,
+
+        patientName:
+          patient.name,
+
+        patient_name:
+          patient.name,
+
+        id:
+          patient.patient_id,
+
+        patient_id:
+          patient.patient_id,
+
+        patientId:
+          patient.patient_id,
+
+        age:
+          patient.age,
+
+        patientAge:
+          patient.age,
+
+        gender:
+          patient.gender,
+
+        sex:
+          patient.gender,
+
+        mobile:
+          patient.mobile,
+
+        phone:
+          patient.mobile,
+
+        phoneNumber:
+          patient.mobile,
+
+        doctor:
+          patient.doctor,
+
+        referring_doctor:
+          patient.doctor,
+
+        referringDoctor:
+          patient.doctor,
+      };
+
+      // -------------------------------------------------------
+      // FINAL TEST DATA
       // -------------------------------------------------------
 
       const updatedTests =
         tests.map(
           (test, testIndex) => {
             const updatedParameters =
-              Array.isArray(test.tests)
+              Array.isArray(
+                test.tests
+              )
                 ? test.tests.map(
                     (
                       parameter,
@@ -1143,8 +1495,12 @@ export default function EditLaboratoryReportPage() {
 
                       return {
                         ...parameter,
-                        result: value,
-                        value: value,
+
+                        result:
+                          value,
+
+                        value:
+                          value,
                       };
                     }
                   )
@@ -1152,15 +1508,25 @@ export default function EditLaboratoryReportPage() {
 
             return {
               ...test,
-              tests: updatedParameters,
+
+              tests:
+                updatedParameters,
             };
           }
         );
 
       // -------------------------------------------------------
-      // IMPORTANT:
-      // Keep existing report_data.
-      // Do NOT delete unrelated data.
+      // FINAL RESULTS
+      // -------------------------------------------------------
+
+      const finalResults = {
+        ...(oldReportData?.results ||
+          {}),
+        ...results,
+      };
+
+      // -------------------------------------------------------
+      // PRESERVE ALL OLD DATA
       // -------------------------------------------------------
 
       const updatedReportData = {
@@ -1169,26 +1535,38 @@ export default function EditLaboratoryReportPage() {
         patient:
           updatedPatient,
 
-        // Keep normalized data for edit/view
+        patientData:
+          updatedPatient,
+
         selectedTests:
           updatedTests,
 
-        results: {
-          ...(oldReportData.results ||
-            oldReportData.result ||
-            {}),
-          ...results,
-        },
+        tests:
+          updatedTests,
+
+        results:
+          finalResults,
       };
 
       console.log(
-        "========== SAVING REPORT =========="
+        "===================================="
       );
 
       console.log(
-        "UPDATED REPORT DATA:",
+        "NIDAN EDIT - SAVING REPORT"
+      );
+
+      console.log(
         updatedReportData
       );
+
+      console.log(
+        "===================================="
+      );
+
+      // -------------------------------------------------------
+      // UPDATE SUPABASE
+      // -------------------------------------------------------
 
       const {
         data,
@@ -1199,7 +1577,10 @@ export default function EditLaboratoryReportPage() {
           report_data:
             updatedReportData,
         })
-        .eq("id", reportId)
+        .eq(
+          "id",
+          reportId
+        )
         .select()
         .single();
 
@@ -1208,7 +1589,7 @@ export default function EditLaboratoryReportPage() {
       }
 
       console.log(
-        "SAVED REPORT:",
+        "NIDAN EDIT - SAVED:",
         data
       );
 
@@ -1225,7 +1606,7 @@ export default function EditLaboratoryReportPage() {
       }, 700);
     } catch (error) {
       console.error(
-        "SAVE REPORT ERROR:",
+        "NIDAN EDIT SAVE ERROR:",
         error
       );
 
@@ -1256,7 +1637,9 @@ export default function EditLaboratoryReportPage() {
     return (
       <main style={pageStyle}>
         <div
-          style={loadingCardStyle}
+          style={
+            loadingCardStyle
+          }
         >
           <h3>
             Report loading...
@@ -1274,19 +1657,23 @@ export default function EditLaboratoryReportPage() {
   // ERROR
   // =========================================================
 
-  if (!report) {
+  if (
+    errorMessage &&
+    !report
+  ) {
     return (
       <main style={pageStyle}>
         <div
-          style={errorCardStyle}
+          style={
+            errorCardStyle
+          }
         >
           <h2>
             Report nahi mili
           </h2>
 
           <p>
-            {errorMessage ||
-              "Report load nahi hui."}
+            {errorMessage}
           </p>
 
           <button
@@ -1295,7 +1682,9 @@ export default function EditLaboratoryReportPage() {
                 "/reports"
               )
             }
-            style={secondaryButtonStyle}
+            style={
+              secondaryButtonStyle
+            }
           >
             ← Back to Reports
           </button>
@@ -1328,8 +1717,8 @@ export default function EditLaboratoryReportPage() {
             style={{
               fontSize: "12px",
               color: "#087f78",
-              fontWeight: "700",
               marginTop: "3px",
+              fontWeight: "700",
             }}
           >
             NIDAN PATHOLOGY LAB
@@ -1337,10 +1726,14 @@ export default function EditLaboratoryReportPage() {
         </div>
 
         <div
-          style={actionGroupStyle}
+          style={
+            actionGroupStyle
+          }
         >
           <button
-            onClick={cancelEdit}
+            onClick={
+              cancelEdit
+            }
             disabled={saving}
             style={
               secondaryButtonStyle
@@ -1350,7 +1743,9 @@ export default function EditLaboratoryReportPage() {
           </button>
 
           <button
-            onClick={saveChanges}
+            onClick={
+              saveChanges
+            }
             disabled={saving}
             style={
               primaryButtonStyle
@@ -1363,7 +1758,7 @@ export default function EditLaboratoryReportPage() {
         </div>
       </div>
 
-      {/* ERROR */}
+      {/* MESSAGES */}
 
       {errorMessage && (
         <div
@@ -1377,8 +1772,6 @@ export default function EditLaboratoryReportPage() {
           {errorMessage}
         </div>
       )}
-
-      {/* SUCCESS */}
 
       {successMessage && (
         <div
@@ -1484,7 +1877,7 @@ export default function EditLaboratoryReportPage() {
         </div>
       </section>
 
-      {/* INVESTIGATIONS */}
+      {/* TESTS */}
 
       <section
         style={sectionStyle}
@@ -1501,7 +1894,11 @@ export default function EditLaboratoryReportPage() {
               No investigations found.
             </strong>
 
-            <p>
+            <p
+              style={{
+                marginBottom: 0,
+              }}
+            >
               Saved report में
               investigation data
               नहीं मिला।
@@ -1509,14 +1906,16 @@ export default function EditLaboratoryReportPage() {
 
             <p
               style={{
-                fontSize: "12px",
-                color: "#607d8b",
+                fontSize: "11px",
+                color: "#68777d",
               }}
             >
               Browser console में
-              "FOUND TEST COLLECTION"
-              और "DISCOVERED TESTS"
-              देखें।
+              <b>
+                NIDAN EDIT
+              </b>{" "}
+              search करके detected
+              data देखें।
             </p>
           </div>
         ) : (
@@ -1540,7 +1939,6 @@ export default function EditLaboratoryReportPage() {
                   }
                 >
                   {test.name ||
-                    test.testName ||
                     "Investigation"}
                 </div>
 
@@ -1595,12 +1993,9 @@ export default function EditLaboratoryReportPage() {
                     </thead>
 
                     <tbody>
-                      {Array.isArray(
-                        test.tests
-                      ) &&
-                      test.tests
-                        .length >
-                        0 ? (
+                      {test.tests
+                        ?.length >
+                      0 ? (
                         test.tests.map(
                           (
                             parameter,
@@ -1628,8 +2023,6 @@ export default function EditLaboratoryReportPage() {
                                 >
                                   <strong>
                                     {parameter.name ||
-                                      parameter.parameterName ||
-                                      parameter.parameter ||
                                       "-"}
                                   </strong>
                                 </td>
@@ -1691,66 +2084,14 @@ export default function EditLaboratoryReportPage() {
                       ) : (
                         <tr>
                           <td
+                            colSpan="4"
                             style={
                               cellStyle
                             }
                           >
-                            {test.name ||
-                              "Investigation"}
-                          </td>
-
-                          <td
-                            style={
-                              cellStyle
-                            }
-                          >
-                            <input
-                              type="text"
-                              value={
-                                getResultValue(
-                                  test,
-                                  test,
-                                  testIndex,
-                                  0
-                                ) ?? ""
-                              }
-                              onChange={(
-                                event
-                              ) =>
-                                updateResult(
-                                  test,
-                                  test,
-                                  testIndex,
-                                  0,
-                                  event
-                                    .target
-                                    .value
-                                )
-                              }
-                              placeholder="Enter result"
-                              style={
-                                resultInputStyle
-                              }
-                            />
-                          </td>
-
-                          <td
-                            style={
-                              cellStyle
-                            }
-                          >
-                            {test.unit ||
-                              "-"}
-                          </td>
-
-                          <td
-                            style={
-                              cellStyle
-                            }
-                          >
-                            {test.range ||
-                              test.referenceRange ||
-                              "-"}
+                            No parameters found
+                            for this
+                            investigation.
                           </td>
                         </tr>
                       )}
@@ -1763,7 +2104,7 @@ export default function EditLaboratoryReportPage() {
         )}
       </section>
 
-      {/* BOTTOM SAVE */}
+      {/* BOTTOM BUTTONS */}
 
       <div
         style={{
@@ -1773,7 +2114,9 @@ export default function EditLaboratoryReportPage() {
         }}
       >
         <button
-          onClick={cancelEdit}
+          onClick={
+            cancelEdit
+          }
           disabled={saving}
           style={
             secondaryButtonStyle
@@ -1783,7 +2126,9 @@ export default function EditLaboratoryReportPage() {
         </button>
 
         <button
-          onClick={saveChanges}
+          onClick={
+            saveChanges
+          }
           disabled={saving}
           style={
             primaryButtonStyle
@@ -1794,31 +2139,239 @@ export default function EditLaboratoryReportPage() {
             : "💾 Save Changes"}
         </button>
       </div>
-
-      {/* DEBUG - HIDDEN */}
-
-      <pre
-        style={{
-          display: "none",
-        }}
-      >
-        {JSON.stringify(
-          {
-            reportId,
-            patient,
-            tests,
-            results,
-          },
-          null,
-          2
-        )}
-      </pre>
     </main>
   );
 }
 
 // ============================================================
-// INPUT
+// RECURSIVE SEARCH
+// ============================================================
+
+function recursivelyFind(
+  root,
+  matcher
+) {
+  let found = null;
+
+  function walk(
+    value,
+    key = ""
+  ) {
+    if (found !== null) {
+      return;
+    }
+
+    if (
+      value === null ||
+      value === undefined
+    ) {
+      return;
+    }
+
+    if (
+      typeof value !==
+        "object"
+    ) {
+      return;
+    }
+
+    try {
+      if (
+        matcher(
+          value,
+          key
+        )
+      ) {
+        found =
+          value;
+        return;
+      }
+    } catch {}
+
+    if (
+      Array.isArray(value)
+    ) {
+      for (
+        const item of value
+      ) {
+        walk(
+          item,
+          key
+        );
+
+        if (
+          found !== null
+        ) {
+          return;
+        }
+      }
+    } else {
+      for (
+        const childKey of Object.keys(
+          value
+        )
+      ) {
+        walk(
+          value[childKey],
+          childKey
+        );
+
+        if (
+          found !== null
+        ) {
+          return;
+        }
+      }
+    }
+  }
+
+  walk(root);
+
+  return found;
+}
+
+// ============================================================
+// RECURSIVE WALK
+// ============================================================
+
+function recursivelyWalk(
+  root,
+  callback,
+  path = "root",
+  visited = new Set()
+) {
+  if (
+    root === null ||
+    root === undefined
+  ) {
+    return;
+  }
+
+  if (
+    typeof root !==
+    "object"
+  ) {
+    return;
+  }
+
+  if (
+    visited.has(root)
+  ) {
+    return;
+  }
+
+  visited.add(root);
+
+  callback(
+    root,
+    "",
+    path
+  );
+
+  if (
+    Array.isArray(root)
+  ) {
+    root.forEach(
+      (item, index) => {
+        recursivelyWalk(
+          item,
+          callback,
+          `${path}[${index}]`,
+          visited
+        );
+      }
+    );
+  } else {
+    Object.keys(
+      root
+    ).forEach(
+      (key) => {
+        recursivelyWalk(
+          root[key],
+          callback,
+          `${path}.${key}`,
+          visited
+        );
+      }
+    );
+  }
+}
+
+// ============================================================
+// COUNT PARAMETERS
+// ============================================================
+
+function countParameters(
+  tests
+) {
+  return tests.reduce(
+    (total, test) =>
+      total +
+      (
+        Array.isArray(
+          test?.tests
+        )
+          ? test.tests.length
+          : 0
+      ),
+    0
+  );
+}
+
+// ============================================================
+// INFER TEST NAME
+// ============================================================
+
+function inferTestName(
+  parameters
+) {
+  if (
+    !Array.isArray(
+      parameters
+    )
+  ) {
+    return "Investigation";
+  }
+
+  for (
+    const parameter of parameters
+  ) {
+    if (
+      parameter?.testName
+    ) {
+      return parameter.testName;
+    }
+
+    if (
+      parameter?.test_name
+    ) {
+      return parameter.test_name;
+    }
+
+    if (
+      parameter?.groupName
+    ) {
+      return parameter.groupName;
+    }
+
+    if (
+      parameter?.group_name
+    ) {
+      return parameter.group_name;
+    }
+
+    if (
+      parameter?.category
+    ) {
+      return parameter.category;
+    }
+  }
+
+  return "Investigation";
+}
+
+// ============================================================
+// INPUT COMPONENT
 // ============================================================
 
 function InputField({
@@ -1832,7 +2385,9 @@ function InputField({
         inputLabelStyle
       }
     >
-      <span>{label}</span>
+      <span>
+        {label}
+      </span>
 
       <input
         type="text"
@@ -1871,262 +2426,343 @@ function SectionTitle({
 }
 
 // ============================================================
-// GET UNIT
-// ============================================================
-
-function getUnit(parameter) {
-  return (
-    parameter?.unit ??
-    parameter?.units ??
-    "-"
-  );
-}
-
-// ============================================================
-// GET REFERENCE
-// ============================================================
-
-function getReference(parameter) {
-  if (!parameter) {
-    return "-";
-  }
-
-  return (
-    parameter.range ??
-    parameter.referenceRange ??
-    parameter.reference_range ??
-    parameter.reference ??
-    parameter.normalRange ??
-    (
-      parameter.min !==
-        undefined &&
-      parameter.max !==
-        undefined
-        ? `${parameter.min} - ${parameter.max}`
-        : "-"
-    )
-  );
-}
-
-// ============================================================
 // STYLES
 // ============================================================
 
 const pageStyle = {
-  minHeight: "100vh",
-  background: "#eef4f7",
-  padding: "14px",
-  boxSizing: "border-box",
+  minHeight:
+    "100vh",
+  background:
+    "#eef4f7",
+  padding:
+    "14px",
+  boxSizing:
+    "border-box",
   fontFamily:
     "Arial, Helvetica, sans-serif",
-  color: "#263238",
+  color:
+    "#263238",
 };
 
 const topBarStyle = {
-  maxWidth: "1100px",
-  margin: "0 auto 12px",
-  background: "#ffffff",
-  borderRadius: "8px",
-  padding: "12px 14px",
+  maxWidth:
+    "1100px",
+  margin:
+    "0 auto 12px",
+  background:
+    "#ffffff",
+  borderRadius:
+    "8px",
+  padding:
+    "12px 14px",
   boxShadow:
     "0 2px 8px rgba(0,0,0,0.08)",
-  display: "flex",
+  display:
+    "flex",
   justifyContent:
     "space-between",
-  alignItems: "center",
-  gap: "10px",
-  flexWrap: "wrap",
+  alignItems:
+    "center",
+  gap:
+    "10px",
+  flexWrap:
+    "wrap",
 };
 
 const actionGroupStyle = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
+  display:
+    "flex",
+  gap:
+    "8px",
+  flexWrap:
+    "wrap",
 };
 
 const sectionStyle = {
-  maxWidth: "1100px",
-  margin: "0 auto 12px",
-  background: "#ffffff",
-  borderRadius: "8px",
-  padding: "14px",
+  maxWidth:
+    "1100px",
+  margin:
+    "0 auto 12px",
+  background:
+    "#ffffff",
+  borderRadius:
+    "8px",
+  padding:
+    "14px",
   boxShadow:
     "0 2px 8px rgba(0,0,0,0.07)",
 };
 
 const sectionTitleStyle = {
-  fontSize: "16px",
-  fontWeight: "700",
-  color: "#147c75",
+  fontSize:
+    "16px",
+  fontWeight:
+    "700",
+  color:
+    "#147c75",
   borderBottom:
     "2px solid #147c75",
-  paddingBottom: "8px",
-  marginBottom: "14px",
+  paddingBottom:
+    "8px",
+  marginBottom:
+    "14px",
 };
 
 const patientGridStyle = {
-  display: "grid",
+  display:
+    "grid",
   gridTemplateColumns:
     "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "12px",
+  gap:
+    "12px",
 };
 
 const inputLabelStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "5px",
-  fontSize: "12px",
-  fontWeight: "600",
-  color: "#4d5a60",
+  display:
+    "flex",
+  flexDirection:
+    "column",
+  gap:
+    "5px",
+  fontSize:
+    "12px",
+  fontWeight:
+    "600",
+  color:
+    "#4d5a60",
 };
 
 const inputStyle = {
-  width: "100%",
-  minHeight: "40px",
-  boxSizing: "border-box",
+  width:
+    "100%",
+  minHeight:
+    "40px",
+  boxSizing:
+    "border-box",
   border:
     "1px solid #cfd8dc",
-  borderRadius: "5px",
-  padding: "8px 10px",
-  fontSize: "14px",
-  outline: "none",
-  background: "#ffffff",
+  borderRadius:
+    "5px",
+  padding:
+    "8px 10px",
+  fontSize:
+    "14px",
+  outline:
+    "none",
+  background:
+    "#ffffff",
 };
 
 const resultInputStyle = {
-  width: "100%",
-  minHeight: "36px",
-  boxSizing: "border-box",
+  width:
+    "100%",
+  minHeight:
+    "36px",
+  boxSizing:
+    "border-box",
   border:
     "1px solid #cfd8dc",
-  borderRadius: "4px",
-  padding: "7px 9px",
-  fontSize: "14px",
-  background: "#fffdf5",
+  borderRadius:
+    "4px",
+  padding:
+    "7px 9px",
+  fontSize:
+    "14px",
+  background:
+    "#fffdf5",
 };
 
 const testCardStyle = {
-  marginBottom: "18px",
+  marginBottom:
+    "18px",
   border:
     "1px solid #d9e2e5",
-  borderRadius: "6px",
-  overflow: "hidden",
+  borderRadius:
+    "6px",
+  overflow:
+    "hidden",
 };
 
 const testTitleStyle = {
-  background: "#e3f3f1",
+  background:
+    "#e3f3f1",
   borderLeft:
     "4px solid #147c75",
-  padding: "10px 12px",
-  fontWeight: "700",
-  color: "#176e68",
-  fontSize: "15px",
+  padding:
+    "10px 12px",
+  fontWeight:
+    "700",
+  color:
+    "#176e68",
+  fontSize:
+    "15px",
 };
 
 const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  minWidth: "650px",
+  width:
+    "100%",
+  borderCollapse:
+    "collapse",
+  minWidth:
+    "650px",
 };
 
 const headStyle = {
-  padding: "9px 8px",
+  padding:
+    "9px 8px",
   border:
     "1px solid #d5dee2",
-  background: "#edf4f6",
-  textAlign: "left",
-  fontSize: "11px",
-  fontWeight: "700",
-  color: "#263238",
+  background:
+    "#edf4f6",
+  textAlign:
+    "left",
+  fontSize:
+    "11px",
+  fontWeight:
+    "700",
+  color:
+    "#263238",
 };
 
 const cellStyle = {
-  padding: "8px",
+  padding:
+    "8px",
   border:
     "1px solid #dce3e6",
-  verticalAlign: "middle",
-  fontSize: "12px",
+  verticalAlign:
+    "middle",
+  fontSize:
+    "12px",
 };
 
 const primaryButtonStyle = {
-  border: "none",
-  borderRadius: "5px",
-  background: "#087f78",
-  color: "#ffffff",
-  padding: "9px 15px",
-  fontWeight: "700",
-  cursor: "pointer",
+  border:
+    "none",
+  borderRadius:
+    "5px",
+  background:
+    "#087f78",
+  color:
+    "#ffffff",
+  padding:
+    "9px 15px",
+  fontWeight:
+    "700",
+  cursor:
+    "pointer",
 };
 
 const secondaryButtonStyle = {
   border:
     "1px solid #b8c4c8",
-  borderRadius: "5px",
-  background: "#ffffff",
-  color: "#263238",
-  padding: "9px 15px",
-  fontWeight: "600",
-  cursor: "pointer",
-};
-
-const loadingCardStyle = {
-  maxWidth: "600px",
-  margin: "50px auto",
-  background: "#ffffff",
-  padding: "30px",
-  borderRadius: "8px",
-  textAlign: "center",
-};
-
-const errorCardStyle = {
-  maxWidth: "600px",
-  margin: "50px auto",
-  background: "#ffffff",
-  padding: "30px",
-  borderRadius: "8px",
-};
-
-const emptyStyle = {
-  padding: "20px",
-  border:
-    "1px dashed #b9c7cb",
-  borderRadius: "6px",
-  background: "#f8fbfc",
-};
-
-const errorMessageStyle = {
-  maxWidth: "1100px",
-  margin: "0 auto 12px",
-  padding: "10px 12px",
-  borderRadius: "6px",
-  background: "#fdecec",
-  border:
-    "1px solid #efb7b7",
-  color: "#a32626",
-  fontSize: "13px",
-};
-
-const successMessageStyle = {
-  maxWidth: "1100px",
-  margin: "0 auto 12px",
-  padding: "10px 12px",
-  borderRadius: "6px",
-  background: "#e9f8f1",
-  border:
-    "1px solid #a9ddc3",
-  color: "#176b46",
-  fontSize: "13px",
+  borderRadius:
+    "5px",
+  background:
+    "#ffffff",
+  color:
+    "#263238",
+  padding:
+    "9px 15px",
+  fontWeight:
+    "600",
+  cursor:
+    "pointer",
 };
 
 const bottomBarStyle = {
-  maxWidth: "1100px",
-  margin: "0 auto",
-  background: "#ffffff",
-  borderRadius: "8px",
-  padding: "12px",
-  display: "flex",
-  justifyContent: "flex-end",
-  gap: "8px",
+  maxWidth:
+    "1100px",
+  margin:
+    "0 auto",
+  background:
+    "#ffffff",
+  borderRadius:
+    "8px",
+  padding:
+    "12px",
+  display:
+    "flex",
+  justifyContent:
+    "flex-end",
+  gap:
+    "8px",
   boxShadow:
     "0 2px 8px rgba(0,0,0,0.07)",
+};
+
+const loadingCardStyle = {
+  maxWidth:
+    "600px",
+  margin:
+    "50px auto",
+  background:
+    "#ffffff",
+  padding:
+    "30px",
+  borderRadius:
+    "8px",
+  textAlign:
+    "center",
+};
+
+const errorCardStyle = {
+  maxWidth:
+    "600px",
+  margin:
+    "50px auto",
+  background:
+    "#ffffff",
+  padding:
+    "30px",
+  borderRadius:
+    "8px",
+};
+
+const emptyStyle = {
+  padding:
+    "20px",
+  border:
+    "1px dashed #b9c7cb",
+  borderRadius:
+    "6px",
+  background:
+    "#f8fbfc",
+};
+
+const errorMessageStyle = {
+  maxWidth:
+    "1100px",
+  margin:
+    "0 auto 12px",
+  padding:
+    "10px 12px",
+  borderRadius:
+    "6px",
+  background:
+    "#fdecec",
+  border:
+    "1px solid #efb7b7",
+  color:
+    "#a32626",
+  fontSize:
+    "13px",
+};
+
+const successMessageStyle = {
+  maxWidth:
+    "1100px",
+  margin:
+    "0 auto 12px",
+  padding:
+    "10px 12px",
+  borderRadius:
+    "6px",
+  background:
+    "#e9f8f1",
+  border:
+    "1px solid #a9ddc3",
+  color:
+    "#176b46",
+  fontSize:
+    "13px",
 };
