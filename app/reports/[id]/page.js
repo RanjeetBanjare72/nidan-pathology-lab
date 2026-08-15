@@ -11,7 +11,7 @@ import { supabase } from "../../../lib/supabase";
    FILE:
    app/reports/[id]/page.js
 
-   FIXES:
+   FEATURES:
    ✓ Loads report from Supabase
    ✓ Supports multiple saved test structures
    ✓ Supports selectedTests / tests / reportTests
@@ -26,6 +26,8 @@ import { supabase } from "../../../lib/supabase";
    ✓ Reference ranges
    ✓ Edit Report
    ✓ Print / Save PDF
+   ✓ Dashboard button
+   ✓ Back to Reports
    ✓ Mobile responsive
 ========================================================= */
 
@@ -148,7 +150,6 @@ function getPatient(report) {
 
 /* =========================================================
    GET TESTS
-   IMPORTANT FIX
 ========================================================= */
 
 function getTests(report) {
@@ -157,16 +158,6 @@ function getTests(report) {
   }
 
   const data = getReportData(report);
-
-  /*
-   Priority:
-   1. report_data.tests
-   2. report_data.selectedTests
-   3. report_data.reportTests
-   4. report.tests
-   5. report.selectedTests
-   6. report.reportTests
-   */
 
   const possibleTests = [
     data?.tests,
@@ -186,10 +177,6 @@ function getTests(report) {
       return tests;
     }
   }
-
-  /*
-   Some applications save a single test object.
-   */
 
   if (
     data?.test &&
@@ -250,7 +237,7 @@ function getResults(report) {
   /*
    IMPORTANT:
    report_data.results is the primary saved result source.
-   */
+  */
 
   if (
     data?.results &&
@@ -399,7 +386,10 @@ function getResultKeys(
 
 /* =========================================================
    GET RESULT
-   IMPORTANT EDITED VALUE FIX
+
+   IMPORTANT:
+   Saved report_data.results gets priority.
+   Old parameter.result is only fallback.
 ========================================================= */
 
 function getResult(
@@ -420,11 +410,10 @@ function getResult(
       testIndex
     );
 
-  /*
-   ========================================================
-   1. EXACT RESULT KEY
-   ========================================================
-   */
+
+  /* =======================================================
+     1. EXACT RESULT KEY
+  ======================================================= */
 
   for (const key of keys) {
     if (
@@ -444,9 +433,6 @@ function getResult(
         return value;
       }
 
-      /*
-       0 is also a valid result.
-       */
       if (value === 0) {
         return value;
       }
@@ -454,11 +440,9 @@ function getResult(
   }
 
 
-  /*
-   ========================================================
-   2. NORMALIZED KEY MATCH
-   ========================================================
-   */
+  /* =======================================================
+     2. NORMALIZED KEY MATCH
+  ======================================================= */
 
   const parameterName =
     getParameterName(
@@ -495,11 +479,9 @@ function getResult(
   }
 
 
-  /*
-   ========================================================
-   3. PARTIAL NAME MATCH
-   ========================================================
-   */
+  /* =======================================================
+     3. PARTIAL NAME MATCH
+  ======================================================= */
 
   if (target) {
     for (
@@ -527,11 +509,9 @@ function getResult(
   }
 
 
-  /*
-   ========================================================
-   4. TEST LEVEL RESULTS
-   ========================================================
-   */
+  /* =======================================================
+     4. TEST LEVEL RESULTS
+  ======================================================= */
 
   const testResults =
     test?.results;
@@ -587,15 +567,9 @@ function getResult(
   }
 
 
-  /*
-   ========================================================
-   5. PARAMETER RESULT FALLBACK
-   ========================================================
-   IMPORTANT:
-   This is LAST.
-   Edited report_data.results always wins.
-   ========================================================
-   */
+  /* =======================================================
+     5. PARAMETER RESULT FALLBACK
+  ======================================================= */
 
   if (
     parameter &&
@@ -978,10 +952,10 @@ function buildParameterRows(
   const parameters =
     getParameters(test);
 
-  /*
-   If parameters are available,
-   render all parameters.
-   */
+
+  /* =======================================================
+     PARAMETERS AVAILABLE
+  ======================================================= */
 
   if (
     parameters.length > 0
@@ -991,6 +965,7 @@ function buildParameterRows(
         parameter,
         index
       ) => {
+
         const value =
           getResult(
             report,
@@ -1017,6 +992,7 @@ function buildParameterRows(
           );
 
         return {
+
           name:
             getParameterName(
               parameter
@@ -1035,16 +1011,17 @@ function buildParameterRows(
           reference,
 
           flag,
+
         };
+
       }
     );
   }
 
 
-  /*
-   If no parameter array exists,
-   support single investigation test.
-   */
+  /* =======================================================
+     SINGLE INVESTIGATION FALLBACK
+  ======================================================= */
 
   const singleName =
     test?.parameter ||
@@ -1063,7 +1040,9 @@ function buildParameterRows(
     );
 
   return [
+
     {
+
       name:
         singleName,
 
@@ -1091,7 +1070,9 @@ function buildParameterRows(
           test,
           patient
         ),
+
     },
+
   ];
 }
 
@@ -1101,21 +1082,37 @@ function buildParameterRows(
 ========================================================= */
 
 export default function SavedReportViewPage() {
+
   const params =
     useParams();
 
   const router =
     useRouter();
 
+
+  /* =======================================================
+     REPORT
+  ======================================================= */
+
   const [
     report,
     setReport,
   ] = useState(null);
 
+
+  /* =======================================================
+     LOADING
+  ======================================================= */
+
   const [
     loading,
     setLoading,
   ] = useState(true);
+
+
+  /* =======================================================
+     ERROR
+  ======================================================= */
 
   const [
     errorMessage,
@@ -1128,16 +1125,22 @@ export default function SavedReportViewPage() {
   ======================================================= */
 
   useEffect(() => {
+
     if (params?.id) {
       loadReport();
     }
+
   }, [params?.id]);
 
 
   async function loadReport() {
+
     try {
+
       setLoading(true);
+
       setErrorMessage("");
+
 
       const {
         data,
@@ -1152,49 +1155,61 @@ export default function SavedReportViewPage() {
           )
           .single();
 
+
       if (error) {
         throw error;
       }
+
 
       console.log(
         "NIDAN REPORT LOADED:",
         data
       );
 
+
       console.log(
         "REPORT DATA:",
         data?.report_data
       );
+
 
       console.log(
         "SAVED TESTS:",
         getTests(data)
       );
 
+
       console.log(
         "SAVED RESULTS:",
         getResults(data)
       );
 
+
       setReport(data);
 
-    } catch (error) {
+    }
+
+    catch (error) {
 
       console.error(
         "Report load error:",
         error
       );
 
+
       setErrorMessage(
         error?.message ||
         "Report load nahi hui."
       );
 
-    } finally {
+    }
+
+    finally {
 
       setLoading(false);
 
     }
+
   }
 
 
@@ -1204,7 +1219,9 @@ export default function SavedReportViewPage() {
 
   const patient =
     useMemo(() => {
+
       return getPatient(report);
+
     }, [report]);
 
 
@@ -1214,7 +1231,9 @@ export default function SavedReportViewPage() {
 
   const tests =
     useMemo(() => {
+
       return getTests(report);
+
     }, [report]);
 
 
@@ -1224,7 +1243,9 @@ export default function SavedReportViewPage() {
 
   const results =
     useMemo(() => {
+
       return getResults(report);
+
     }, [report]);
 
 
@@ -1233,7 +1254,9 @@ export default function SavedReportViewPage() {
   ======================================================= */
 
   if (loading) {
+
     return (
+
       <main className="loadingPage">
 
         <div className="loadingCard">
@@ -1254,7 +1277,9 @@ export default function SavedReportViewPage() {
         </div>
 
       </main>
+
     );
+
   }
 
 
@@ -1266,7 +1291,9 @@ export default function SavedReportViewPage() {
     errorMessage ||
     !report
   ) {
+
     return (
+
       <main className="errorPage">
 
         <div className="errorCard">
@@ -1279,6 +1306,7 @@ export default function SavedReportViewPage() {
             {errorMessage ||
               "Report load nahi hui."}
           </p>
+
 
           <button
             onClick={() =>
@@ -1293,7 +1321,9 @@ export default function SavedReportViewPage() {
         </div>
 
       </main>
+
     );
+
   }
 
 
@@ -1309,6 +1339,7 @@ export default function SavedReportViewPage() {
     report?.patientName ||
     "-";
 
+
   const patientId =
     patient?.id ||
     patient?.patient_id ||
@@ -1317,11 +1348,13 @@ export default function SavedReportViewPage() {
     report?.patientId ||
     "-";
 
+
   const patientAge =
     patient?.age ??
     report?.age ??
     report?.patient_age ??
     "-";
+
 
   const patientGender =
     patient?.gender ||
@@ -1329,6 +1362,7 @@ export default function SavedReportViewPage() {
     report?.gender ||
     report?.sex ||
     "-";
+
 
   const patientMobile =
     patient?.mobile ||
@@ -1338,6 +1372,7 @@ export default function SavedReportViewPage() {
     report?.mobile ||
     report?.mobile_number ||
     "-";
+
 
   const referringDoctor =
     patient?.doctor ||
@@ -1350,13 +1385,28 @@ export default function SavedReportViewPage() {
     report?.referred_by ||
     "-";
 
+
   const reportNumber =
     report?.report_no ||
     report?.reportNo ||
     "-";
 
+
   const reportDate =
     getReportDate(report);
+
+
+  /* =======================================================
+     DASHBOARD
+  ======================================================= */
+
+  function goToDashboard() {
+
+    router.push(
+      "/dashboard"
+    );
+
+  }
 
 
   /* =======================================================
@@ -1364,15 +1414,25 @@ export default function SavedReportViewPage() {
   ======================================================= */
 
   function editReport() {
-  if (!report?.id) {
-    alert("Report ID nahi mila.");
-    return;
-  }
 
-  router.push(
-    `/reports/${encodeURIComponent(report.id)}/edit`
-  );
-}
+    if (!report?.id) {
+
+      alert(
+        "Report ID nahi mila."
+      );
+
+      return;
+
+    }
+
+
+    router.push(
+      `/reports/${encodeURIComponent(
+        report.id
+      )}/edit`
+    );
+
+  }
 
 
   /* =======================================================
@@ -1380,7 +1440,9 @@ export default function SavedReportViewPage() {
   ======================================================= */
 
   function printReport() {
+
     window.print();
+
   }
 
 
@@ -1389,6 +1451,7 @@ export default function SavedReportViewPage() {
   ======================================================= */
 
   return (
+
     <main className="page">
 
 
@@ -1398,7 +1461,25 @@ export default function SavedReportViewPage() {
 
       <div className="actionBar no-print">
 
+
+        {/* LEFT BUTTONS */}
+
         <div className="actionLeft">
+
+
+          {/* DASHBOARD */}
+
+          <button
+            onClick={
+              goToDashboard
+            }
+            className="dashboardButton"
+          >
+            🏠 Dashboard
+          </button>
+
+
+          {/* BACK TO REPORTS */}
 
           <button
             onClick={() =>
@@ -1414,7 +1495,12 @@ export default function SavedReportViewPage() {
         </div>
 
 
+        {/* RIGHT BUTTONS */}
+
         <div className="actionRight">
+
+
+          {/* EDIT */}
 
           <button
             onClick={
@@ -1425,6 +1511,8 @@ export default function SavedReportViewPage() {
             ✏️ Edit Report
           </button>
 
+
+          {/* PRINT */}
 
           <button
             onClick={
@@ -1453,7 +1541,9 @@ export default function SavedReportViewPage() {
 
         <header className="labHeader">
 
+
           <div className="brandArea">
+
 
             <div className="logo">
 
@@ -1494,13 +1584,16 @@ export default function SavedReportViewPage() {
               LABORATORY REPORT
             </span>
 
+
             <div>
               ☎ {LAB.phone}
             </div>
 
+
             <div>
               📍 {LAB.address}
             </div>
+
 
             <div>
               Report No:
@@ -1509,6 +1602,7 @@ export default function SavedReportViewPage() {
                 {reportNumber}
               </strong>
             </div>
+
 
             <div>
               Report Date:
@@ -1542,6 +1636,7 @@ export default function SavedReportViewPage() {
 
         <section className="patientSection">
 
+
           <div className="sectionTitle">
 
             <span>
@@ -1555,6 +1650,7 @@ export default function SavedReportViewPage() {
 
           <div className="patientGrid">
 
+
             <Info
               label="Patient Name"
               value={
@@ -1563,12 +1659,14 @@ export default function SavedReportViewPage() {
               strong
             />
 
+
             <Info
               label="Patient ID"
               value={
                 patientId
               }
             />
+
 
             <Info
               label="Age / Sex"
@@ -1577,6 +1675,7 @@ export default function SavedReportViewPage() {
               }
             />
 
+
             <Info
               label="Mobile"
               value={
@@ -1584,12 +1683,14 @@ export default function SavedReportViewPage() {
               }
             />
 
+
             <Info
               label="Referred By"
               value={
                 referringDoctor
               }
             />
+
 
             <Info
               label="Collection Date"
@@ -1602,6 +1703,7 @@ export default function SavedReportViewPage() {
               }
             />
 
+
             <Info
               label="Report Date"
               value={
@@ -1610,6 +1712,7 @@ export default function SavedReportViewPage() {
                 )
               }
             />
+
 
             <Info
               label="Report Status"
@@ -1628,6 +1731,7 @@ export default function SavedReportViewPage() {
 
         <section className="testsArea">
 
+
           {tests.length === 0 ? (
 
             <div className="noInvestigations">
@@ -1636,13 +1740,16 @@ export default function SavedReportViewPage() {
                 ⚠
               </div>
 
+
               <strong>
                 No investigations available.
               </strong>
 
+
               <p>
                 Saved report में test data नहीं मिला।
               </p>
+
 
               <small>
                 Report ID: {report?.id || "-"}
@@ -1665,6 +1772,7 @@ export default function SavedReportViewPage() {
                     testIndex
                   );
 
+
                 return (
 
                   <section
@@ -1682,19 +1790,24 @@ export default function SavedReportViewPage() {
 
                     <div className="testTitle">
 
+
                       <span className="department">
+
                         {String(
                           getTestCategory(
                             test
                           )
                         ).toUpperCase()}
+
                       </span>
+
 
                       <strong>
                         {getTestName(
                           test
                         )}
                       </strong>
+
 
                       <i />
 
@@ -1704,6 +1817,7 @@ export default function SavedReportViewPage() {
                     {/* TEST TABLE */}
 
                     <table className="resultTable">
+
 
                       <colgroup>
 
@@ -1766,12 +1880,14 @@ export default function SavedReportViewPage() {
                               }
                             >
 
+
                               <td className="investigationCell">
                                 {row.name}
                               </td>
 
 
                               <td className="flagCell">
+
 
                                 {row.flag ===
                                 "H" ? (
@@ -1837,6 +1953,7 @@ export default function SavedReportViewPage() {
                   </section>
 
                 );
+
               }
             )
 
@@ -1850,6 +1967,7 @@ export default function SavedReportViewPage() {
         ================================================= */}
 
         <section className="signatures">
+
 
           <div className="signature">
 
@@ -1912,15 +2030,18 @@ export default function SavedReportViewPage() {
             NIDAN PATHOLOGY LAB
           </strong>
 
+
           <span>
             {LAB.subtitle}
           </span>
+
 
           <small>
             ☎ {LAB.phone}
             &nbsp; | &nbsp;
             {LAB.address}
           </small>
+
 
           <em>
             Computer Generated Laboratory Report
@@ -1932,7 +2053,7 @@ export default function SavedReportViewPage() {
 
 
       {/* =================================================
-          INFO COMPONENT CSS
+          CSS
       ================================================= */}
 
       <style jsx global>{`
@@ -2122,6 +2243,25 @@ export default function SavedReportViewPage() {
         }
 
 
+        /* ===============================================
+           LEFT ACTION BUTTONS
+        =============================================== */
+
+        .actionLeft {
+          display: flex;
+
+          align-items: center;
+
+          gap: 7px;
+
+          flex-wrap: wrap;
+        }
+
+
+        /* ===============================================
+           RIGHT ACTION BUTTONS
+        =============================================== */
+
         .actionRight {
           display: flex;
 
@@ -2131,42 +2271,120 @@ export default function SavedReportViewPage() {
         }
 
 
+        /* ===============================================
+           ALL ACTION BUTTONS
+        =============================================== */
+
+        .dashboardButton,
         .backButton,
         .editButton,
         .printButton {
-          padding: 7px 12px;
 
-          border-radius: 6px;
+          padding:
+            7px 12px;
 
-          font-size: 9px;
+          border-radius:
+            6px;
 
-          font-weight: 900;
+          font-size:
+            9px;
 
-          cursor: pointer;
+          font-weight:
+            900;
+
+          cursor:
+            pointer;
+
+          white-space:
+            nowrap;
+
         }
 
 
+        /* ===============================================
+           DASHBOARD BUTTON
+        =============================================== */
+
+        .dashboardButton {
+
+          background:
+            #e9f8f5;
+
+          border:
+            1px solid #087f72;
+
+          color:
+            #087f72;
+
+        }
+
+
+        .dashboardButton:hover {
+
+          background:
+            #d9f2ed;
+
+        }
+
+
+        /* ===============================================
+           BACK BUTTON
+        =============================================== */
+
         .backButton {
-          background: white;
+
+          background:
+            white;
 
           border:
             1px solid #b9c8e7;
 
-          color: #244c96;
+          color:
+            #244c96;
+
         }
 
 
+        .backButton:hover {
+
+          background:
+            #f5f8ff;
+
+        }
+
+
+        /* ===============================================
+           EDIT BUTTON
+        =============================================== */
+
         .editButton {
-          background: #fffdf4;
+
+          background:
+            #fffdf4;
 
           border:
             1px solid #e4c979;
 
-          color: #8a6500;
+          color:
+            #8a6500;
+
         }
 
 
+        .editButton:hover {
+
+          background:
+            #fff8dd;
+
+        }
+
+
+        /* ===============================================
+           PRINT BUTTON
+        =============================================== */
+
         .printButton {
+
           background:
             linear-gradient(
               135deg,
@@ -2177,7 +2395,17 @@ export default function SavedReportViewPage() {
           border:
             1px solid #087f72;
 
-          color: white;
+          color:
+            white;
+
+        }
+
+
+        .printButton:hover {
+
+          opacity:
+            .92;
+
         }
 
 
@@ -2186,28 +2414,38 @@ export default function SavedReportViewPage() {
         =============================================== */
 
         .reportPage {
-          position: relative;
 
-          width: 210mm;
+          position:
+            relative;
 
-          min-height: 297mm;
+          width:
+            210mm;
 
-          height: 297mm;
+          min-height:
+            297mm;
 
-          max-height: 297mm;
+          height:
+            297mm;
 
-          margin: 0 auto;
+          max-height:
+            297mm;
+
+          margin:
+            0 auto;
 
           padding:
             0 11mm 17mm;
 
-          background: white;
+          background:
+            white;
 
-          overflow: hidden;
+          overflow:
+            hidden;
 
           box-shadow:
             0 12px 35px
             rgba(16,24,40,.14);
+
         }
 
 
@@ -2216,46 +2454,70 @@ export default function SavedReportViewPage() {
         =============================================== */
 
         .labHeader {
-          height: 35mm;
 
-          padding-top: 6mm;
+          height:
+            35mm;
 
-          display: flex;
+          padding-top:
+            6mm;
 
-          align-items: center;
+          display:
+            flex;
 
-          justify-content: space-between;
+          align-items:
+            center;
 
-          gap: 8mm;
+          justify-content:
+            space-between;
+
+          gap:
+            8mm;
+
         }
 
 
         .brandArea {
-          display: flex;
 
-          align-items: center;
+          display:
+            flex;
 
-          gap: 4mm;
+          align-items:
+            center;
+
+          gap:
+            4mm;
+
         }
 
 
         .logo {
-          position: relative;
 
-          width: 22mm;
-          height: 22mm;
+          position:
+            relative;
 
-          flex-shrink: 0;
+          width:
+            22mm;
 
-          display: flex;
+          height:
+            22mm;
 
-          align-items: center;
-          justify-content: center;
+          flex-shrink:
+            0;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
 
           border:
             1.5px solid #087f72;
 
-          border-radius: 50%;
+          border-radius:
+            50%;
 
           background:
             radial-gradient(
@@ -2266,153 +2528,227 @@ export default function SavedReportViewPage() {
 
           box-shadow:
             inset 0 0 0 2px #d7f2ed;
+
         }
 
 
         .logo span {
-          position: relative;
 
-          z-index: 2;
+          position:
+            relative;
 
-          color: #087f72;
+          z-index:
+            2;
 
-          font-size: 20px;
+          color:
+            #087f72;
 
-          font-weight: 950;
+          font-size:
+            20px;
+
+          font-weight:
+            950;
+
         }
 
 
         .ray {
-          position: absolute;
 
-          width: 14mm;
+          position:
+            absolute;
 
-          height: .5px;
+          width:
+            14mm;
 
-          background: #eabf43;
+          height:
+            .5px;
+
+          background:
+            #eabf43;
+
         }
 
 
         .ray1 {
-          transform: rotate(0deg);
+          transform:
+            rotate(0deg);
         }
 
 
         .ray2 {
-          transform: rotate(45deg);
+          transform:
+            rotate(45deg);
         }
 
 
         .ray3 {
-          transform: rotate(90deg);
+          transform:
+            rotate(90deg);
         }
 
 
         .ray4 {
-          transform: rotate(135deg);
+          transform:
+            rotate(135deg);
         }
 
 
         .brandText h1 {
-          margin: 0;
 
-          color: #101828;
+          margin:
+            0;
 
-          font-size: 21px;
+          color:
+            #101828;
 
-          line-height: 1;
+          font-size:
+            21px;
 
-          font-weight: 950;
+          line-height:
+            1;
+
+          font-weight:
+            950;
+
         }
 
 
         .brandText h2 {
-          margin: 3px 0 0;
 
-          color: #087f72;
+          margin:
+            3px 0 0;
 
-          font-size: 7px;
+          color:
+            #087f72;
 
-          letter-spacing: .8px;
+          font-size:
+            7px;
 
-          font-weight: 900;
+          letter-spacing:
+            .8px;
+
+          font-weight:
+            900;
+
         }
 
 
         .brandText p {
-          margin: 4px 0 0;
 
-          color: #667085;
+          margin:
+            4px 0 0;
 
-          font-size: 5.5px;
+          color:
+            #667085;
 
-          font-weight: 700;
+          font-size:
+            5.5px;
+
+          font-weight:
+            700;
+
         }
 
 
         .headerInfo {
-          width: 68mm;
 
-          text-align: right;
+          width:
+            68mm;
 
-          color: #667085;
+          text-align:
+            right;
 
-          font-size: 5.5px;
+          color:
+            #667085;
 
-          line-height: 1.55;
+          font-size:
+            5.5px;
+
+          line-height:
+            1.55;
+
         }
 
 
         .reportBadge {
-          display: inline-block;
 
-          margin-bottom: 2px;
+          display:
+            inline-block;
 
-          padding: 2px 5px;
+          margin-bottom:
+            2px;
 
-          border-radius: 3px;
+          padding:
+            2px 5px;
 
-          background: #e9f8f5;
+          border-radius:
+            3px;
 
-          color: #087f72;
+          background:
+            #e9f8f5;
 
-          font-size: 5.8px;
+          color:
+            #087f72;
 
-          font-weight: 950;
+          font-size:
+            5.8px;
 
-          letter-spacing: .5px;
+          font-weight:
+            950;
+
+          letter-spacing:
+            .5px;
+
         }
 
 
         .accent {
-          height: 1.5px;
 
-          display: flex;
+          height:
+            1.5px;
 
-          gap: 2px;
+          display:
+            flex;
 
-          margin-bottom: 4mm;
+          gap:
+            2px;
+
+          margin-bottom:
+            4mm;
+
         }
 
 
         .accent span {
-          flex: 4;
 
-          background: #087f72;
+          flex:
+            4;
+
+          background:
+            #087f72;
+
         }
 
 
         .accent b {
-          flex: 1;
 
-          background: #eabf43;
+          flex:
+            1;
+
+          background:
+            #eabf43;
+
         }
 
 
         .accent i {
-          flex: 6;
 
-          background: #dce5ea;
+          flex:
+            6;
+
+          background:
+            #dce5ea;
+
         }
 
 
@@ -2421,27 +2757,38 @@ export default function SavedReportViewPage() {
         =============================================== */
 
         .patientSection {
-          margin-bottom: 4mm;
+
+          margin-bottom:
+            4mm;
 
           border:
             1px solid #d7e0e6;
 
-          border-radius: 4px;
+          border-radius:
+            4px;
 
-          overflow: hidden;
+          overflow:
+            hidden;
+
         }
 
 
         .sectionTitle {
-          height: 6.5mm;
 
-          padding: 0 3mm;
+          height:
+            6.5mm;
 
-          display: flex;
+          padding:
+            0 3mm;
 
-          align-items: center;
+          display:
+            flex;
 
-          gap: 5px;
+          align-items:
+            center;
+
+          gap:
+            5px;
 
           background:
             linear-gradient(
@@ -2450,26 +2797,40 @@ export default function SavedReportViewPage() {
               #0c7180
             );
 
-          color: white;
+          color:
+            white;
 
-          font-size: 6.5px;
+          font-size:
+            6.5px;
 
-          font-weight: 950;
+          font-weight:
+            950;
 
-          letter-spacing: .6px;
+          letter-spacing:
+            .6px;
+
         }
 
 
         .sectionTitle span {
-          width: 15px;
-          height: 15px;
 
-          display: flex;
+          width:
+            15px;
 
-          align-items: center;
-          justify-content: center;
+          height:
+            15px;
 
-          border-radius: 50%;
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            50%;
 
           background:
             rgba(
@@ -2479,20 +2840,27 @@ export default function SavedReportViewPage() {
               .18
             );
 
-          font-size: 6px;
+          font-size:
+            6px;
+
         }
 
 
         .patientGrid {
-          display: grid;
+
+          display:
+            grid;
 
           grid-template-columns:
             repeat(4,1fr);
+
         }
 
 
         .infoCell {
-          min-height: 9mm;
+
+          min-height:
+            9mm;
 
           padding:
             2mm 3mm;
@@ -2502,58 +2870,88 @@ export default function SavedReportViewPage() {
 
           border-bottom:
             1px solid #e3e8ed;
+
         }
 
 
         .infoCell:nth-child(4n) {
-          border-right: 0;
+
+          border-right:
+            0;
+
         }
 
 
         .infoCell:nth-last-child(-n+4) {
-          border-bottom: 0;
+
+          border-bottom:
+            0;
+
         }
 
 
         .infoLabel {
-          display: block;
 
-          margin-bottom: 1px;
+          display:
+            block;
 
-          color: #7a8796;
+          margin-bottom:
+            1px;
 
-          font-size: 4.7px;
+          color:
+            #7a8796;
 
-          font-weight: 800;
+          font-size:
+            4.7px;
 
-          text-transform: uppercase;
+          font-weight:
+            800;
+
+          text-transform:
+            uppercase;
+
         }
 
 
         .infoValue {
-          display: block;
 
-          color: #172033;
+          display:
+            block;
 
-          font-size: 6.4px;
+          color:
+            #172033;
 
-          font-weight: 700;
+          font-size:
+            6.4px;
 
-          overflow-wrap: anywhere;
+          font-weight:
+            700;
+
+          overflow-wrap:
+            anywhere;
+
         }
 
 
         .infoValue.strong {
-          font-size: 7px;
 
-          font-weight: 950;
+          font-size:
+            7px;
+
+          font-weight:
+            950;
+
         }
 
 
         .infoValue.status {
-          color: #15803d;
 
-          font-weight: 950;
+          color:
+            #15803d;
+
+          font-weight:
+            950;
+
         }
 
 
@@ -2562,55 +2960,83 @@ export default function SavedReportViewPage() {
         =============================================== */
 
         .testsArea {
-          display: flex;
 
-          flex-direction: column;
+          display:
+            flex;
 
-          gap: 3.5mm;
+          flex-direction:
+            column;
+
+          gap:
+            3.5mm;
+
         }
 
 
         .testSection {
-          break-inside: avoid;
 
-          page-break-inside: avoid;
+          break-inside:
+            avoid;
+
+          page-break-inside:
+            avoid;
+
         }
 
 
         .testTitle {
-          min-height: 7mm;
 
-          margin-bottom: 1.8mm;
+          min-height:
+            7mm;
 
-          display: flex;
+          margin-bottom:
+            1.8mm;
 
-          align-items: center;
+          display:
+            flex;
 
-          gap: 2.5mm;
+          align-items:
+            center;
+
+          gap:
+            2.5mm;
+
         }
 
 
         .department {
-          flex-shrink: 0;
 
-          padding: 2.5px 6px;
+          flex-shrink:
+            0;
 
-          border-radius: 3px;
+          padding:
+            2.5px 6px;
 
-          background: #e8f7f4;
+          border-radius:
+            3px;
 
-          color: #087f72;
+          background:
+            #e8f7f4;
 
-          font-size: 5px;
+          color:
+            #087f72;
 
-          font-weight: 950;
+          font-size:
+            5px;
 
-          letter-spacing: .6px;
+          font-weight:
+            950;
+
+          letter-spacing:
+            .6px;
+
         }
 
 
         .testTitle strong {
-          flex: 1;
+
+          flex:
+            1;
 
           padding:
             2.2mm 3.5mm;
@@ -2618,7 +3044,8 @@ export default function SavedReportViewPage() {
           border-left:
             3px solid #087f72;
 
-          border-radius: 3px;
+          border-radius:
+            3px;
 
           background:
             linear-gradient(
@@ -2627,18 +3054,25 @@ export default function SavedReportViewPage() {
               white
             );
 
-          color: #101828;
+          color:
+            #101828;
 
-          font-size: 9.5px;
+          font-size:
+            9.5px;
 
-          font-weight: 950;
+          font-weight:
+            950;
+
         }
 
 
         .testTitle i {
-          width: 18mm;
 
-          height: 1px;
+          width:
+            18mm;
+
+          height:
+            1px;
 
           background:
             linear-gradient(
@@ -2646,6 +3080,7 @@ export default function SavedReportViewPage() {
               #087f72,
               transparent
             );
+
         }
 
 
@@ -2654,27 +3089,38 @@ export default function SavedReportViewPage() {
         =============================================== */
 
         .resultTable {
-          width: 100%;
 
-          table-layout: fixed;
+          width:
+            100%;
 
-          border-collapse: separate;
+          table-layout:
+            fixed;
 
-          border-spacing: 0;
+          border-collapse:
+            separate;
+
+          border-spacing:
+            0;
 
           border:
             1px solid #cfd9e0;
 
-          border-radius: 4px;
+          border-radius:
+            4px;
 
-          overflow: hidden;
+          overflow:
+            hidden;
+
         }
 
 
         .resultTable th {
-          height: 6.5mm;
 
-          padding: 1.3mm;
+          height:
+            6.5mm;
+
+          padding:
+            1.3mm;
 
           background:
             linear-gradient(
@@ -2683,7 +3129,8 @@ export default function SavedReportViewPage() {
               #e3edf0
             );
 
-          color: #344054;
+          color:
+            #344054;
 
           border-right:
             1px solid #d2dce2;
@@ -2691,26 +3138,36 @@ export default function SavedReportViewPage() {
           border-bottom:
             1px solid #cbd6dc;
 
-          text-align: center;
+          text-align:
+            center;
 
-          font-size: 5.1px;
+          font-size:
+            5.1px;
 
-          font-weight: 950;
+          font-weight:
+            950;
+
         }
 
 
         .resultTable th:last-child {
-          border-right: 0;
+
+          border-right:
+            0;
+
         }
 
 
         .resultTable td {
-          height: 6.8mm;
+
+          height:
+            6.8mm;
 
           padding:
             1mm 1.8mm;
 
-          color: #273443;
+          color:
+            #273443;
 
           border-right:
             1px solid #e1e7eb;
@@ -2718,56 +3175,77 @@ export default function SavedReportViewPage() {
           border-bottom:
             1px solid #e5eaee;
 
-          font-size: 5.8px;
+          font-size:
+            5.8px;
 
-          vertical-align: middle;
+          vertical-align:
+            middle;
+
         }
 
 
         .resultTable tr:last-child td {
-          border-bottom: 0;
+
+          border-bottom:
+            0;
+
         }
 
 
         .resultTable td:last-child {
-          border-right: 0;
+
+          border-right:
+            0;
+
         }
 
 
         .resultTable tbody tr:nth-child(even) td {
-          background: #fbfcfd;
+
+          background:
+            #fbfcfd;
+
         }
 
 
         .colInvestigation {
-          width: 30%;
+          width:
+            30%;
         }
 
 
         .colFlag {
-          width: 8%;
+          width:
+            8%;
         }
 
 
         .colResult {
-          width: 19%;
+          width:
+            19%;
         }
 
 
         .colReference {
-          width: 28%;
+          width:
+            28%;
         }
 
 
         .colUnit {
-          width: 15%;
+          width:
+            15%;
         }
 
 
         .investigationCell {
-          font-size: 6px !important;
 
-          font-weight: 800;
+          font-size:
+            6px !important;
+
+          font-weight:
+            800;
+
         }
 
 
@@ -2775,89 +3253,133 @@ export default function SavedReportViewPage() {
         .resultCell,
         .referenceCell,
         .unitCell {
-          text-align: center;
+
+          text-align:
+            center;
+
         }
 
 
         .resultValue {
-          display: inline-flex;
 
-          min-width: 24mm;
+          display:
+            inline-flex;
 
-          height: 6mm;
+          min-width:
+            24mm;
+
+          height:
+            6mm;
 
           padding:
             1mm 2.5mm;
 
-          align-items: center;
+          align-items:
+            center;
 
-          justify-content: center;
+          justify-content:
+            center;
 
-          border-radius: 3px;
+          border-radius:
+            3px;
 
-          background: #f2f6f9;
+          background:
+            #f2f6f9;
 
-          color: #101828;
+          color:
+            #101828;
 
-          font-size: 7.5px;
+          font-size:
+            7.5px;
 
-          font-weight: 950;
+          font-weight:
+            950;
+
         }
 
 
         .resultValue.abnormal {
-          background: #fff1f0;
+
+          background:
+            #fff1f0;
 
           border:
             1px solid #f5c8c5;
 
-          color: #b42318;
+          color:
+            #b42318;
+
         }
 
 
         .flag {
-          display: inline-flex;
 
-          width: 14px;
-          height: 14px;
+          display:
+            inline-flex;
 
-          align-items: center;
-          justify-content: center;
+          width:
+            14px;
 
-          border-radius: 3px;
+          height:
+            14px;
 
-          font-size: 5.5px;
+          align-items:
+            center;
 
-          font-weight: 950;
+          justify-content:
+            center;
+
+          border-radius:
+            3px;
+
+          font-size:
+            5.5px;
+
+          font-weight:
+            950;
+
         }
 
 
         .flag.high {
-          color: #b42318;
 
-          background: #fee4e2;
+          color:
+            #b42318;
+
+          background:
+            #fee4e2;
 
           border:
             1px solid #fecdca;
+
         }
 
 
         .flag.low {
-          color: #175cd3;
 
-          background: #eff8ff;
+          color:
+            #175cd3;
+
+          background:
+            #eff8ff;
 
           border:
             1px solid #b2ddff;
+
         }
 
 
         .normalDot {
-          color: #159957;
 
-          font-size: 10px;
+          color:
+            #159957;
 
-          font-weight: 900;
+          font-size:
+            10px;
+
+          font-weight:
+            900;
+
         }
 
 
@@ -2866,48 +3388,72 @@ export default function SavedReportViewPage() {
         =============================================== */
 
         .noInvestigations {
-          padding: 18mm 10mm;
 
-          text-align: center;
+          padding:
+            18mm 10mm;
 
-          color: #667085;
+          text-align:
+            center;
+
+          color:
+            #667085;
 
           border:
             1px dashed #cfd9e0;
 
-          border-radius: 5px;
+          border-radius:
+            5px;
 
-          background: #fafcfd;
+          background:
+            #fafcfd;
+
         }
 
 
         .noIcon {
-          margin-bottom: 4px;
 
-          font-size: 22px;
+          margin-bottom:
+            4px;
+
+          font-size:
+            22px;
+
         }
 
 
         .noInvestigations strong {
-          display: block;
 
-          color: #344054;
+          display:
+            block;
 
-          font-size: 10px;
+          color:
+            #344054;
+
+          font-size:
+            10px;
+
         }
 
 
         .noInvestigations p {
-          margin: 5px 0;
 
-          font-size: 7px;
+          margin:
+            5px 0;
+
+          font-size:
+            7px;
+
         }
 
 
         .noInvestigations small {
-          font-size: 5px;
 
-          color: #98a2b3;
+          font-size:
+            5px;
+
+          color:
+            #98a2b3;
+
         }
 
 
@@ -2916,59 +3462,89 @@ export default function SavedReportViewPage() {
         =============================================== */
 
         .signatures {
-          display: grid;
+
+          display:
+            grid;
 
           grid-template-columns:
             1fr 1fr;
 
-          gap: 30mm;
+          gap:
+            30mm;
 
-          margin-top: 4.5mm;
+          margin-top:
+            4.5mm;
 
-          break-inside: avoid;
+          break-inside:
+            avoid;
 
-          page-break-inside: avoid;
+          page-break-inside:
+            avoid;
+
         }
 
 
         .signature {
-          text-align: center;
 
-          min-height: 10mm;
+          text-align:
+            center;
 
-          display: flex;
+          min-height:
+            10mm;
 
-          flex-direction: column;
+          display:
+            flex;
 
-          align-items: center;
+          flex-direction:
+            column;
 
-          justify-content: flex-end;
+          align-items:
+            center;
+
+          justify-content:
+            flex-end;
+
         }
 
 
         .signature.right {
-          text-align: center;
+
+          text-align:
+            center;
+
         }
 
 
         .signatureSpace {
-          height: 5mm;
 
-          width: 100%;
+          height:
+            5mm;
+
+          width:
+            100%;
+
         }
 
 
         .signature strong {
-          font-size: 6px;
+
+          font-size:
+            6px;
+
         }
 
 
         .signature small {
-          margin-top: 1px;
 
-          color: #667085;
+          margin-top:
+            1px;
 
-          font-size: 4.5px;
+          color:
+            #667085;
+
+          font-size:
+            4.5px;
+
         }
 
 
@@ -2977,7 +3553,9 @@ export default function SavedReportViewPage() {
         =============================================== */
 
         .note {
-          margin-top: 2.5mm;
+
+          margin-top:
+            2.5mm;
 
           padding:
             1.8mm 2.5mm;
@@ -2985,24 +3563,35 @@ export default function SavedReportViewPage() {
           border:
             1px solid #dbe3e8;
 
-          border-radius: 3px;
+          border-radius:
+            3px;
 
-          background: #f8fafb;
+          background:
+            #f8fafb;
 
-          color: #667085;
+          color:
+            #667085;
 
-          font-size: 4.5px;
+          font-size:
+            4.5px;
 
-          line-height: 1.35;
+          line-height:
+            1.35;
 
-          break-inside: avoid;
+          break-inside:
+            avoid;
 
-          page-break-inside: avoid;
+          page-break-inside:
+            avoid;
+
         }
 
 
         .note strong {
-          color: #344054;
+
+          color:
+            #344054;
+
         }
 
 
@@ -3011,18 +3600,27 @@ export default function SavedReportViewPage() {
         =============================================== */
 
         .footer {
-          position: absolute;
 
-          left: 0;
-          right: 0;
-          bottom: 0;
+          position:
+            absolute;
 
-          height: 12mm;
+          left:
+            0;
+
+          right:
+            0;
+
+          bottom:
+            0;
+
+          height:
+            12mm;
 
           padding:
             2.2mm 11mm;
 
-          text-align: center;
+          text-align:
+            center;
 
           border-top:
             1px solid #dce4e8;
@@ -3033,54 +3631,81 @@ export default function SavedReportViewPage() {
               #f8fafb,
               #eef3f5
             );
+
         }
 
 
         .footer strong {
-          display: block;
 
-          color: #087f72;
+          display:
+            block;
 
-          font-size: 5.8px;
+          color:
+            #087f72;
 
-          font-weight: 950;
+          font-size:
+            5.8px;
 
-          letter-spacing: .6px;
+          font-weight:
+            950;
+
+          letter-spacing:
+            .6px;
+
         }
 
 
         .footer span {
-          display: block;
 
-          margin-top: 1px;
+          display:
+            block;
 
-          color: #667085;
+          margin-top:
+            1px;
 
-          font-size: 3.8px;
+          color:
+            #667085;
+
+          font-size:
+            3.8px;
+
         }
 
 
         .footer small {
-          display: block;
 
-          margin-top: 1px;
+          display:
+            block;
 
-          color: #98a2b3;
+          margin-top:
+            1px;
 
-          font-size: 3.4px;
+          color:
+            #98a2b3;
+
+          font-size:
+            3.4px;
+
         }
 
 
         .footer em {
-          display: block;
 
-          margin-top: 1px;
+          display:
+            block;
 
-          color: #98a2b3;
+          margin-top:
+            1px;
 
-          font-size: 3.4px;
+          color:
+            #98a2b3;
 
-          font-style: normal;
+          font-size:
+            3.4px;
+
+          font-style:
+            normal;
+
         }
 
 
@@ -3090,51 +3715,84 @@ export default function SavedReportViewPage() {
 
         @media (max-width: 700px) {
 
+
           .page {
+
             padding:
               8px 2px 25px;
+
           }
 
 
           .actionBar {
-            flex-direction: column;
 
-            align-items: stretch;
+            flex-direction:
+              column;
 
-            padding: 7px;
+            align-items:
+              stretch;
+
+            padding:
+              7px;
+
           }
 
 
           .actionLeft,
           .actionRight {
-            width: 100%;
+
+            width:
+              100%;
+
+          }
+
+
+          .actionLeft {
+
+            display:
+              grid;
+
+            grid-template-columns:
+              1fr 1fr;
+
           }
 
 
           .actionRight {
-            display: grid;
+
+            display:
+              grid;
 
             grid-template-columns:
               1fr 1fr;
+
           }
 
 
+          .dashboardButton,
           .backButton,
           .editButton,
           .printButton {
-            width: 100%;
 
-            font-size: 8px;
+            width:
+              100%;
+
+            font-size:
+              8px;
+
           }
 
 
           .printButton {
+
             grid-column:
               span 2;
+
           }
 
 
           .reportPage {
+
             width:
               calc(100vw - 8px);
 
@@ -3156,248 +3814,383 @@ export default function SavedReportViewPage() {
                 * 1.4142857
               );
 
-            padding-left: 4.5mm;
+            padding-left:
+              4.5mm;
 
-            padding-right: 4.5mm;
+            padding-right:
+              4.5mm;
 
-            padding-bottom: 15mm;
+            padding-bottom:
+              15mm;
+
           }
 
 
           .labHeader {
-            height: 31mm;
 
-            padding-top: 5mm;
+            height:
+              31mm;
 
-            gap: 3mm;
+            padding-top:
+              5mm;
+
+            gap:
+              3mm;
+
           }
 
 
           .logo {
-            width: 17mm;
-            height: 17mm;
+
+            width:
+              17mm;
+
+            height:
+              17mm;
+
           }
 
 
           .logo span {
-            font-size: 15px;
+
+            font-size:
+              15px;
+
           }
 
 
           .brandArea {
-            gap: 2.5mm;
+
+            gap:
+              2.5mm;
+
           }
 
 
           .brandText h1 {
-            font-size: 13px;
+
+            font-size:
+              13px;
+
           }
 
 
           .brandText h2 {
-            font-size: 4.2px;
+
+            font-size:
+              4.2px;
+
           }
 
 
           .brandText p {
-            font-size: 3.5px;
+
+            font-size:
+              3.5px;
+
           }
 
 
           .headerInfo {
-            width: 40mm;
 
-            font-size: 3.7px;
+            width:
+              40mm;
+
+            font-size:
+              3.7px;
+
           }
 
 
           .reportBadge {
-            font-size: 4px;
+
+            font-size:
+              4px;
+
           }
 
 
           .patientGrid {
+
             grid-template-columns:
               repeat(2,1fr);
+
           }
 
 
           .infoCell:nth-child(4n) {
+
             border-right:
               1px solid #e3e8ed;
+
           }
 
 
           .infoCell:nth-child(2n) {
-            border-right: 0;
+
+            border-right:
+              0;
+
           }
 
 
           .infoCell:nth-last-child(-n+4) {
+
             border-bottom:
               1px solid #e3e8ed;
+
           }
 
 
           .infoCell:nth-last-child(-n+2) {
-            border-bottom: 0;
+
+            border-bottom:
+              0;
+
           }
 
 
           .infoCell {
-            min-height: 8mm;
+
+            min-height:
+              8mm;
 
             padding:
               1.5mm 2mm;
+
           }
 
 
           .sectionTitle {
-            height: 5.5mm;
 
-            font-size: 4.5px;
+            height:
+              5.5mm;
+
+            font-size:
+              4.5px;
+
           }
 
 
           .sectionTitle span {
-            width: 11px;
-            height: 11px;
 
-            font-size: 5px;
+            width:
+              11px;
+
+            height:
+              11px;
+
+            font-size:
+              5px;
+
           }
 
 
           .infoLabel {
-            font-size: 3.5px;
+
+            font-size:
+              3.5px;
+
           }
 
 
           .infoValue {
-            font-size: 4.8px;
+
+            font-size:
+              4.8px;
+
           }
 
 
           .infoValue.strong {
-            font-size: 5.2px;
+
+            font-size:
+              5.2px;
+
           }
 
 
           .testTitle {
-            min-height: 6mm;
 
-            margin-bottom: 1.3mm;
+            min-height:
+              6mm;
+
+            margin-bottom:
+              1.3mm;
+
           }
 
 
           .department {
-            font-size: 3.5px;
+
+            font-size:
+              3.5px;
+
           }
 
 
           .testTitle strong {
-            font-size: 6.3px;
+
+            font-size:
+              6.3px;
 
             padding:
               1.7mm 2mm;
+
           }
 
 
           .resultTable th {
-            height: 5.3mm;
 
-            padding: 1mm;
+            height:
+              5.3mm;
 
-            font-size: 3.4px;
+            padding:
+              1mm;
+
+            font-size:
+              3.4px;
+
           }
 
 
           .resultTable td {
-            height: 5.5mm;
+
+            height:
+              5.5mm;
 
             padding:
               .7mm 1mm;
 
-            font-size: 3.9px;
+            font-size:
+              3.9px;
+
           }
 
 
           .investigationCell {
-            font-size: 3.9px !important;
+
+            font-size:
+              3.9px !important;
+
           }
 
 
           .resultValue {
-            min-width: 14mm;
 
-            height: 4.8mm;
+            min-width:
+              14mm;
 
-            font-size: 5.3px;
+            height:
+              4.8mm;
+
+            font-size:
+              5.3px;
+
           }
 
 
           .flag {
-            width: 11px;
-            height: 11px;
 
-            font-size: 4px;
+            width:
+              11px;
+
+            height:
+              11px;
+
+            font-size:
+              4px;
+
           }
 
 
           .normalDot {
-            font-size: 7px;
+
+            font-size:
+              7px;
+
           }
 
 
           .signatures {
-            gap: 15mm;
 
-            margin-top: 3mm;
+            gap:
+              15mm;
+
+            margin-top:
+              3mm;
+
           }
 
 
           .signatureSpace {
-            height: 4mm;
+
+            height:
+              4mm;
+
           }
 
 
           .signature strong {
-            font-size: 4px;
+
+            font-size:
+              4px;
+
           }
 
 
           .signature small {
-            font-size: 3px;
+
+            font-size:
+              3px;
+
           }
 
 
           .note {
-            margin-top: 2mm;
 
-            font-size: 3px;
+            margin-top:
+              2mm;
+
+            font-size:
+              3px;
+
           }
 
 
           .footer {
-            height: 10mm;
+
+            height:
+              10mm;
 
             padding:
               2mm 5mm;
+
           }
 
 
           .footer strong {
-            font-size: 4.5px;
+
+            font-size:
+              4.5px;
+
           }
 
 
           .footer span {
-            font-size: 3px;
+
+            font-size:
+              3px;
+
           }
 
 
           .footer small,
           .footer em {
-            font-size: 2.5px;
+
+            font-size:
+              2.5px;
+
           }
 
         }
@@ -3409,80 +4202,114 @@ export default function SavedReportViewPage() {
 
         @media print {
 
-          @page {
-            size: A4 portrait;
 
-            margin: 0;
+          @page {
+
+            size:
+              A4 portrait;
+
+            margin:
+              0;
+
           }
 
 
           html,
           body {
-            width: 210mm !important;
 
-            height: 297mm !important;
+            width:
+              210mm !important;
 
-            margin: 0 !important;
+            height:
+              297mm !important;
 
-            padding: 0 !important;
+            margin:
+              0 !important;
 
-            background: white !important;
+            padding:
+              0 !important;
+
+            background:
+              white !important;
 
             -webkit-print-color-adjust:
               exact !important;
 
             print-color-adjust:
               exact !important;
+
           }
 
 
           .no-print {
-            display: none !important;
+
+            display:
+              none !important;
+
           }
 
 
           .page {
-            width: 210mm !important;
 
-            height: 297mm !important;
+            width:
+              210mm !important;
 
-            min-height: 297mm !important;
+            height:
+              297mm !important;
 
-            padding: 0 !important;
+            min-height:
+              297mm !important;
 
-            margin: 0 !important;
+            padding:
+              0 !important;
 
-            background: white !important;
+            margin:
+              0 !important;
+
+            background:
+              white !important;
+
           }
 
 
           .reportPage {
-            width: 210mm !important;
 
-            height: 297mm !important;
+            width:
+              210mm !important;
 
-            min-height: 297mm !important;
+            height:
+              297mm !important;
 
-            max-height: 297mm !important;
+            min-height:
+              297mm !important;
 
-            margin: 0 !important;
+            max-height:
+              297mm !important;
+
+            margin:
+              0 !important;
 
             padding:
               0 11mm 17mm !important;
 
-            box-shadow: none !important;
+            box-shadow:
+              none !important;
 
-            overflow: hidden !important;
+            overflow:
+              hidden !important;
 
-            page-break-after: always;
+            page-break-after:
+              always;
 
-            break-after: page;
+            break-after:
+              page;
 
             -webkit-print-color-adjust:
               exact !important;
 
             print-color-adjust:
               exact !important;
+
           }
 
 
@@ -3490,9 +4317,13 @@ export default function SavedReportViewPage() {
           .patientSection,
           .signatures,
           .note {
-            break-inside: avoid !important;
 
-            page-break-inside: avoid !important;
+            break-inside:
+              avoid !important;
+
+            page-break-inside:
+              avoid !important;
+
           }
 
         }
@@ -3500,6 +4331,7 @@ export default function SavedReportViewPage() {
       `}</style>
 
     </main>
+
   );
 }
 
@@ -3514,12 +4346,15 @@ function Info({
   strong = false,
   status = false,
 }) {
+
   return (
+
     <div className="infoCell">
 
       <span className="infoLabel">
         {label}
       </span>
+
 
       <span
         className={
@@ -3536,5 +4371,7 @@ function Info({
       </span>
 
     </div>
+
   );
+
 }
