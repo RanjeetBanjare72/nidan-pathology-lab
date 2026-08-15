@@ -14,7 +14,6 @@ export default function EditLaboratoryReportPage() {
   }, [params]);
 
   const [report, setReport] = useState(null);
-
   const [patient, setPatient] = useState({
     name: "",
     patient_id: "",
@@ -32,14 +31,14 @@ export default function EditLaboratoryReportPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  // ---------------------------------------------------------
+  // =========================================================
   // LOAD REPORT
-  // ---------------------------------------------------------
+  // =========================================================
 
   useEffect(() => {
-    if (!reportId) return;
-
-    loadReport();
+    if (reportId) {
+      loadReport();
+    }
   }, [reportId]);
 
   async function loadReport() {
@@ -59,102 +58,140 @@ export default function EditLaboratoryReportPage() {
       }
 
       if (!data) {
-        throw new Error("Report not found");
+        throw new Error("Report not found.");
       }
 
-      console.log("EDIT PAGE - FULL REPORT:", data);
-      console.log("EDIT PAGE - REPORT DATA:", data.report_data);
+      console.log("========== EDIT REPORT ==========");
+      console.log("FULL REPORT:", data);
+      console.log("REPORT DATA:", data.report_data);
 
       setReport(data);
 
-      const reportData = data.report_data || {};
+      let reportData = data.report_data || {};
 
-      // -----------------------------------------------------
-      // PATIENT DATA
-      // -----------------------------------------------------
+      // Sometimes JSON can be stored as a string.
+      if (typeof reportData === "string") {
+        try {
+          reportData = JSON.parse(reportData);
+        } catch (e) {
+          console.error("REPORT DATA JSON PARSE ERROR:", e);
+          reportData = {};
+        }
+      }
 
-      const savedPatient =
-        reportData.patient ||
-        reportData.patientData ||
-        data.patient ||
-        {};
+      // -------------------------------------------------------
+      // PATIENT
+      // -------------------------------------------------------
 
-      const normalizedPatient = {
+      const savedPatient = findPatient(reportData, data);
+
+      console.log("FOUND PATIENT:", savedPatient);
+
+      setPatient({
         name:
-          savedPatient.name ||
-          savedPatient.patientName ||
-          savedPatient.patient_name ||
+          savedPatient?.name ??
+          savedPatient?.patientName ??
+          savedPatient?.patient_name ??
           "",
 
         patient_id:
-          savedPatient.id ||
-          savedPatient.patient_id ||
-          savedPatient.patientId ||
+          savedPatient?.id ??
+          savedPatient?.patient_id ??
+          savedPatient?.patientId ??
           "",
 
         age:
-          savedPatient.age ??
-          savedPatient.patientAge ??
+          savedPatient?.age ??
+          savedPatient?.patientAge ??
           "",
 
         gender:
-          savedPatient.gender ||
-          savedPatient.sex ||
-          savedPatient.patientGender ||
+          savedPatient?.gender ??
+          savedPatient?.sex ??
+          savedPatient?.patientGender ??
           "",
 
         mobile:
-          savedPatient.mobile ||
-          savedPatient.phone ||
-          savedPatient.phoneNumber ||
+          savedPatient?.mobile ??
+          savedPatient?.phone ??
+          savedPatient?.phoneNumber ??
           "",
 
         doctor:
-          savedPatient.doctor ||
-          savedPatient.referring_doctor ||
-          savedPatient.referringDoctor ||
-          savedPatient.refDoctor ||
+          savedPatient?.doctor ??
+          savedPatient?.referring_doctor ??
+          savedPatient?.referringDoctor ??
+          savedPatient?.refDoctor ??
           "",
-      };
+      });
 
-      setPatient(normalizedPatient);
-
-      // -----------------------------------------------------
+      // -------------------------------------------------------
       // RESULTS
-      // -----------------------------------------------------
+      // -------------------------------------------------------
 
-      const savedResults =
-        reportData.results ||
-        reportData.result ||
-        reportData.testResults ||
-        {};
+      const savedResults = findResults(reportData);
+
+      console.log("FOUND RESULTS:", savedResults);
 
       setResults(
-        savedResults && typeof savedResults === "object"
+        savedResults &&
+          typeof savedResults === "object" &&
+          !Array.isArray(savedResults)
           ? savedResults
           : {}
       );
 
-      // -----------------------------------------------------
+      // -------------------------------------------------------
       // TESTS
-      // -----------------------------------------------------
+      // -------------------------------------------------------
 
-      const savedTests =
-        reportData.selectedTests ||
-        reportData.tests ||
-        reportData.investigations ||
-        [];
+      const savedTests = findTestCollection(reportData);
 
-      const normalizedTests = normalizeTests(savedTests);
+      console.log("FOUND TEST COLLECTION:", savedTests);
 
-      console.log(
-        "EDIT PAGE - NORMALIZED TESTS:",
-        normalizedTests
-      );
+      let normalized = normalizeTests(savedTests);
 
-      setTests(normalizedTests);
+      // -------------------------------------------------------
+      // FALLBACK:
+      // If selectedTests wasn't found, search the complete
+      // report_data recursively.
+      // -------------------------------------------------------
+
+      if (normalized.length === 0) {
+        normalized = discoverTests(reportData);
+
+        console.log(
+          "DISCOVERED TESTS:",
+          normalized
+        );
+      }
+
+      // -------------------------------------------------------
+      // FALLBACK:
+      // If results contain parameter keys but no test list,
+      // construct editable parameters from those keys.
+      // -------------------------------------------------------
+
+      if (
+        normalized.length === 0 &&
+        Object.keys(savedResults || {}).length > 0
+      ) {
+        normalized = buildTestsFromResults(
+          savedResults
+        );
+
+        console.log(
+          "TESTS BUILT FROM RESULTS:",
+          normalized
+        );
+      }
+
+      setTests(normalized);
     } catch (error) {
-      console.error("LOAD REPORT ERROR:", error);
+      console.error(
+        "LOAD REPORT ERROR:",
+        error
+      );
 
       setErrorMessage(
         error?.message ||
@@ -165,9 +202,238 @@ export default function EditLaboratoryReportPage() {
     }
   }
 
-  // ---------------------------------------------------------
+  // =========================================================
+  // FIND PATIENT
+  // =========================================================
+
+  function findPatient(reportData, fullData) {
+    const possible = [
+      reportData?.patient,
+      reportData?.patientData,
+      reportData?.patient_info,
+      reportData?.patientInformation,
+      fullData?.patient,
+    ];
+
+    for (const item of possible) {
+      if (
+        item &&
+        typeof item === "object" &&
+        !Array.isArray(item)
+      ) {
+        return item;
+      }
+    }
+
+    return {};
+  }
+
+  // =========================================================
+  // FIND RESULTS
+  // =========================================================
+
+  function findResults(reportData) {
+    const possible = [
+      reportData?.results,
+      reportData?.result,
+      reportData?.testResults,
+      reportData?.investigationResults,
+      reportData?.investigation_results,
+    ];
+
+    for (const item of possible) {
+      if (
+        item &&
+        typeof item === "object" &&
+        !Array.isArray(item)
+      ) {
+        return item;
+      }
+    }
+
+    // Recursive search
+    const found = recursiveFindObject(
+      reportData,
+      [
+        "results",
+        "testResults",
+        "investigationResults",
+      ]
+    );
+
+    return found || {};
+  }
+
+  // =========================================================
+  // FIND TEST COLLECTION
+  // =========================================================
+
+  function findTestCollection(reportData) {
+    const possible = [
+      reportData?.selectedTests,
+      reportData?.tests,
+      reportData?.investigations,
+      reportData?.selected_tests,
+      reportData?.investigationTests,
+    ];
+
+    for (const item of possible) {
+      if (
+        Array.isArray(item) &&
+        item.length > 0
+      ) {
+        return item;
+      }
+
+      if (
+        item &&
+        typeof item === "object"
+      ) {
+        if (Array.isArray(item.tests)) {
+          return item.tests;
+        }
+
+        if (Array.isArray(item.selectedTests)) {
+          return item.selectedTests;
+        }
+
+        if (Array.isArray(item.investigations)) {
+          return item.investigations;
+        }
+      }
+    }
+
+    // Recursive search for common collection names
+    const found = recursiveFindArray(
+      reportData,
+      [
+        "selectedTests",
+        "selected_tests",
+        "tests",
+        "investigations",
+        "investigationTests",
+      ]
+    );
+
+    return found || [];
+  }
+
+  // =========================================================
+  // RECURSIVE FIND ARRAY
+  // =========================================================
+
+  function recursiveFindArray(
+    value,
+    wantedKeys,
+    depth = 0
+  ) {
+    if (depth > 10 || value == null) {
+      return null;
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = recursiveFindArray(
+          item,
+          wantedKeys,
+          depth + 1
+        );
+
+        if (found) return found;
+      }
+
+      return null;
+    }
+
+    if (
+      typeof value !== "object"
+    ) {
+      return null;
+    }
+
+    for (const key of Object.keys(value)) {
+      const current = value[key];
+
+      if (
+        wantedKeys.includes(key) &&
+        Array.isArray(current) &&
+        current.length > 0
+      ) {
+        return current;
+      }
+
+      const found = recursiveFindArray(
+        current,
+        wantedKeys,
+        depth + 1
+      );
+
+      if (found) return found;
+    }
+
+    return null;
+  }
+
+  // =========================================================
+  // RECURSIVE FIND OBJECT
+  // =========================================================
+
+  function recursiveFindObject(
+    value,
+    wantedKeys,
+    depth = 0
+  ) {
+    if (depth > 10 || value == null) {
+      return null;
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = recursiveFindObject(
+          item,
+          wantedKeys,
+          depth + 1
+        );
+
+        if (found) return found;
+      }
+
+      return null;
+    }
+
+    if (
+      typeof value !== "object"
+    ) {
+      return null;
+    }
+
+    for (const key of Object.keys(value)) {
+      const current = value[key];
+
+      if (
+        wantedKeys.includes(key) &&
+        current &&
+        typeof current === "object" &&
+        !Array.isArray(current)
+      ) {
+        return current;
+      }
+
+      const found = recursiveFindObject(
+        current,
+        wantedKeys,
+        depth + 1
+      );
+
+      if (found) return found;
+    }
+
+    return null;
+  }
+
+  // =========================================================
   // NORMALIZE TESTS
-  // ---------------------------------------------------------
+  // =========================================================
 
   function normalizeTests(input) {
     if (!input) {
@@ -176,68 +442,122 @@ export default function EditLaboratoryReportPage() {
 
     let list = [];
 
-    // Array
     if (Array.isArray(input)) {
       list = input;
-    }
-
-    // Object containing selectedTests
-    else if (
-      typeof input === "object" &&
-      Array.isArray(input.selectedTests)
+    } else if (
+      typeof input === "object"
     ) {
-      list = input.selectedTests;
+      if (Array.isArray(input.selectedTests)) {
+        list = input.selectedTests;
+      } else if (Array.isArray(input.tests)) {
+        list = input.tests;
+      } else if (
+        Array.isArray(input.investigations)
+      ) {
+        list = input.investigations;
+      } else {
+        list = [input];
+      }
     }
 
-    // Object containing tests
-    else if (
-      typeof input === "object" &&
-      Array.isArray(input.tests)
-    ) {
-      list = input.tests;
-    }
+    const output = [];
 
-    // Single test object
-    else if (typeof input === "object") {
-      list = [input];
-    }
+    list.forEach((test, index) => {
+      if (!test) return;
 
-    return list.map((test, index) => {
-      // -----------------------------------------------------
-      // TEST PARAMETER ARRAY
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // If test is a string
+      // -------------------------------------------------------
+
+      if (typeof test === "string") {
+        output.push({
+          id: `test-${index}`,
+          name: test,
+          tests: [],
+          originalTest: test,
+        });
+
+        return;
+      }
 
       let parameters = [];
 
-      if (Array.isArray(test?.tests)) {
-        parameters = test.tests;
-      } else if (Array.isArray(test?.parameters)) {
-        parameters = test.parameters;
-      } else if (Array.isArray(test?.items)) {
-        parameters = test.items;
-      } else if (Array.isArray(test?.investigations)) {
-        parameters = test.investigations;
-      } else if (Array.isArray(test?.fields)) {
-        parameters = test.fields;
+      // Most common structures
+      const parameterSources = [
+        test.tests,
+        test.parameters,
+        test.items,
+        test.investigations,
+        test.fields,
+        test.parametersList,
+        test.testParameters,
+        test.resultFields,
+      ];
+
+      for (
+        const source of parameterSources
+      ) {
+        if (
+          Array.isArray(source) &&
+          source.length > 0
+        ) {
+          parameters = source;
+          break;
+        }
       }
 
-      // -----------------------------------------------------
-      // SOME DATA MAY STORE ONE PARAMETER DIRECTLY
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // Some systems save parameter map as object
+      // -------------------------------------------------------
+
+      if (
+        parameters.length === 0 &&
+        test.parameters &&
+        typeof test.parameters === "object" &&
+        !Array.isArray(test.parameters)
+      ) {
+        parameters = Object.entries(
+          test.parameters
+        ).map(([key, value]) => ({
+          id: key,
+          name: key,
+          result:
+            typeof value === "object"
+              ? value.result ??
+                value.value ??
+                ""
+              : value,
+          unit:
+            typeof value === "object"
+              ? value.unit || ""
+              : "",
+          range:
+            typeof value === "object"
+              ? value.range ||
+                value.referenceRange ||
+                ""
+              : "",
+        }));
+      }
+
+      // -------------------------------------------------------
+      // Direct single parameter
+      // -------------------------------------------------------
 
       if (
         parameters.length === 0 &&
         (
-          test?.parameter ||
-          test?.parameterName ||
-          test?.result !== undefined ||
-          test?.value !== undefined
+          test.parameter ||
+          test.parameterName ||
+          test.result !== undefined ||
+          test.value !== undefined
         )
       ) {
         parameters = [
           {
             id:
               test.parameterId ||
+              test.parameter_id ||
               test.id ||
               `parameter-${index}`,
 
@@ -259,6 +579,7 @@ export default function EditLaboratoryReportPage() {
 
             unit:
               test.unit ||
+              test.units ||
               "",
 
             range:
@@ -270,90 +591,234 @@ export default function EditLaboratoryReportPage() {
         ];
       }
 
-      // -----------------------------------------------------
-      // NORMALIZE EVERY PARAMETER
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // Normalize parameters
+      // -------------------------------------------------------
 
-      parameters = parameters.map(
-        (parameter, parameterIndex) => {
-          if (
-            typeof parameter === "string"
-          ) {
+      const normalizedParameters =
+        parameters.map(
+          (
+            parameter,
+            parameterIndex
+          ) => {
+            if (
+              typeof parameter === "string"
+            ) {
+              return {
+                id: `${index}-${parameterIndex}`,
+                name: parameter,
+                unit: "",
+                range: "",
+                result: "",
+              };
+            }
+
+            const p = parameter || {};
+
             return {
-              id: `${index}-${parameterIndex}`,
-              name: parameter,
-              unit: "",
-              range: "",
-              result: "",
+              ...p,
+
+              id:
+                p.id ??
+                p.parameterId ??
+                p.parameter_id ??
+                p.code ??
+                `${index}-${parameterIndex}`,
+
+              name:
+                p.name ??
+                p.parameterName ??
+                p.parameter_name ??
+                p.parameter ??
+                p.title ??
+                p.label ??
+                "Investigation",
+
+              unit:
+                p.unit ??
+                p.units ??
+                "",
+
+              range:
+                p.range ??
+                p.referenceRange ??
+                p.reference_range ??
+                p.reference ??
+                p.normalRange ??
+                (
+                  p.min !== undefined &&
+                  p.max !== undefined
+                    ? `${p.min} - ${p.max}`
+                    : ""
+                ),
+
+              result:
+                p.result ??
+                p.value ??
+                p.resultValue ??
+                "",
             };
           }
+        );
 
-          const p = parameter || {};
-
-          return {
-            ...p,
-
-            id:
-              p.id ||
-              p.parameterId ||
-              p.parameter_id ||
-              `${index}-${parameterIndex}`,
-
-            name:
-              p.name ||
-              p.parameterName ||
-              p.parameter_name ||
-              p.parameter ||
-              "Investigation",
-
-            unit:
-              p.unit ||
-              p.units ||
-              "",
-
-            range:
-              p.range ||
-              p.referenceRange ||
-              p.reference_range ||
-              p.reference ||
-              (
-                p.min !== undefined &&
-                p.max !== undefined
-                  ? `${p.min} - ${p.max}`
-                  : ""
-              ),
-
-            result:
-              p.result ??
-              p.value ??
-              "",
-          };
-        }
-      );
-
-      return {
+      output.push({
         ...test,
 
         id:
-          test?.id ||
-          test?.testId ||
+          test.id ??
+          test.testId ??
+          test.test_id ??
           `test-${index}`,
 
         name:
-          test?.name ||
-          test?.testName ||
-          test?.test_name ||
-          test?.title ||
+          test.name ??
+          test.testName ??
+          test.test_name ??
+          test.title ??
+          test.label ??
           "Investigation",
 
-        tests: parameters,
-      };
+        tests: normalizedParameters,
+      });
     });
+
+    return output;
   }
 
-  // ---------------------------------------------------------
-  // FIND EXISTING RESULT
-  // ---------------------------------------------------------
+  // =========================================================
+  // DISCOVER TESTS RECURSIVELY
+  // =========================================================
+
+  function discoverTests(reportData) {
+    const candidates = [];
+
+    function walk(value, depth = 0) {
+      if (
+        depth > 10 ||
+        value == null
+      ) {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        if (
+          value.length > 0 &&
+          value.some(
+            (item) =>
+              item &&
+              typeof item === "object" &&
+              (
+                item.parameter ||
+                item.parameterName ||
+                item.parameters ||
+                item.tests ||
+                item.items ||
+                item.fields
+              )
+          )
+        ) {
+          candidates.push(value);
+        }
+
+        value.forEach((item) =>
+          walk(item, depth + 1)
+        );
+
+        return;
+      }
+
+      if (
+        typeof value !== "object"
+      ) {
+        return;
+      }
+
+      Object.values(value).forEach(
+        (child) =>
+          walk(child, depth + 1)
+      );
+    }
+
+    walk(reportData);
+
+    // Try candidates from largest to smallest
+    candidates.sort(
+      (a, b) => b.length - a.length
+    );
+
+    for (const candidate of candidates) {
+      const normalized =
+        normalizeTests(candidate);
+
+      if (
+        normalized.some(
+          (test) =>
+            Array.isArray(test.tests) &&
+            test.tests.length > 0
+        )
+      ) {
+        return normalized;
+      }
+    }
+
+    return [];
+  }
+
+  // =========================================================
+  // BUILD TESTS FROM RESULTS
+  // =========================================================
+
+  function buildTestsFromResults(
+    savedResults
+  ) {
+    const entries =
+      Object.entries(savedResults);
+
+    if (!entries.length) {
+      return [];
+    }
+
+    const parameters = entries.map(
+      ([key, value], index) => ({
+        id: key,
+        name: extractParameterName(key),
+        result: value ?? "",
+        value: value ?? "",
+        unit: "",
+        range: "",
+      })
+    );
+
+    return [
+      {
+        id: "saved-results",
+        name: "Investigation Results",
+        tests: parameters,
+      },
+    ];
+  }
+
+  // =========================================================
+  // EXTRACT PARAMETER NAME
+  // =========================================================
+
+  function extractParameterName(key) {
+    if (!key) return "Investigation";
+
+    const parts = String(key).split("-");
+
+    if (parts.length >= 3) {
+      return parts
+        .slice(1, -1)
+        .join("-");
+    }
+
+    return key;
+  }
+
+  // =========================================================
+  // GET RESULT
+  // =========================================================
 
   function getResultValue(
     test,
@@ -362,24 +827,34 @@ export default function EditLaboratoryReportPage() {
     parameterIndex
   ) {
     const parameterId =
-      parameter?.id ||
-      parameter?.parameterId ||
-      parameter?.parameter_id ||
+      parameter?.id ??
+      parameter?.parameterId ??
+      parameter?.parameter_id ??
+      "";
+
+    const parameterName =
+      parameter?.name ??
+      parameter?.parameterName ??
+      parameter?.parameter ??
       "";
 
     const testId =
-      test?.id ||
-      test?.testId ||
+      test?.id ??
+      test?.testId ??
+      test?.test_id ??
       `test-${testIndex}`;
 
-    const parameterName =
-      parameter?.name ||
-      parameter?.parameterName ||
-      parameter?.parameter ||
+    const testName =
+      test?.name ??
+      test?.testName ??
+      test?.test_name ??
       "";
 
+    // Exact key used by your Report View
     const possibleKeys = [
       `${testId}-${parameterName}-${parameterIndex}`,
+
+      `${testId}-${parameterName}`,
 
       `${testId}-${parameterId}`,
 
@@ -391,13 +866,16 @@ export default function EditLaboratoryReportPage() {
 
       `${testIndex}-${parameterName}`,
 
-      `${test?.name || test?.testName}-${parameterName}`,
+      `${testName}-${parameterName}`,
+
+      `${testName}-${parameterId}`,
     ];
 
-    for (const key of possibleKeys) {
+    for (
+      const key of possibleKeys
+    ) {
       if (
         key &&
-        results &&
         Object.prototype.hasOwnProperty.call(
           results,
           key
@@ -407,32 +885,71 @@ export default function EditLaboratoryReportPage() {
       }
     }
 
-    // Saved result directly inside parameter
-    if (parameter?.result !== undefined) {
+    // Search results key by parameter name
+    if (
+      parameterName &&
+      results &&
+      typeof results === "object"
+    ) {
+      const matchingKey =
+        Object.keys(results).find(
+          (key) =>
+            key
+              .toLowerCase()
+              .includes(
+                String(
+                  parameterName
+                ).toLowerCase()
+              )
+        );
+
+      if (matchingKey) {
+        return results[matchingKey];
+      }
+    }
+
+    // Saved directly in parameter
+    if (
+      parameter?.result !== undefined &&
+      parameter?.result !== null
+    ) {
       return parameter.result;
     }
 
-    if (parameter?.value !== undefined) {
+    if (
+      parameter?.value !== undefined &&
+      parameter?.value !== null
+    ) {
       return parameter.value;
+    }
+
+    if (
+      parameter?.resultValue !== undefined &&
+      parameter?.resultValue !== null
+    ) {
+      return parameter.resultValue;
     }
 
     return "";
   }
 
-  // ---------------------------------------------------------
+  // =========================================================
   // UPDATE PATIENT
-  // ---------------------------------------------------------
+  // =========================================================
 
-  function updatePatient(field, value) {
-    setPatient((previous) => ({
-      ...previous,
+  function updatePatient(
+    field,
+    value
+  ) {
+    setPatient((old) => ({
+      ...old,
       [field]: value,
     }));
   }
 
-  // ---------------------------------------------------------
+  // =========================================================
   // UPDATE RESULT
-  // ---------------------------------------------------------
+  // =========================================================
 
   function updateResult(
     test,
@@ -442,88 +959,124 @@ export default function EditLaboratoryReportPage() {
     value
   ) {
     const testId =
-      test?.id ||
-      test?.testId ||
+      test?.id ??
+      test?.testId ??
+      test?.test_id ??
       `test-${testIndex}`;
 
     const parameterId =
-      parameter?.id ||
-      parameter?.parameterId ||
-      parameter?.parameter_id ||
+      parameter?.id ??
+      parameter?.parameterId ??
+      parameter?.parameter_id ??
       "";
 
     const parameterName =
-      parameter?.name ||
-      parameter?.parameterName ||
-      parameter?.parameter ||
+      parameter?.name ??
+      parameter?.parameterName ??
+      parameter?.parameter ??
       "";
 
-    // Keep the same key format used by the Report View
     const primaryKey =
       `${testId}-${parameterName}-${parameterIndex}`;
 
-    setResults((previous) => ({
-      ...previous,
+    setResults((old) => ({
+      ...old,
 
       [primaryKey]: value,
 
-      // Also maintain parameter ID key
       ...(parameterId
         ? {
             [parameterId]: value,
           }
         : {}),
+
+      ...(parameterName
+        ? {
+            [parameterName]: value,
+          }
+        : {}),
     }));
-  }
 
-  // ---------------------------------------------------------
-  // GET REFERENCE
-  // ---------------------------------------------------------
+    // Also immediately update local parameter value
+    setTests((oldTests) =>
+      oldTests.map(
+        (oldTest, ti) => {
+          if (ti !== testIndex) {
+            return oldTest;
+          }
 
-  function getReference(parameter) {
-    if (!parameter) return "-";
+          return {
+            ...oldTest,
 
-    if (parameter.range) {
-      return parameter.range;
-    }
+            tests:
+              Array.isArray(
+                oldTest.tests
+              )
+                ? oldTest.tests.map(
+                    (
+                      oldParameter,
+                      pi
+                    ) => {
+                      if (
+                        pi !==
+                        parameterIndex
+                      ) {
+                        return oldParameter;
+                      }
 
-    if (parameter.referenceRange) {
-      return parameter.referenceRange;
-    }
-
-    if (parameter.reference_range) {
-      return parameter.reference_range;
-    }
-
-    if (parameter.reference) {
-      return parameter.reference;
-    }
-
-    if (
-      parameter.min !== undefined &&
-      parameter.max !== undefined
-    ) {
-      return `${parameter.min} - ${parameter.max}`;
-    }
-
-    return "-";
-  }
-
-  // ---------------------------------------------------------
-  // GET UNIT
-  // ---------------------------------------------------------
-
-  function getUnit(parameter) {
-    return (
-      parameter?.unit ||
-      parameter?.units ||
-      "-"
+                      return {
+                        ...oldParameter,
+                        result: value,
+                        value: value,
+                      };
+                    }
+                  )
+                : oldTest.tests,
+          };
+        }
+      )
     );
   }
 
-  // ---------------------------------------------------------
+  // =========================================================
+  // PATIENT SAVE OBJECT
+  // =========================================================
+
+  function createUpdatedPatient(
+    oldPatient
+  ) {
+    return {
+      ...(oldPatient || {}),
+
+      name: patient.name,
+      patientName: patient.name,
+      patient_name: patient.name,
+
+      id: patient.patient_id,
+      patient_id: patient.patient_id,
+      patientId: patient.patient_id,
+
+      age: patient.age,
+      patientAge: patient.age,
+
+      gender: patient.gender,
+      sex: patient.gender,
+      patientGender: patient.gender,
+
+      mobile: patient.mobile,
+      phone: patient.mobile,
+      phoneNumber: patient.mobile,
+
+      doctor: patient.doctor,
+      referring_doctor: patient.doctor,
+      referringDoctor: patient.doctor,
+      refDoctor: patient.doctor,
+    };
+  }
+
+  // =========================================================
   // SAVE CHANGES
-  // ---------------------------------------------------------
+  // =========================================================
 
   async function saveChanges() {
     try {
@@ -532,122 +1085,119 @@ export default function EditLaboratoryReportPage() {
       setSuccessMessage("");
 
       if (!report) {
-        throw new Error("Report available nahi hai.");
+        throw new Error(
+          "Report available nahi hai."
+        );
       }
 
-      // -----------------------------------------------------
-      // CREATE UPDATED PATIENT OBJECT
-      // -----------------------------------------------------
-
-      const oldReportData =
+      let oldReportData =
         report.report_data || {};
+
+      if (
+        typeof oldReportData ===
+        "string"
+      ) {
+        try {
+          oldReportData =
+            JSON.parse(oldReportData);
+        } catch {
+          oldReportData = {};
+        }
+      }
+
+      // -------------------------------------------------------
+      // OLD PATIENT
+      // -------------------------------------------------------
 
       const oldPatient =
         oldReportData.patient ||
         oldReportData.patientData ||
         {};
 
-      const updatedPatient = {
-        ...oldPatient,
+      const updatedPatient =
+        createUpdatedPatient(
+          oldPatient
+        );
 
-        name: patient.name,
+      // -------------------------------------------------------
+      // UPDATE PARAMETERS WITH CURRENT VALUES
+      // -------------------------------------------------------
 
-        patientName: patient.name,
+      const updatedTests =
+        tests.map(
+          (test, testIndex) => {
+            const updatedParameters =
+              Array.isArray(test.tests)
+                ? test.tests.map(
+                    (
+                      parameter,
+                      parameterIndex
+                    ) => {
+                      const value =
+                        getResultValue(
+                          test,
+                          parameter,
+                          testIndex,
+                          parameterIndex
+                        );
 
-        id: patient.patient_id,
+                      return {
+                        ...parameter,
+                        result: value,
+                        value: value,
+                      };
+                    }
+                  )
+                : [];
 
-        patient_id: patient.patient_id,
+            return {
+              ...test,
+              tests: updatedParameters,
+            };
+          }
+        );
 
-        patientId: patient.patient_id,
-
-        age: patient.age,
-
-        gender: patient.gender,
-
-        sex: patient.gender,
-
-        mobile: patient.mobile,
-
-        phone: patient.mobile,
-
-        doctor: patient.doctor,
-
-        referring_doctor: patient.doctor,
-
-        referringDoctor: patient.doctor,
-      };
-
-      // -----------------------------------------------------
-      // UPDATE PARAMETERS TOO
-      // -----------------------------------------------------
-      //
-      // This is important because some reports may have saved
-      // values inside parameter objects rather than results.
-      //
-
-      const updatedTests = tests.map(
-        (test, testIndex) => {
-          const updatedParameters =
-            Array.isArray(test.tests)
-              ? test.tests.map(
-                  (
-                    parameter,
-                    parameterIndex
-                  ) => {
-                    const value =
-                      getResultValue(
-                        test,
-                        parameter,
-                        testIndex,
-                        parameterIndex
-                      );
-
-                    return {
-                      ...parameter,
-
-                      result: value,
-
-                      value: value,
-                    };
-                  }
-                )
-              : [];
-
-          return {
-            ...test,
-
-            tests: updatedParameters,
-          };
-        }
-      );
-
-      // -----------------------------------------------------
-      // KEEP ALL OLD REPORT DATA
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // IMPORTANT:
+      // Keep existing report_data.
+      // Do NOT delete unrelated data.
+      // -------------------------------------------------------
 
       const updatedReportData = {
         ...oldReportData,
 
-        patient: updatedPatient,
+        patient:
+          updatedPatient,
 
-        selectedTests: updatedTests,
+        // Keep normalized data for edit/view
+        selectedTests:
+          updatedTests,
 
-        results: results,
+        results: {
+          ...(oldReportData.results ||
+            oldReportData.result ||
+            {}),
+          ...results,
+        },
       };
 
       console.log(
-        "UPDATING REPORT DATA:",
+        "========== SAVING REPORT =========="
+      );
+
+      console.log(
+        "UPDATED REPORT DATA:",
         updatedReportData
       );
 
-      // -----------------------------------------------------
-      // SUPABASE UPDATE
-      // -----------------------------------------------------
-
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      } = await supabase
         .from("reports")
         .update({
-          report_data: updatedReportData,
+          report_data:
+            updatedReportData,
         })
         .eq("id", reportId)
         .select()
@@ -658,7 +1208,7 @@ export default function EditLaboratoryReportPage() {
       }
 
       console.log(
-        "REPORT UPDATED:",
+        "SAVED REPORT:",
         data
       );
 
@@ -666,11 +1216,13 @@ export default function EditLaboratoryReportPage() {
         "Report successfully update ho gayi."
       );
 
-      // Small delay so user can see success
       setTimeout(() => {
-        router.push(`/reports/${reportId}`);
+        router.push(
+          `/reports/${reportId}`
+        );
+
         router.refresh();
-      }, 500);
+      }, 700);
     } catch (error) {
       console.error(
         "SAVE REPORT ERROR:",
@@ -686,44 +1238,64 @@ export default function EditLaboratoryReportPage() {
     }
   }
 
-  // ---------------------------------------------------------
+  // =========================================================
   // CANCEL
-  // ---------------------------------------------------------
+  // =========================================================
 
   function cancelEdit() {
-    router.push(`/reports/${reportId}`);
+    router.push(
+      `/reports/${reportId}`
+    );
   }
 
-  // ---------------------------------------------------------
+  // =========================================================
   // LOADING
-  // ---------------------------------------------------------
+  // =========================================================
 
   if (loading) {
     return (
       <main style={pageStyle}>
-        <div style={loadingCardStyle}>
-          <h3>Report loading...</h3>
-          <p>Please wait.</p>
+        <div
+          style={loadingCardStyle}
+        >
+          <h3>
+            Report loading...
+          </h3>
+
+          <p>
+            Please wait.
+          </p>
         </div>
       </main>
     );
   }
 
-  // ---------------------------------------------------------
+  // =========================================================
   // ERROR
-  // ---------------------------------------------------------
+  // =========================================================
 
-  if (errorMessage && !report) {
+  if (!report) {
     return (
       <main style={pageStyle}>
-        <div style={errorCardStyle}>
-          <h2>Report nahi mili</h2>
+        <div
+          style={errorCardStyle}
+        >
+          <h2>
+            Report nahi mili
+          </h2>
 
-          <p>{errorMessage}</p>
+          <p>
+            {errorMessage ||
+              "Report load nahi hui."}
+          </p>
 
           <button
-            onClick={() => router.push("/reports")}
-            style={buttonStyle}
+            onClick={() =>
+              router.push(
+                "/reports"
+              )
+            }
+            style={secondaryButtonStyle}
           >
             ← Back to Reports
           </button>
@@ -732,39 +1304,47 @@ export default function EditLaboratoryReportPage() {
     );
   }
 
-  // ---------------------------------------------------------
+  // =========================================================
   // PAGE
-  // ---------------------------------------------------------
+  // =========================================================
 
   return (
     <main style={pageStyle}>
-      {/* =====================================================
-          TOP BAR
-      ====================================================== */}
+      {/* TOP BAR */}
 
-      <div style={topBarStyle}>
+      <div
+        style={topBarStyle}
+      >
         <div>
-          <h2 style={{ margin: 0 }}>
+          <h2
+            style={{
+              margin: 0,
+            }}
+          >
             Edit Laboratory Report
           </h2>
 
           <div
             style={{
               fontSize: "12px",
-              color: "#0d746d",
+              color: "#087f78",
+              fontWeight: "700",
               marginTop: "3px",
-              fontWeight: "600",
             }}
           >
             NIDAN PATHOLOGY LAB
           </div>
         </div>
 
-        <div style={actionGroupStyle}>
+        <div
+          style={actionGroupStyle}
+        >
           <button
             onClick={cancelEdit}
             disabled={saving}
-            style={secondaryButtonStyle}
+            style={
+              secondaryButtonStyle
+            }
           >
             ← Cancel
           </button>
@@ -772,7 +1352,9 @@ export default function EditLaboratoryReportPage() {
           <button
             onClick={saveChanges}
             disabled={saving}
-            style={primaryButtonStyle}
+            style={
+              primaryButtonStyle
+            }
           >
             {saving
               ? "Saving..."
@@ -781,43 +1363,65 @@ export default function EditLaboratoryReportPage() {
         </div>
       </div>
 
-      {/* =====================================================
-          MESSAGES
-      ====================================================== */}
+      {/* ERROR */}
 
       {errorMessage && (
-        <div style={errorMessageStyle}>
-          <strong>Error:</strong> {errorMessage}
+        <div
+          style={
+            errorMessageStyle
+          }
+        >
+          <strong>
+            Error:
+          </strong>{" "}
+          {errorMessage}
         </div>
       )}
 
+      {/* SUCCESS */}
+
       {successMessage && (
-        <div style={successMessageStyle}>
+        <div
+          style={
+            successMessageStyle
+          }
+        >
           {successMessage}
         </div>
       )}
 
-      {/* =====================================================
-          PATIENT INFORMATION
-      ====================================================== */}
+      {/* PATIENT */}
 
-      <section style={sectionStyle}>
+      <section
+        style={sectionStyle}
+      >
         <SectionTitle>
           Patient Information
         </SectionTitle>
 
-        <div style={patientGridStyle}>
+        <div
+          style={
+            patientGridStyle
+          }
+        >
           <InputField
             label="Patient Name"
-            value={patient.name}
+            value={
+              patient.name
+            }
             onChange={(value) =>
-              updatePatient("name", value)
+              updatePatient(
+                "name",
+                value
+              )
             }
           />
 
           <InputField
             label="Patient ID"
-            value={patient.patient_id}
+            value={
+              patient.patient_id
+            }
             onChange={(value) =>
               updatePatient(
                 "patient_id",
@@ -828,15 +1432,22 @@ export default function EditLaboratoryReportPage() {
 
           <InputField
             label="Age"
-            value={patient.age}
+            value={
+              patient.age
+            }
             onChange={(value) =>
-              updatePatient("age", value)
+              updatePatient(
+                "age",
+                value
+              )
             }
           />
 
           <InputField
             label="Gender / Sex"
-            value={patient.gender}
+            value={
+              patient.gender
+            }
             onChange={(value) =>
               updatePatient(
                 "gender",
@@ -847,7 +1458,9 @@ export default function EditLaboratoryReportPage() {
 
           <InputField
             label="Mobile"
-            value={patient.mobile}
+            value={
+              patient.mobile
+            }
             onChange={(value) =>
               updatePatient(
                 "mobile",
@@ -858,7 +1471,9 @@ export default function EditLaboratoryReportPage() {
 
           <InputField
             label="Referring Doctor"
-            value={patient.doctor}
+            value={
+              patient.doctor
+            }
             onChange={(value) =>
               updatePatient(
                 "doctor",
@@ -869,53 +1484,77 @@ export default function EditLaboratoryReportPage() {
         </div>
       </section>
 
-      {/* =====================================================
-          INVESTIGATION RESULTS
-      ====================================================== */}
+      {/* INVESTIGATIONS */}
 
-      <section style={sectionStyle}>
+      <section
+        style={sectionStyle}
+      >
         <SectionTitle>
           Investigation Results
         </SectionTitle>
 
         {tests.length === 0 ? (
-          <div style={emptyStyle}>
+          <div
+            style={emptyStyle}
+          >
             <strong>
               No investigations found.
             </strong>
 
             <p>
-              Saved report में test data नहीं मिला।
+              Saved report में
+              investigation data
+              नहीं मिला।
+            </p>
+
+            <p
+              style={{
+                fontSize: "12px",
+                color: "#607d8b",
+              }}
+            >
+              Browser console में
+              "FOUND TEST COLLECTION"
+              और "DISCOVERED TESTS"
+              देखें।
             </p>
           </div>
         ) : (
           tests.map(
-            (test, testIndex) => (
+            (
+              test,
+              testIndex
+            ) => (
               <div
                 key={
                   test.id ||
                   `test-${testIndex}`
                 }
-                style={testCardStyle}
+                style={
+                  testCardStyle
+                }
               >
-                {/* TEST TITLE */}
-
-                <div style={testTitleStyle}>
+                <div
+                  style={
+                    testTitleStyle
+                  }
+                >
                   {test.name ||
                     test.testName ||
                     "Investigation"}
                 </div>
 
-                {/* TEST TABLE */}
-
                 <div
                   style={{
-                    overflowX: "auto",
+                    overflowX:
+                      "auto",
                     width: "100%",
                   }}
                 >
                   <table
-                    style={tableStyle}
+                    style={
+                      tableStyle
+                    }
                   >
                     <thead>
                       <tr>
@@ -959,7 +1598,8 @@ export default function EditLaboratoryReportPage() {
                       {Array.isArray(
                         test.tests
                       ) &&
-                      test.tests.length >
+                      test.tests
+                        .length >
                         0 ? (
                         test.tests.map(
                           (
@@ -1055,9 +1695,8 @@ export default function EditLaboratoryReportPage() {
                               cellStyle
                             }
                           >
-                            {test.parameter ||
-                              test.name ||
-                              "-"}
+                            {test.name ||
+                              "Investigation"}
                           </td>
 
                           <td
@@ -1083,7 +1722,8 @@ export default function EditLaboratoryReportPage() {
                                   test,
                                   testIndex,
                                   0,
-                                  event.target
+                                  event
+                                    .target
                                     .value
                                 )
                               }
@@ -1123,20 +1763,21 @@ export default function EditLaboratoryReportPage() {
         )}
       </section>
 
-      {/* =====================================================
-          BOTTOM SAVE BAR
-      ====================================================== */}
+      {/* BOTTOM SAVE */}
 
       <div
         style={{
           ...bottomBarStyle,
-          marginBottom: "30px",
+          marginBottom:
+            "30px",
         }}
       >
         <button
           onClick={cancelEdit}
           disabled={saving}
-          style={secondaryButtonStyle}
+          style={
+            secondaryButtonStyle
+          }
         >
           Cancel
         </button>
@@ -1144,7 +1785,9 @@ export default function EditLaboratoryReportPage() {
         <button
           onClick={saveChanges}
           disabled={saving}
-          style={primaryButtonStyle}
+          style={
+            primaryButtonStyle
+          }
         >
           {saving
             ? "Saving..."
@@ -1152,35 +1795,30 @@ export default function EditLaboratoryReportPage() {
         </button>
       </div>
 
-      {/* =====================================================
-          DEBUG INFO
-          Hidden in normal UI, useful in browser console
-      ====================================================== */}
+      {/* DEBUG - HIDDEN */}
 
-      <div
+      <pre
         style={{
           display: "none",
         }}
       >
-        <pre>
-          {JSON.stringify(
-            {
-              reportId,
-              patient,
-              tests,
-              results,
-            },
-            null,
-            2
-          )}
-        </pre>
-      </div>
+        {JSON.stringify(
+          {
+            reportId,
+            patient,
+            tests,
+            results,
+          },
+          null,
+          2
+        )}
+      </pre>
     </main>
   );
 }
 
 // ============================================================
-// INPUT COMPONENT
+// INPUT
 // ============================================================
 
 function InputField({
@@ -1189,16 +1827,26 @@ function InputField({
   onChange,
 }) {
   return (
-    <label style={inputLabelStyle}>
+    <label
+      style={
+        inputLabelStyle
+      }
+    >
       <span>{label}</span>
 
       <input
         type="text"
-        value={value ?? ""}
-        onChange={(event) =>
-          onChange(event.target.value)
+        value={
+          value ?? ""
         }
-        style={inputStyle}
+        onChange={(event) =>
+          onChange(
+            event.target.value
+          )
+        }
+        style={
+          inputStyle
+        }
       />
     </label>
   );
@@ -1208,11 +1856,55 @@ function InputField({
 // SECTION TITLE
 // ============================================================
 
-function SectionTitle({ children }) {
+function SectionTitle({
+  children,
+}) {
   return (
-    <div style={sectionTitleStyle}>
+    <div
+      style={
+        sectionTitleStyle
+      }
+    >
       {children}
     </div>
+  );
+}
+
+// ============================================================
+// GET UNIT
+// ============================================================
+
+function getUnit(parameter) {
+  return (
+    parameter?.unit ??
+    parameter?.units ??
+    "-"
+  );
+}
+
+// ============================================================
+// GET REFERENCE
+// ============================================================
+
+function getReference(parameter) {
+  if (!parameter) {
+    return "-";
+  }
+
+  return (
+    parameter.range ??
+    parameter.referenceRange ??
+    parameter.reference_range ??
+    parameter.reference ??
+    parameter.normalRange ??
+    (
+      parameter.min !==
+        undefined &&
+      parameter.max !==
+        undefined
+        ? `${parameter.min} - ${parameter.max}`
+        : "-"
+    )
   );
 }
 
@@ -1239,7 +1931,8 @@ const topBarStyle = {
   boxShadow:
     "0 2px 8px rgba(0,0,0,0.08)",
   display: "flex",
-  justifyContent: "space-between",
+  justifyContent:
+    "space-between",
   alignItems: "center",
   gap: "10px",
   flexWrap: "wrap",
@@ -1376,28 +2069,6 @@ const secondaryButtonStyle = {
   cursor: "pointer",
 };
 
-const buttonStyle = {
-  border:
-    "1px solid #b8c4c8",
-  borderRadius: "5px",
-  background: "#ffffff",
-  padding: "9px 15px",
-  cursor: "pointer",
-};
-
-const bottomBarStyle = {
-  maxWidth: "1100px",
-  margin: "0 auto",
-  background: "#ffffff",
-  borderRadius: "8px",
-  padding: "12px",
-  display: "flex",
-  justifyContent: "flex-end",
-  gap: "8px",
-  boxShadow:
-    "0 2px 8px rgba(0,0,0,0.07)",
-};
-
 const loadingCardStyle = {
   maxWidth: "600px",
   margin: "50px auto",
@@ -1445,4 +2116,17 @@ const successMessageStyle = {
     "1px solid #a9ddc3",
   color: "#176b46",
   fontSize: "13px",
+};
+
+const bottomBarStyle = {
+  maxWidth: "1100px",
+  margin: "0 auto",
+  background: "#ffffff",
+  borderRadius: "8px",
+  padding: "12px",
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "8px",
+  boxShadow:
+    "0 2px 8px rgba(0,0,0,0.07)",
 };
