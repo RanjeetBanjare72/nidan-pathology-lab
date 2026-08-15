@@ -2,144 +2,142 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
-export default function EditReportPage() {
+export default function EditLaboratoryReportPage() {
   const params = useParams();
   const router = useRouter();
 
+  const reportId = Array.isArray(params?.id)
+    ? params.id[0]
+    : params?.id;
+
   const [report, setReport] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
   const [patient, setPatient] = useState({
     name: "",
+    patient_id: "",
     age: "",
     gender: "",
     mobile: "",
     doctor: "",
-    patient_id: "",
   });
 
   const [tests, setTests] = useState([]);
   const [results, setResults] = useState({});
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  /* =====================================================
-     LOAD REPORT
-  ===================================================== */
+  /* =========================================================
+     LOAD SAVED REPORT
+  ========================================================= */
 
   useEffect(() => {
-    if (params?.id) {
-      loadReport();
-    }
-  }, [params?.id]);
+    if (!reportId) return;
 
+    loadReport();
+  }, [reportId]);
 
   async function loadReport() {
     try {
       setLoading(true);
       setErrorMessage("");
+      setSuccessMessage("");
 
       const { data, error } = await supabase
         .from("reports")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", reportId)
         .single();
 
       if (error) {
         throw error;
       }
 
-      console.log("EDIT REPORT:", data);
+      if (!data) {
+        throw new Error("Report nahi mili.");
+      }
+
+      console.log("FULL SAVED REPORT:", data);
 
       setReport(data);
 
       const reportData =
-        data?.report_data || {};
+        data?.report_data &&
+        typeof data.report_data === "object"
+          ? data.report_data
+          : {};
 
-      /* ================================================
-         PATIENT
-      ================================================ */
+      /* =====================================================
+         PATIENT DATA
+      ===================================================== */
 
       const savedPatient =
-        reportData?.patient ||
-        data?.patient ||
-        {};
+        reportData?.patient &&
+        typeof reportData.patient === "object"
+          ? reportData.patient
+          : {};
 
       setPatient({
         name:
-          savedPatient?.name ||
-          savedPatient?.patientName ||
-          data?.patient_name ||
+          savedPatient?.name ??
+          savedPatient?.patientName ??
+          "",
+
+        patient_id:
+          savedPatient?.id ??
+          savedPatient?.patient_id ??
+          savedPatient?.patientId ??
           "",
 
         age:
           savedPatient?.age ??
-          data?.age ??
           "",
 
         gender:
-          savedPatient?.gender ||
-          savedPatient?.sex ||
-          data?.gender ||
+          savedPatient?.gender ??
+          savedPatient?.sex ??
           "",
 
         mobile:
-          savedPatient?.mobile ||
-          savedPatient?.mobileNumber ||
-          data?.mobile ||
+          savedPatient?.mobile ??
+          savedPatient?.mobileNumber ??
           "",
 
         doctor:
-          savedPatient?.doctor ||
-          savedPatient?.referring_doctor ||
-          data?.doctor ||
-          "",
-
-        patient_id:
-          savedPatient?.id ||
-          savedPatient?.patient_id ||
-          savedPatient?.patientId ||
-          data?.patient_id ||
+          savedPatient?.doctor ??
+          savedPatient?.referring_doctor ??
+          savedPatient?.referringDoctor ??
           "",
       });
 
+      /* =====================================================
+         IMPORTANT:
+         SAME ARRAY USED BY SAVED REPORT VIEW
+      ===================================================== */
 
-      /* ================================================
-         TESTS
-      ================================================ */
+      let savedTests = [];
 
-      const savedTests =
-        Array.isArray(
-          reportData?.tests
-        )
-          ? reportData.tests
-          : Array.isArray(
-              reportData?.selectedTests
-            )
-          ? reportData.selectedTests
-          : Array.isArray(
-              reportData?.reportTests
-            )
-          ? reportData.reportTests
-          : Array.isArray(
-              data?.tests
-            )
-          ? data.tests
-          : Array.isArray(
-              data?.selectedTests
-            )
-          ? data.selectedTests
-          : [];
+      if (Array.isArray(reportData?.selectedTests)) {
+        savedTests = reportData.selectedTests;
+      } else if (Array.isArray(reportData?.tests)) {
+        savedTests = reportData.tests;
+      } else if (Array.isArray(reportData?.reportTests)) {
+        savedTests = reportData.reportTests;
+      } else if (Array.isArray(data?.tests)) {
+        savedTests = data.tests;
+      }
+
+      console.log("SAVED TESTS:", savedTests);
 
       setTests(savedTests);
 
-
-      /* ================================================
-         RESULTS
-      ================================================ */
+      /* =====================================================
+         SAVED RESULT VALUES
+      ===================================================== */
 
       const savedResults =
         reportData?.results &&
@@ -147,110 +145,97 @@ export default function EditReportPage() {
           ? reportData.results
           : {};
 
+      console.log("SAVED RESULTS:", savedResults);
+
       setResults(savedResults);
-
     } catch (error) {
-
-      console.error(
-        "Edit report load error:",
-        error
-      );
+      console.error("LOAD REPORT ERROR:", error);
 
       setErrorMessage(
-        error?.message ||
-        "Report load nahi hui."
+        error?.message || "Report load nahi hui."
       );
-
     } finally {
-
       setLoading(false);
-
     }
   }
 
+  /* =========================================================
+     GET TEST ID
+  ========================================================= */
 
-  /* =====================================================
-     GET PARAMETERS
-  ===================================================== */
-
-  function getParameters(test) {
-    if (!test) {
-      return [];
-    }
-
-    if (
-      Array.isArray(test.parameters)
-    ) {
-      return test.parameters;
-    }
-
-    if (
-      Array.isArray(test.tests)
-    ) {
-      return test.tests;
-    }
-
-    if (
-      Array.isArray(test.items)
-    ) {
-      return test.items;
-    }
-
-    if (
-      Array.isArray(test.investigations)
-    ) {
-      return test.investigations;
-    }
-
-    return [];
-  }
-
-
-  /* =====================================================
-     PARAMETER NAME
-  ===================================================== */
-
-  function getParameterName(parameter) {
-    if (
-      typeof parameter === "string"
-    ) {
-      return parameter;
-    }
-
+  function getTestId(test, testIndex) {
     return (
-      parameter?.name ||
-      parameter?.parameterName ||
-      parameter?.parameter_name ||
-      parameter?.testName ||
-      parameter?.test_name ||
-      parameter?.investigation ||
-      parameter?.title ||
-      ""
-    );
-  }
-
-
-  /* =====================================================
-     TEST ID
-  ===================================================== */
-
-  function getTestId(
-    test,
-    testIndex
-  ) {
-    return (
-      test?.id ||
-      test?.testId ||
-      test?.test_id ||
-      test?.code ||
+      test?.id ??
+      test?.testId ??
+      test?.test_id ??
+      test?.code ??
       `test-${testIndex}`
     );
   }
 
+  /* =========================================================
+     GET PARAMETER NAME
+  ========================================================= */
 
-  /* =====================================================
+  function getParameterName(parameter) {
+    return (
+      parameter?.name ??
+      parameter?.parameterName ??
+      parameter?.parameter_name ??
+      parameter?.testName ??
+      parameter?.test_name ??
+      parameter?.investigation ??
+      parameter?.title ??
+      ""
+    );
+  }
+
+  /* =========================================================
+     GET PARAMETER ID
+  ========================================================= */
+
+  function getParameterId(parameter) {
+    return (
+      parameter?.id ??
+      parameter?.parameterId ??
+      parameter?.parameter_id ??
+      ""
+    );
+  }
+
+  /* =========================================================
+     GET REFERENCE RANGE
+  ========================================================= */
+
+  function getReferenceRange(parameter) {
+    if (parameter?.range !== undefined) {
+      return parameter.range;
+    }
+
+    if (parameter?.referenceRange !== undefined) {
+      return parameter.referenceRange;
+    }
+
+    if (parameter?.reference !== undefined) {
+      return parameter.reference;
+    }
+
+    if (
+      parameter?.min !== undefined &&
+      parameter?.max !== undefined
+    ) {
+      return `${parameter.min} - ${parameter.max}`;
+    }
+
+    return "-";
+  }
+
+  /* =========================================================
      GET EXISTING RESULT
-  ===================================================== */
+     
+     This is the most important function.
+     It tries all common key formats.
+  ========================================================= */
 
   function getExistingResult(
     test,
@@ -258,27 +243,41 @@ export default function EditReportPage() {
     parameterIndex,
     testIndex
   ) {
-    const testId =
-      getTestId(
-        test,
-        testIndex
-      );
+    const testId = getTestId(
+      test,
+      testIndex
+    );
 
     const parameterName =
-      getParameterName(
-        parameter
-      );
+      getParameterName(parameter);
 
     const parameterId =
-      parameter?.id ||
-      parameter?.parameterId ||
-      parameter?.parameter_id ||
-      "";
+      getParameterId(parameter);
 
-    const keys = [
+    /* =====================================================
+       EXACT KEY USED BY REPORT VIEW PAGE
+
+       `${test.id}-${parameter.name}-${i}`
+    ===================================================== */
+
+    const exactKey =
+      `${testId}-${parameterName}-${parameterIndex}`;
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        results,
+        exactKey
+      )
+    ) {
+      return results[exactKey];
+    }
+
+    /* =====================================================
+       OTHER POSSIBLE KEY FORMATS
+    ===================================================== */
+
+    const possibleKeys = [
       parameterId,
-
-      `${testId}-${parameterName}-${parameterIndex}`,
 
       `${testId}-${parameterName}`,
 
@@ -288,17 +287,19 @@ export default function EditReportPage() {
 
       `${testIndex}-${parameterName}`,
 
-      `${testIndex}_${parameterIndex}`,
-
       `${testIndex}-${parameterIndex}`,
 
+      `${testIndex}_${parameterIndex}`,
+
       parameterName,
-    ].filter(Boolean);
+    ].filter(
+      (key) =>
+        key !== undefined &&
+        key !== null &&
+        key !== ""
+    );
 
-
-    for (
-      const key of keys
-    ) {
+    for (const key of possibleKeys) {
       if (
         Object.prototype.hasOwnProperty.call(
           results,
@@ -309,19 +310,22 @@ export default function EditReportPage() {
       }
     }
 
-
-    /* Parameter's own saved value */
+    /* =====================================================
+       RESULT STORED INSIDE PARAMETER
+    ===================================================== */
 
     if (
       parameter?.result !== undefined &&
-      parameter?.result !== null
+      parameter?.result !== null &&
+      parameter?.result !== ""
     ) {
       return parameter.result;
     }
 
     if (
       parameter?.value !== undefined &&
-      parameter?.value !== null
+      parameter?.value !== null &&
+      parameter?.value !== ""
     ) {
       return parameter.value;
     }
@@ -329,10 +333,9 @@ export default function EditReportPage() {
     return "";
   }
 
-
-  /* =====================================================
-     CHANGE RESULT
-  ===================================================== */
+  /* =========================================================
+     UPDATE RESULT
+  ========================================================= */
 
   function updateResult(
     test,
@@ -341,140 +344,163 @@ export default function EditReportPage() {
     testIndex,
     value
   ) {
-    const testId =
-      getTestId(
-        test,
-        testIndex
-      );
+    const testId = getTestId(
+      test,
+      testIndex
+    );
 
     const parameterName =
-      getParameterName(
-        parameter
-      );
-
-    const parameterId =
-      parameter?.id ||
-      parameter?.parameterId ||
-      parameter?.parameter_id ||
-      "";
+      getParameterName(parameter);
 
     /*
-     Primary key format used by report page
+      IMPORTANT:
+      Keep exactly the same key used by
+      the report view page.
     */
 
     const key =
       `${testId}-${parameterName}-${parameterIndex}`;
 
-    setResults(
-      (previous) => ({
-        ...previous,
-
-        [key]: value,
-
-        /*
-         Also store parameter ID
-         when available.
-        */
-
-        ...(parameterId
-          ? {
-              [parameterId]:
-                value,
-            }
-          : {}),
-      })
-    );
+    setResults((previous) => ({
+      ...previous,
+      [key]: value,
+    }));
   }
 
+  /* =========================================================
+     PATIENT INPUT CHANGE
+  ========================================================= */
 
-  /* =====================================================
-     SAVE REPORT
-  ===================================================== */
+  function updatePatient(field, value) {
+    setPatient((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  }
 
-  async function saveReport() {
+  /* =========================================================
+     SAVE CHANGES
+  ========================================================= */
+
+  async function saveChanges() {
     try {
       setSaving(true);
       setErrorMessage("");
+      setSuccessMessage("");
 
-      const oldData =
-        report?.report_data || {};
+      if (!reportId) {
+        throw new Error(
+          "Report ID nahi mila."
+        );
+      }
 
-      const newReportData = {
-        ...oldData,
+      if (!report) {
+        throw new Error(
+          "Report data available nahi hai."
+        );
+      }
 
-        patient: {
-          ...(oldData?.patient || {}),
+      /* =====================================================
+         CREATE UPDATED PATIENT OBJECT
+      ===================================================== */
 
-          name: patient.name,
-          age: patient.age,
-          gender: patient.gender,
-          mobile: patient.mobile,
-          doctor: patient.doctor,
-          patient_id:
-            patient.patient_id,
-        },
+      const updatedPatient = {
+        ...(report?.report_data?.patient || {}),
 
-        /*
-         Preserve original selected tests.
-        */
+        name: patient.name,
+        patientName: patient.name,
 
-        selectedTests:
-          oldData?.selectedTests ||
-          tests,
+        id: patient.patient_id,
+        patient_id: patient.patient_id,
+        patientId: patient.patient_id,
 
-        /*
-         Also keep tests.
-        */
+        age: patient.age,
 
-        tests: tests,
+        gender: patient.gender,
+        sex: patient.gender,
 
-        /*
-         UPDATED RESULTS
-        */
+        mobile: patient.mobile,
+        mobileNumber: patient.mobile,
+
+        doctor: patient.doctor,
+        referring_doctor: patient.doctor,
+        referringDoctor: patient.doctor,
+      };
+
+      /* =====================================================
+         KEEP EXISTING REPORT DATA
+      ===================================================== */
+
+      const oldReportData =
+        report?.report_data &&
+        typeof report.report_data === "object"
+          ? report.report_data
+          : {};
+
+      /* =====================================================
+         UPDATED REPORT DATA
+         
+         selectedTests is preserved.
+         results gets edited values.
+      ===================================================== */
+
+      const updatedReportData = {
+        ...oldReportData,
+
+        patient: updatedPatient,
+
+        selectedTests: tests,
 
         results: results,
       };
 
+      console.log(
+        "UPDATED REPORT DATA:",
+        updatedReportData
+      );
 
-      const { error } =
-        await supabase
-          .from("reports")
-          .update({
-            report_data:
-              newReportData,
-          })
-          .eq(
-            "id",
-            params.id
-          );
+      /* =====================================================
+         UPDATE SUPABASE
+      ===================================================== */
 
+      const { data, error } = await supabase
+        .from("reports")
+        .update({
+          report_data: updatedReportData,
+        })
+        .eq("id", reportId)
+        .select()
+        .single();
 
       if (error) {
         throw error;
       }
 
+      console.log(
+        "UPDATED REPORT:",
+        data
+      );
 
-      alert(
+      setReport(data);
+
+      setSuccessMessage(
         "Report successfully update ho gayi."
       );
 
-
       /*
-       Return to report view
+        Short delay so user can see success.
       */
 
-      router.push(
-        `/reports/${encodeURIComponent(
-          params.id
-        )}`
-      );
+      setTimeout(() => {
+        router.push(
+          `/reports/${reportId}`
+        );
 
-      router.refresh();
-
+        router.refresh();
+      }, 700);
     } catch (error) {
-
       console.error(
-        "Save report error:",
+        "SAVE REPORT ERROR:",
         error
       );
 
@@ -482,396 +508,351 @@ export default function EditReportPage() {
         error?.message ||
         "Report save nahi hui."
       );
-
     } finally {
-
       setSaving(false);
-
     }
   }
 
-
-  /* =====================================================
+  /* =========================================================
      LOADING
-  ===================================================== */
+  ========================================================= */
 
   if (loading) {
     return (
       <main style={pageStyle}>
+        <div style={loadingCardStyle}>
+          <div style={spinnerStyle}></div>
 
-        <div style={cardStyle}>
-
-          <h2>
+          <h3>
             Report loading...
-          </h2>
+          </h3>
 
           <p>
-            Saved report load ho rahi hai.
+            Saved report data load ho raha hai.
           </p>
-
         </div>
-
       </main>
     );
   }
 
-
-  /* =====================================================
+  /* =========================================================
      ERROR
-  ===================================================== */
+  ========================================================= */
 
-  if (
-    errorMessage ||
-    !report
-  ) {
+  if (errorMessage || !report) {
     return (
       <main style={pageStyle}>
-
-        <div style={cardStyle}>
-
+        <div style={errorCardStyle}>
           <h2>
             Report nahi mili
           </h2>
 
           <p>
-            {errorMessage}
+            {errorMessage ||
+              "Report available nahi hai."}
           </p>
 
           <button
             onClick={() =>
-              router.push(
-                "/reports"
-              )
+              router.push("/reports")
             }
-            style={buttonStyle}
+            style={primaryButtonStyle}
           >
             ← Back to Reports
           </button>
-
         </div>
-
       </main>
     );
   }
 
-
-  /* =====================================================
-     UI
-  ===================================================== */
+  /* =========================================================
+     REPORT UI
+  ========================================================= */
 
   return (
     <main style={pageStyle}>
+      {/* =====================================================
+          TOP HEADER
+      ===================================================== */}
 
-      {/* HEADER */}
-
-      <div style={headerStyle}>
-
+      <div style={topBarStyle}>
         <div>
-
-          <h1 style={titleStyle}>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "18px",
+              color: "#172033",
+            }}
+          >
             Edit Laboratory Report
-          </h1>
+          </h2>
 
-          <p style={subtitleStyle}>
+          <div
+            style={{
+              fontSize: "12px",
+              color: "#168477",
+              fontWeight: 600,
+              marginTop: "3px",
+            }}
+          >
             NIDAN PATHOLOGY LAB
-          </p>
-
+          </div>
         </div>
-
 
         <div
           style={{
             display: "flex",
             gap: "8px",
+            flexWrap: "wrap",
           }}
         >
-
           <button
             onClick={() =>
               router.push(
-                `/reports/${encodeURIComponent(
-                  params.id
-                )}`
+                `/reports/${reportId}`
               )
             }
-            style={buttonStyle}
+            style={secondaryButtonStyle}
+            disabled={saving}
           >
             ← Cancel
           </button>
 
-
           <button
-            onClick={saveReport}
-            disabled={saving}
+            onClick={saveChanges}
             style={saveButtonStyle}
+            disabled={saving}
           >
             {saving
-              ? "Saving..."
+              ? "⏳ Saving..."
               : "💾 Save Changes"}
           </button>
-
         </div>
-
       </div>
 
+      {/* =====================================================
+          SUCCESS MESSAGE
+      ===================================================== */}
 
-      {/* ERROR */}
-
-      {errorMessage && (
-        <div style={errorStyle}>
-          {errorMessage}
+      {successMessage && (
+        <div style={successStyle}>
+          ✓ {successMessage}
         </div>
       )}
 
+      {/* =====================================================
+          ERROR MESSAGE
+      ===================================================== */}
 
-      {/* PATIENT */}
+      {errorMessage && (
+        <div style={dangerStyle}>
+          ⚠ {errorMessage}
+        </div>
+      )}
 
-      <section style={sectionStyle}>
+      {/* =====================================================
+          PATIENT INFORMATION
+      ===================================================== */}
 
-        <h2 style={sectionTitleStyle}>
+      <section style={cardStyle}>
+        <SectionTitle>
           Patient Information
-        </h2>
+        </SectionTitle>
 
-
-        <div style={gridStyle}>
-
-          <Field
+        <div style={formGridStyle}>
+          <InputField
             label="Patient Name"
             value={patient.name}
             onChange={(value) =>
-              setPatient({
-                ...patient,
-                name: value,
-              })
+              updatePatient(
+                "name",
+                value
+              )
             }
           />
 
-
-          <Field
+          <InputField
             label="Patient ID"
             value={patient.patient_id}
             onChange={(value) =>
-              setPatient({
-                ...patient,
-                patient_id: value,
-              })
+              updatePatient(
+                "patient_id",
+                value
+              )
             }
           />
 
-
-          <Field
+          <InputField
             label="Age"
             value={patient.age}
             onChange={(value) =>
-              setPatient({
-                ...patient,
-                age: value,
-              })
+              updatePatient(
+                "age",
+                value
+              )
             }
           />
 
-
-          <Field
+          <InputField
             label="Gender / Sex"
             value={patient.gender}
             onChange={(value) =>
-              setPatient({
-                ...patient,
-                gender: value,
-              })
+              updatePatient(
+                "gender",
+                value
+              )
             }
           />
 
-
-          <Field
+          <InputField
             label="Mobile"
             value={patient.mobile}
             onChange={(value) =>
-              setPatient({
-                ...patient,
-                mobile: value,
-              })
+              updatePatient(
+                "mobile",
+                value
+              )
             }
           />
 
-
-          <Field
+          <InputField
             label="Referring Doctor"
             value={patient.doctor}
             onChange={(value) =>
-              setPatient({
-                ...patient,
-                doctor: value,
-              })
+              updatePatient(
+                "doctor",
+                value
+              )
             }
           />
-
         </div>
-
       </section>
 
+      {/* =====================================================
+          INVESTIGATION RESULTS
+      ===================================================== */}
 
-      {/* TESTS */}
-
-      <section style={sectionStyle}>
-
-        <h2 style={sectionTitleStyle}>
+      <section style={cardStyle}>
+        <SectionTitle>
           Investigation Results
-        </h2>
-
+        </SectionTitle>
 
         {tests.length === 0 ? (
-
           <div
             style={{
-              padding: "30px",
+              padding: "25px",
               textAlign: "center",
-              color: "#667085",
+              color: "#666",
             }}
           >
             No investigations available.
           </div>
-
         ) : (
-
           tests.map(
-            (
-              test,
-              testIndex
-            ) => {
-
+            (test, testIndex) => {
               const parameters =
-                getParameters(
-                  test
-                );
-
-              const testName =
-                test?.name ||
-                test?.testName ||
-                test?.test_name ||
-                test?.title ||
-                "Investigation";
+                Array.isArray(
+                  test?.tests
+                )
+                  ? test.tests
+                  : [];
 
               return (
-
                 <div
                   key={
-                    getTestId(
-                      test,
-                      testIndex
-                    )
+                    test?.id ??
+                    test?.testId ??
+                    `test-${testIndex}`
                   }
                   style={{
                     marginBottom:
-                      "30px",
+                      "28px",
                   }}
                 >
+                  {/* TEST TITLE */}
 
-                  <h3
+                  <div
                     style={{
-                      margin:
-                        "0 0 12px",
-                      padding:
-                        "10px 12px",
                       background:
-                        "#e9f7f4",
-                      color:
-                        "#087f72",
+                        "#e8f6f3",
                       borderLeft:
-                        "4px solid #087f72",
+                        "4px solid #168477",
+                      padding:
+                        "9px 12px",
+                      marginBottom:
+                        "8px",
                     }}
                   >
-                    {testName}
-                  </h3>
-
-
-                  {parameters.length === 0 ? (
-
-                    <div
+                    <strong
                       style={{
-                        border:
-                          "1px solid #ddd",
-                        padding: "15px",
+                        color:
+                          "#126c62",
+                        fontSize:
+                          "16px",
                       }}
                     >
+                      {test?.name ||
+                        test?.testName ||
+                        test?.title ||
+                        "Investigation"}
+                    </strong>
+                  </div>
 
-                      <Field
-                        label="Result"
-                        value={
-                          getExistingResult(
-                            test,
-                            test,
-                            0,
-                            testIndex
-                          )
-                        }
-                        onChange={(value) =>
-                          updateResult(
-                            test,
-                            test,
-                            0,
-                            testIndex,
-                            value
-                          )
-                        }
-                      />
-
-                    </div>
-
-                  ) : (
-
-                    <div
-                      style={{
-                        overflowX:
-                          "auto",
-                      }}
+                  <div
+                    style={{
+                      overflowX:
+                        "auto",
+                    }}
+                  >
+                    <table
+                      style={
+                        resultsTableStyle
+                      }
                     >
+                      <thead>
+                        <tr>
+                          <th
+                            style={
+                              tableHeadStyle
+                            }
+                          >
+                            Investigation
+                          </th>
 
-                      <table
-                        style={tableStyle}
-                      >
+                          <th
+                            style={
+                              tableHeadStyle
+                            }
+                          >
+                            Result
+                          </th>
 
-                        <thead>
+                          <th
+                            style={
+                              tableHeadStyle
+                            }
+                          >
+                            Unit
+                          </th>
 
-                          <tr>
+                          <th
+                            style={
+                              tableHeadStyle
+                            }
+                          >
+                            Reference Range
+                          </th>
+                        </tr>
+                      </thead>
 
-                            <th
-                              style={thStyle}
-                            >
-                              Investigation
-                            </th>
-
-                            <th
-                              style={thStyle}
-                            >
-                              Result
-                            </th>
-
-                            <th
-                              style={thStyle}
-                            >
-                              Unit
-                            </th>
-
-                            <th
-                              style={thStyle}
-                            >
-                              Reference Range
-                            </th>
-
-                          </tr>
-
-                        </thead>
-
-
-                        <tbody>
-
-                          {parameters.map(
+                      <tbody>
+                        {parameters.length >
+                        0 ? (
+                          parameters.map(
                             (
                               parameter,
                               parameterIndex
                             ) => {
-
                               const value =
                                 getExistingResult(
                                   test,
@@ -880,342 +861,512 @@ export default function EditReportPage() {
                                   testIndex
                                 );
 
-                              const name =
+                              const parameterName =
                                 getParameterName(
                                   parameter
                                 );
 
-                              const unit =
-                                parameter?.unit ||
-                                parameter?.units ||
-                                "-";
-
                               const reference =
-                                parameter?.range ||
-                                parameter?.referenceRange ||
-                                parameter?.reference ||
-                                (
-                                  parameter?.min !== undefined &&
-                                  parameter?.max !== undefined
-                                )
-                                  ? `${parameter.min} - ${parameter.max}`
-                                  : "-";
+                                getReferenceRange(
+                                  parameter
+                                );
 
                               return (
-
                                 <tr
-                                  key={
-                                    `${name}-${parameterIndex}`
-                                  }
+                                  key={`${getTestId(
+                                    test,
+                                    testIndex
+                                  )}-${parameterName}-${parameterIndex}`}
                                 >
-
                                   <td
-                                    style={tdStyle}
+                                    style={
+                                      tableCellStyle
+                                    }
                                   >
                                     <strong>
-                                      {name ||
+                                      {parameterName ||
                                         "-"}
                                     </strong>
                                   </td>
 
-
                                   <td
-                                    style={tdStyle}
+                                    style={
+                                      tableCellStyle
+                                    }
                                   >
-
                                     <input
+                                      type="text"
                                       value={
                                         value ??
                                         ""
                                       }
-                                      onChange={(e) =>
+                                      placeholder="Enter result"
+                                      onChange={(
+                                        event
+                                      ) =>
                                         updateResult(
                                           test,
                                           parameter,
                                           parameterIndex,
                                           testIndex,
-                                          e.target.value
+                                          event
+                                            .target
+                                            .value
                                         )
                                       }
                                       style={
                                         resultInputStyle
                                       }
-                                      placeholder="Enter result"
                                     />
-
                                   </td>
 
-
                                   <td
-                                    style={tdStyle}
+                                    style={
+                                      tableCellStyle
+                                    }
                                   >
-                                    {unit}
+                                    {parameter?.unit ||
+                                      parameter?.units ||
+                                      "-"}
                                   </td>
 
-
                                   <td
-                                    style={tdStyle}
+                                    style={
+                                      tableCellStyle
+                                    }
                                   >
                                     {reference}
                                   </td>
-
                                 </tr>
-
                               );
                             }
-                          )}
-
-                        </tbody>
-
-                      </table>
-
-                    </div>
-
-                  )}
-
+                          )
+                        ) : (
+                          <SingleTestRow
+                            test={test}
+                            testIndex={
+                              testIndex
+                            }
+                            value={getExistingResult(
+                              test,
+                              test,
+                              0,
+                              testIndex
+                            )}
+                            onChange={(
+                              value
+                            ) =>
+                              updateResult(
+                                test,
+                                test,
+                                0,
+                                testIndex,
+                                value
+                              )
+                            }
+                          />
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-
               );
             }
           )
-
         )}
-
       </section>
 
-
-      {/* SAVE BOTTOM */}
+      {/* =====================================================
+          BOTTOM SAVE
+      ===================================================== */}
 
       <div
         style={{
           display: "flex",
           justifyContent:
             "flex-end",
-          gap: "10px",
-          marginTop: "20px",
+          gap: "8px",
+          marginTop: "15px",
+          marginBottom: "40px",
         }}
       >
-
         <button
           onClick={() =>
             router.push(
-              `/reports/${encodeURIComponent(
-                params.id
-              )}`
+              `/reports/${reportId}`
             )
           }
-          style={buttonStyle}
+          style={secondaryButtonStyle}
+          disabled={saving}
         >
           Cancel
         </button>
 
-
         <button
-          onClick={saveReport}
-          disabled={saving}
+          onClick={saveChanges}
           style={saveButtonStyle}
+          disabled={saving}
         >
           {saving
-            ? "Saving..."
+            ? "⏳ Saving..."
             : "💾 Save Changes"}
         </button>
-
       </div>
 
+      {/* =====================================================
+          GLOBAL RESPONSIVE CSS
+      ===================================================== */}
 
+      <style jsx global>{`
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+          background: #eef3f8;
+        }
+
+        input {
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+        }
+
+        button {
+          font-family:
+            Arial,
+            Helvetica,
+            sans-serif;
+        }
+
+        @media (max-width: 700px) {
+          .edit-form-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
 
+/* ============================================================
+   INPUT FIELD
+============================================================ */
 
-/* =========================================================
-   FIELD COMPONENT
-========================================================= */
-
-function Field({
+function InputField({
   label,
   value,
   onChange,
 }) {
   return (
     <div>
-
       <label
-        style={{
-          display: "block",
-          marginBottom: "5px",
-          fontSize: "12px",
-          fontWeight: "700",
-          color: "#344054",
-        }}
+        style={labelStyle}
       >
         {label}
       </label>
 
       <input
-        value={
-          value ?? ""
-        }
-        onChange={(e) =>
+        type="text"
+        value={value ?? ""}
+        onChange={(event) =>
           onChange(
-            e.target.value
+            event.target.value
           )
         }
-        style={{
-          width: "100%",
-          padding: "10px 12px",
-          border:
-            "1px solid #cfd8e3",
-          borderRadius: "6px",
-          outline: "none",
-          fontSize: "13px",
-          background: "white",
-        }}
+        style={textInputStyle}
       />
-
     </div>
   );
 }
 
+/* ============================================================
+   SECTION TITLE
+============================================================ */
 
-/* =========================================================
+function SectionTitle({
+  children,
+}) {
+  return (
+    <div
+      style={{
+        borderBottom:
+          "2px solid #168477",
+        paddingBottom: "8px",
+        marginBottom: "15px",
+        color: "#126c62",
+        fontWeight: 700,
+        fontSize: "15px",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ============================================================
+   SINGLE TEST ROW
+   For tests that don't have test.tests[]
+============================================================ */
+
+function SingleTestRow({
+  test,
+  value,
+  onChange,
+}) {
+  const name =
+    test?.parameter ||
+    test?.parameterName ||
+    test?.name ||
+    test?.testName ||
+    "-";
+
+  const unit =
+    test?.unit ||
+    test?.units ||
+    "-";
+
+  const reference =
+    test?.range ||
+    test?.referenceRange ||
+    test?.reference ||
+    "-";
+
+  return (
+    <tr>
+      <td
+        style={tableCellStyle}
+      >
+        <strong>
+          {name}
+        </strong>
+      </td>
+
+      <td
+        style={tableCellStyle}
+      >
+        <input
+          type="text"
+          value={value ?? ""}
+          placeholder="Enter result"
+          onChange={(event) =>
+            onChange(
+              event.target.value
+            )
+          }
+          style={
+            resultInputStyle
+          }
+        />
+      </td>
+
+      <td
+        style={tableCellStyle}
+      >
+        {unit}
+      </td>
+
+      <td
+        style={tableCellStyle}
+      >
+        {reference}
+      </td>
+    </tr>
+  );
+}
+
+/* ============================================================
    STYLES
-========================================================= */
+============================================================ */
 
 const pageStyle = {
   minHeight: "100vh",
-  padding: "20px",
   background: "#eef3f8",
-};
-
-const cardStyle = {
-  maxWidth: "500px",
-  margin: "50px auto",
-  padding: "30px",
-  background: "white",
-  borderRadius: "10px",
-  boxShadow:
-    "0 5px 25px rgba(0,0,0,.08)",
-};
-
-const headerStyle = {
-  maxWidth: "1000px",
-  margin: "0 auto 15px",
   padding: "15px",
-  background: "white",
-  borderRadius: "8px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent:
-    "space-between",
-  gap: "15px",
-  flexWrap: "wrap",
-  boxShadow:
-    "0 2px 10px rgba(0,0,0,.05)",
-};
-
-const titleStyle = {
-  margin: 0,
-  fontSize: "20px",
   color: "#172033",
 };
 
-const subtitleStyle = {
-  margin: "4px 0 0",
-  fontSize: "12px",
-  color: "#087f72",
-  fontWeight: "700",
-};
-
-const sectionStyle = {
-  maxWidth: "1000px",
-  margin: "0 auto 15px",
-  padding: "20px",
-  background: "white",
+const topBarStyle = {
+  maxWidth: "1100px",
+  margin: "0 auto 12px",
+  background: "#ffffff",
   borderRadius: "8px",
+  padding: "12px 14px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  flexWrap: "wrap",
   boxShadow:
-    "0 2px 10px rgba(0,0,0,.05)",
+    "0 2px 10px rgba(0,0,0,0.08)",
 };
 
-const sectionTitleStyle = {
-  margin:
-    "0 0 18px",
-  paddingBottom:
-    "10px",
-  borderBottom:
-    "2px solid #087f72",
-  color: "#087f72",
-  fontSize: "17px",
+const cardStyle = {
+  maxWidth: "1100px",
+  margin: "0 auto 14px",
+  background: "#ffffff",
+  borderRadius: "8px",
+  padding: "15px",
+  boxShadow:
+    "0 2px 10px rgba(0,0,0,0.07)",
 };
 
-const gridStyle = {
+const formGridStyle = {
   display: "grid",
   gridTemplateColumns:
-    "repeat(auto-fit,minmax(220px,1fr))",
-  gap: "15px",
+    "repeat(3, minmax(0, 1fr))",
+  gap: "12px",
 };
 
-const buttonStyle = {
-  padding: "10px 15px",
-  border:
-    "1px solid #b7c1cc",
-  borderRadius: "6px",
-  background: "white",
-  cursor: "pointer",
-  fontWeight: "700",
+const labelStyle = {
+  display: "block",
+  fontSize: "11px",
+  fontWeight: 600,
+  color: "#374151",
+  marginBottom: "5px",
 };
 
-const saveButtonStyle = {
-  padding: "10px 18px",
-  border: "1px solid #087f72",
-  borderRadius: "6px",
-  background: "#087f72",
-  color: "white",
-  cursor: "pointer",
-  fontWeight: "800",
-};
-
-const errorStyle = {
-  maxWidth: "1000px",
-  margin: "0 auto 15px",
-  padding: "12px",
-  borderRadius: "6px",
-  background: "#fff1f0",
-  border:
-    "1px solid #f5c8c5",
-  color: "#b42318",
-};
-
-const tableStyle = {
+const textInputStyle = {
   width: "100%",
-  borderCollapse:
-    "collapse",
-};
-
-const thStyle = {
-  padding: "10px",
+  height: "38px",
+  padding: "8px 10px",
   border:
-    "1px solid #d5dde5",
-  background: "#eef5f7",
-  textAlign: "left",
-  fontSize: "12px",
-};
-
-const tdStyle = {
-  padding: "9px",
-  border:
-    "1px solid #dfe5ea",
-  fontSize: "12px",
+    "1px solid #cfd6df",
+  borderRadius: "5px",
+  background: "#ffffff",
+  fontSize: "13px",
+  outline: "none",
 };
 
 const resultInputStyle = {
   width: "100%",
-  minWidth: "100px",
-  padding: "8px",
+  minWidth: "130px",
+  height: "34px",
+  padding: "7px 9px",
   border:
-    "1px solid #c8d2dc",
-  borderRadius: "5px",
-  fontSize: "13px",
-  fontWeight: "700",
+    "1px solid #cfd6df",
+  borderRadius: "4px",
   background: "#fffdf5",
+  fontSize: "13px",
+  fontWeight: 500,
+  outline: "none",
+};
+
+const resultsTableStyle = {
+  width: "100%",
+  minWidth: "650px",
+  borderCollapse: "collapse",
+};
+
+const tableHeadStyle = {
+  padding: "9px 8px",
+  border:
+    "1px solid #d8e0e6",
+  background: "#edf4f6",
+  textAlign: "left",
+  fontSize: "11px",
+  color: "#263238",
+};
+
+const tableCellStyle = {
+  padding: "7px 8px",
+  border:
+    "1px solid #d8e0e6",
+  verticalAlign: "middle",
+  fontSize: "12px",
+  color: "#303840",
+};
+
+const primaryButtonStyle = {
+  padding: "9px 14px",
+  border: "none",
+  borderRadius: "5px",
+  background: "#168477",
+  color: "#ffffff",
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const secondaryButtonStyle = {
+  padding: "9px 14px",
+  border:
+    "1px solid #b8c2cc",
+  borderRadius: "5px",
+  background: "#ffffff",
+  color: "#263238",
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const saveButtonStyle = {
+  padding: "9px 15px",
+  border: "none",
+  borderRadius: "5px",
+  background: "#087f73",
+  color: "#ffffff",
+  cursor: "pointer",
+  fontWeight: 700,
+};
+
+const successStyle = {
+  maxWidth: "1100px",
+  margin: "0 auto 12px",
+  padding: "10px 12px",
+  borderRadius: "6px",
+  background: "#e7f7ef",
+  border:
+    "1px solid #9bd8b6",
+  color: "#17663c",
+  fontSize: "13px",
+  fontWeight: 600,
+};
+
+const dangerStyle = {
+  maxWidth: "1100px",
+  margin: "0 auto 12px",
+  padding: "10px 12px",
+  borderRadius: "6px",
+  background: "#fff0f0",
+  border:
+    "1px solid #efb0b0",
+  color: "#a52828",
+  fontSize: "13px",
+};
+
+const loadingCardStyle = {
+  maxWidth: "500px",
+  margin: "100px auto",
+  background: "#ffffff",
+  padding: "30px",
+  borderRadius: "10px",
+  textAlign: "center",
+  boxShadow:
+    "0 3px 15px rgba(0,0,0,0.08)",
+};
+
+const errorCardStyle = {
+  maxWidth: "500px",
+  margin: "80px auto",
+  background: "#ffffff",
+  padding: "30px",
+  borderRadius: "10px",
+  boxShadow:
+    "0 3px 15px rgba(0,0,0,0.08)",
+};
+
+const spinnerStyle = {
+  width: "32px",
+  height: "32px",
+  border:
+    "4px solid #d9eeee",
+  borderTop:
+    "4px solid #168477",
+  borderRadius: "50%",
+  margin: "0 auto 15px",
 };
