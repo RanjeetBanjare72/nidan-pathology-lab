@@ -27,6 +27,7 @@ import { supabase } from "../../lib/supabase";
    ✓ H / L abnormal flags
    ✓ Multiple Supabase data structures
    ✓ UPDATED RESULT PRIORITY FIX
+   ✓ FIXED EDIT ROUTE FOR /reports/[id]
 
    IMPORTANT RESULT PRIORITY
    ---------------------------------------------------------
@@ -34,9 +35,6 @@ import { supabase } from "../../lib/supabase";
    2. report.results
    3. test.results
    4. parameter.result / value
-
-   This prevents old embedded parameter.result from
-   overriding an edited result saved in report_data.results.
    ========================================================= */
 
 
@@ -46,7 +44,6 @@ import { supabase } from "../../lib/supabase";
 
 const ROUTES = {
   dashboard: "/dashboard",
-  editReport: "/reports/edit",
 };
 
 
@@ -1412,7 +1409,7 @@ function getPossibleResultKeys(
 
 
 /* =========================================================
-   GET RESULT - FIXED
+   GET RESULT - UPDATED RESULT FIRST
    ========================================================= */
 
 function getResult(
@@ -1422,30 +1419,6 @@ function getResult(
   index,
   testIndex
 ) {
-  /*
-   ============================================================
-   MOST IMPORTANT FIX
-   ============================================================
-
-   Updated result from report_data.results is searched FIRST.
-
-   Example:
-
-   Old parameter:
-   {
-      name: "Haemoglobin",
-      result: "10.3"
-   }
-
-   Edited result:
-   report_data.results = {
-      "cbc-Haemoglobin": "12.5"
-   }
-
-   Final report MUST show 12.5.
-   ============================================================
-   */
-
   const results =
     getResultsObject(report);
 
@@ -1458,25 +1431,22 @@ function getResult(
       testIndex
     );
 
-  /*
-   ------------------------------------------------------------
-   1. EXACT UPDATED RESULT
-   ------------------------------------------------------------
-   */
+
+  /* -------------------------------------------------------
+     1. EXACT UPDATED RESULT
+     ------------------------------------------------------- */
 
   for (const key of keys) {
+
     if (
       Object.prototype.hasOwnProperty.call(
         results,
         key
       )
     ) {
+
       const value =
         results[key];
-
-      /*
-       Allow 0 as a valid result.
-       */
 
       if (
         value !== undefined &&
@@ -1485,15 +1455,15 @@ function getResult(
       ) {
         return value;
       }
+
     }
+
   }
 
 
-  /*
-   ------------------------------------------------------------
-   2. NORMALIZED RESULT KEY SEARCH
-   ------------------------------------------------------------
-   */
+  /* -------------------------------------------------------
+     2. NORMALIZED RESULT KEY SEARCH
+     ------------------------------------------------------- */
 
   const parameterName =
     typeof parameter === "string"
@@ -1511,7 +1481,9 @@ function getResult(
       parameterName
     );
 
+
   if (target) {
+
     for (
       const [
         key,
@@ -1519,6 +1491,7 @@ function getResult(
       ]
       of Object.entries(results)
     ) {
+
       if (
         value !== undefined &&
         value !== null &&
@@ -1527,17 +1500,18 @@ function getResult(
       ) {
         return value;
       }
+
     }
+
   }
 
 
-  /*
-   ------------------------------------------------------------
-   3. PARTIAL MATCH
-   ------------------------------------------------------------
-   */
+  /* -------------------------------------------------------
+     3. PARTIAL MATCH
+     ------------------------------------------------------- */
 
   if (target) {
+
     for (
       const [
         key,
@@ -1545,6 +1519,7 @@ function getResult(
       ]
       of Object.entries(results)
     ) {
+
       const normalizedKey =
         normalizeText(key);
 
@@ -1559,30 +1534,34 @@ function getResult(
       ) {
         return value;
       }
+
     }
+
   }
 
 
-  /*
-   ------------------------------------------------------------
-   4. TEST LEVEL RESULTS
-   ------------------------------------------------------------
-   */
+  /* -------------------------------------------------------
+     4. TEST LEVEL RESULTS
+     ------------------------------------------------------- */
 
   if (
     test?.results &&
     typeof test.results === "object"
   ) {
+
     const testResults =
       test.results;
 
+
     for (const key of keys) {
+
       if (
         Object.prototype.hasOwnProperty.call(
           testResults,
           key
         )
       ) {
+
         const value =
           testResults[key];
 
@@ -1593,10 +1572,14 @@ function getResult(
         ) {
           return value;
         }
+
       }
+
     }
 
+
     if (target) {
+
       for (
         const [
           key,
@@ -1604,6 +1587,7 @@ function getResult(
         ]
         of Object.entries(testResults)
       ) {
+
         if (
           value !== undefined &&
           value !== null &&
@@ -1612,21 +1596,23 @@ function getResult(
         ) {
           return value;
         }
+
       }
+
     }
+
   }
 
 
-  /*
-   ------------------------------------------------------------
-   5. OLD PARAMETER RESULT - LAST FALLBACK
-   ------------------------------------------------------------
-   */
+  /* -------------------------------------------------------
+     5. OLD PARAMETER RESULT - LAST FALLBACK
+     ------------------------------------------------------- */
 
   if (
     parameter &&
     typeof parameter === "object"
   ) {
+
     if (
       parameter.result !== undefined &&
       parameter.result !== null &&
@@ -1634,6 +1620,7 @@ function getResult(
     ) {
       return parameter.result;
     }
+
 
     if (
       parameter.value !== undefined &&
@@ -1643,6 +1630,7 @@ function getResult(
       return parameter.value;
     }
 
+
     if (
       parameter.resultValue !== undefined &&
       parameter.resultValue !== null &&
@@ -1650,7 +1638,9 @@ function getResult(
     ) {
       return parameter.resultValue;
     }
+
   }
+
 
   return "";
 }
@@ -1704,6 +1694,7 @@ function getPatient(report) {
   const data =
     getReportData(report);
 
+
   if (
     data?.patient &&
     typeof data.patient === "object"
@@ -1711,12 +1702,14 @@ function getPatient(report) {
     return data.patient;
   }
 
+
   if (
     report?.patient &&
     typeof report.patient === "object"
   ) {
     return report.patient;
   }
+
 
   return {
     name:
@@ -1779,6 +1772,7 @@ function getPatient(report) {
    ========================================================= */
 
 function getPatientName(report) {
+
   const patient =
     getPatient(report);
 
@@ -1792,6 +1786,7 @@ function getPatientName(report) {
 
 
 function getPatientId(report) {
+
   const patient =
     getPatient(report);
 
@@ -1808,6 +1803,7 @@ function getPatientId(report) {
 
 
 function getPatientAge(report) {
+
   const patient =
     getPatient(report);
 
@@ -1830,6 +1826,7 @@ function getPatientAge(report) {
 function getPatientGenderValue(
   report
 ) {
+
   const patient =
     getPatient(report);
 
@@ -1844,6 +1841,7 @@ function getPatientGenderValue(
 
 
 function getPatientMobile(report) {
+
   const patient =
     getPatient(report);
 
@@ -1860,6 +1858,7 @@ function getPatientMobile(report) {
 
 
 function getDoctor(report) {
+
   const patient =
     getPatient(report);
 
@@ -1879,6 +1878,7 @@ function getDoctor(report) {
 function getCollectionDate(
   report
 ) {
+
   const patient =
     getPatient(report);
 
@@ -1901,6 +1901,7 @@ function getCollectionDate(
    ========================================================= */
 
 function getReportDate(report) {
+
   const data =
     getReportData(report);
 
@@ -1920,11 +1921,13 @@ function getReportDate(report) {
    ========================================================= */
 
 function formatDate(value) {
+
   if (!value) {
     return "-";
   }
 
   try {
+
     const date =
       new Date(value);
 
@@ -1944,8 +1947,11 @@ function formatDate(value) {
         year: "numeric",
       }
     );
+
   } catch {
+
     return String(value);
+
   }
 }
 
@@ -1955,6 +1961,7 @@ function formatDate(value) {
    ========================================================= */
 
 function prepareTests(report) {
+
   const patient =
     getPatient(report);
 
@@ -1973,6 +1980,7 @@ function prepareTests(report) {
       test,
       testIndex
     ) => {
+
       const master =
         findMasterTest(test);
 
@@ -1988,7 +1996,9 @@ function prepareTests(report) {
         master?.name ||
         "Laboratory Investigation";
 
+
       return {
+
         id:
           test?.id ||
           test?.testId ||
@@ -2010,17 +2020,13 @@ function prepareTests(report) {
               parameter,
               index
             ) => {
+
               const effective =
                 getEffectiveParameter(
                   parameter,
                   test
                 );
 
-              /*
-               IMPORTANT:
-               getResult now checks UPDATED
-               report_data.results FIRST.
-               */
 
               const value =
                 getResult(
@@ -2031,7 +2037,9 @@ function prepareTests(report) {
                   testIndex
                 );
 
+
               return {
+
                 ...effective,
 
                 result:
@@ -2054,10 +2062,14 @@ function prepareTests(report) {
                     patient,
                     test
                   ),
+
               };
+
             }
           ),
+
       };
+
     }
   );
 }
@@ -2073,7 +2085,9 @@ function Info({
   strong,
   status,
 }) {
+
   return (
+
     <div className="infoCell">
 
       <span className="infoLabel">
@@ -2099,6 +2113,7 @@ function Info({
       </span>
 
     </div>
+
   );
 }
 
@@ -2110,21 +2125,29 @@ function Info({
 function TestSection({
   test,
 }) {
+
   return (
+
     <section className="testSection">
 
       <div className="testHeader">
 
         <span className="departmentTag">
+
           {String(
             test.category ||
               "PATHOLOGY"
           ).toUpperCase()}
+
         </span>
 
+
         <div className="testTitleBox">
+
           {test.name}
+
         </div>
+
 
         <span className="testLine" />
 
@@ -2190,6 +2213,7 @@ function TestSection({
                   parameter.flag === "H" ||
                   parameter.flag === "L";
 
+
                 const value =
                   parameter.result === "" ||
                   parameter.result === null ||
@@ -2197,7 +2221,9 @@ function TestSection({
                     ? "-"
                     : parameter.result;
 
+
                 return (
+
                   <tr
                     key={
                       `${parameter.name}-${index}`
@@ -2205,9 +2231,13 @@ function TestSection({
                   >
 
                     <td>
+
                       <span className="investigationText">
+
                         {parameter.name}
+
                       </span>
+
                     </td>
 
 
@@ -2250,7 +2280,9 @@ function TestSection({
                           )
                         }
                       >
+
                         {value}
+
                       </span>
 
                     </td>
@@ -2270,7 +2302,9 @@ function TestSection({
                     </td>
 
                   </tr>
+
                 );
+
               }
             )}
 
@@ -2279,6 +2313,7 @@ function TestSection({
       </table>
 
     </section>
+
   );
 }
 
@@ -2294,20 +2329,24 @@ export default function ReportsPage() {
     setReports,
   ] = useState([]);
 
+
   const [
     loading,
     setLoading,
   ] = useState(true);
+
 
   const [
     selectedReport,
     setSelectedReport,
   ] = useState(null);
 
+
   const [
     message,
     setMessage,
   ] = useState("");
+
 
   const [
     searchText,
@@ -2325,10 +2364,13 @@ export default function ReportsPage() {
 
 
   async function loadReports() {
+
     try {
 
       setLoading(true);
+
       setMessage("");
+
 
       const {
         data,
@@ -2352,6 +2394,7 @@ export default function ReportsPage() {
           error
         );
 
+
         setMessage(
           "Reports load nahi ho paaye: " +
             error.message
@@ -2373,6 +2416,7 @@ export default function ReportsPage() {
           : []
       );
 
+
     } catch (error) {
 
       console.error(
@@ -2380,15 +2424,18 @@ export default function ReportsPage() {
         error
       );
 
+
       setMessage(
         "Saved reports load karne me error aaya."
       );
+
 
     } finally {
 
       setLoading(false);
 
     }
+
   }
 
 
@@ -2404,9 +2451,11 @@ export default function ReportsPage() {
           .toLowerCase()
           .trim();
 
+
       if (!search) {
         return reports;
       }
+
 
       return reports.filter(
         (report) => {
@@ -2416,12 +2465,14 @@ export default function ReportsPage() {
               report
             ).toLowerCase();
 
+
           const reportNo =
             String(
               report?.report_no ||
                 report?.reportNo ||
                 ""
             ).toLowerCase();
+
 
           const patientId =
             String(
@@ -2430,11 +2481,13 @@ export default function ReportsPage() {
               )
             ).toLowerCase();
 
+
           return (
             patient.includes(search) ||
             reportNo.includes(search) ||
             patientId.includes(search)
           );
+
         }
       );
 
@@ -2452,12 +2505,14 @@ export default function ReportsPage() {
 
     setSelectedReport(report);
 
+
     setTimeout(() => {
 
       const element =
         document.getElementById(
           "saved-final-report"
         );
+
 
       if (element) {
 
@@ -2469,21 +2524,29 @@ export default function ReportsPage() {
       }
 
     }, 100);
+
   }
 
 
   /* =======================================================
-     EDIT REPORT
+     EDIT REPORT - FIXED
      ======================================================= */
 
   function editReport(report) {
 
     if (!report) {
+
+      alert(
+        "Report nahi mila."
+      );
+
       return;
     }
 
+
     const id =
       report?.id;
+
 
     if (!id) {
 
@@ -2494,15 +2557,30 @@ export default function ReportsPage() {
       return;
     }
 
+
     /*
-     * Edit page route:
-     * /reports/edit?id=REPORT_ID
+     ======================================================
+     IMPORTANT FIX
+     ======================================================
+
+     Existing folder:
+
+     app/reports/[id]/page.js
+
+     Therefore correct URL is:
+
+     /reports/REPORT_ID
+
+     NOT:
+
+     /reports/edit?id=REPORT_ID
+
+     ======================================================
      */
 
     window.location.href =
-      `${ROUTES.editReport}?id=${encodeURIComponent(
-        id
-      )}`;
+      `/reports/${encodeURIComponent(id)}`;
+
   }
 
 
@@ -2512,23 +2590,20 @@ export default function ReportsPage() {
 
   function backToDashboard() {
 
-    /*
-     * Browser history first.
-     *
-     * If previous page exists, go back.
-     * Otherwise open dashboard directly.
-     */
-
     if (
       typeof window !== "undefined" &&
       window.history.length > 1
     ) {
+
       window.history.back();
+
       return;
     }
 
+
     window.location.href =
       ROUTES.dashboard;
+
   }
 
 
@@ -2537,7 +2612,9 @@ export default function ReportsPage() {
      ======================================================= */
 
   function closeReport() {
+
     setSelectedReport(null);
+
   }
 
 
@@ -2552,6 +2629,7 @@ export default function ReportsPage() {
     if (!report) {
       return;
     }
+
 
     const reportNo =
       report?.report_no ||
@@ -2591,6 +2669,7 @@ export default function ReportsPage() {
           error
         );
 
+
         alert(
           "Report delete nahi hua: " +
             error.message
@@ -2614,13 +2693,16 @@ export default function ReportsPage() {
         selectedReport?.id ===
         report.id
       ) {
+
         setSelectedReport(null);
+
       }
 
 
       alert(
         "Report successfully delete ho gaya."
       );
+
 
     } catch (error) {
 
@@ -2629,11 +2711,13 @@ export default function ReportsPage() {
         error
       );
 
+
       alert(
         "Report delete karne me error aaya."
       );
 
     }
+
   }
 
 
@@ -2645,9 +2729,13 @@ export default function ReportsPage() {
 
     setSelectedReport(report);
 
+
     setTimeout(() => {
+
       window.print();
+
     }, 500);
+
   }
 
 
@@ -2658,6 +2746,7 @@ export default function ReportsPage() {
     }
 
     window.print();
+
   }
 
 
@@ -2671,6 +2760,7 @@ export default function ReportsPage() {
       if (!selectedReport) {
         return [];
       }
+
 
       return prepareTests(
         selectedReport
@@ -2694,6 +2784,7 @@ export default function ReportsPage() {
      ======================================================= */
 
   return (
+
     <>
 
       {/* =================================================
@@ -2717,6 +2808,7 @@ export default function ReportsPage() {
             >
               ← Dashboard
             </button>
+
 
             <div>
 
@@ -2746,6 +2838,7 @@ export default function ReportsPage() {
               }
             />
 
+
             <button
               className="refreshButton"
               onClick={
@@ -2766,9 +2859,11 @@ export default function ReportsPage() {
         {/* MESSAGE */}
 
         {message && (
+
           <div className="reportMessage">
             {message}
           </div>
+
         )}
 
 
@@ -2887,8 +2982,6 @@ export default function ReportsPage() {
                           }
                         >
 
-                          {/* REPORT NO */}
-
                           <td>
 
                             <strong>
@@ -2899,8 +2992,6 @@ export default function ReportsPage() {
 
                           </td>
 
-
-                          {/* PATIENT */}
 
                           <td>
 
@@ -2919,8 +3010,6 @@ export default function ReportsPage() {
 
                           </td>
 
-
-                          {/* TESTS */}
 
                           <td>
 
@@ -2944,8 +3033,6 @@ export default function ReportsPage() {
                           </td>
 
 
-                          {/* PARAMETERS */}
-
                           <td>
 
                             <span className="resultCount">
@@ -2954,8 +3041,6 @@ export default function ReportsPage() {
 
                           </td>
 
-
-                          {/* STATUS */}
 
                           <td>
 
@@ -2969,8 +3054,6 @@ export default function ReportsPage() {
                           </td>
 
 
-                          {/* DATE */}
-
                           <td>
 
                             {formatDate(
@@ -2979,8 +3062,6 @@ export default function ReportsPage() {
 
                           </td>
 
-
-                          {/* ACTIONS */}
 
                           <td>
 
@@ -3090,7 +3171,6 @@ export default function ReportsPage() {
 
 
             <div className="previewToolbarActions">
-
 
               <button
                 className="previewBack"
@@ -3257,6 +3337,7 @@ export default function ReportsPage() {
                     strong
                   />
 
+
                   <Info
                     label="Patient ID"
                     value={
@@ -3265,6 +3346,7 @@ export default function ReportsPage() {
                       )
                     }
                   />
+
 
                   <Info
                     label="Age / Sex"
@@ -3277,6 +3359,7 @@ export default function ReportsPage() {
                     }
                   />
 
+
                   <Info
                     label="Mobile"
                     value={
@@ -3285,6 +3368,7 @@ export default function ReportsPage() {
                       )
                     }
                   />
+
 
                   <Info
                     label="Referred By"
@@ -3295,6 +3379,7 @@ export default function ReportsPage() {
                     }
                   />
 
+
                   <Info
                     label="Collection Date"
                     value={
@@ -3304,6 +3389,7 @@ export default function ReportsPage() {
                     }
                   />
 
+
                   <Info
                     label="Report Date"
                     value={
@@ -3312,6 +3398,7 @@ export default function ReportsPage() {
                       )
                     }
                   />
+
 
                   <Info
                     label="Report Status"
@@ -5492,5 +5579,6 @@ export default function ReportsPage() {
       `}</style>
 
     </>
+
   );
 }
