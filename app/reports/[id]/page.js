@@ -1364,19 +1364,15 @@ export default function SavedReportViewPage() {
   ======================================================= */
 
   function editReport() {
-    if (!report?.id) {
-      alert(
-        "Report ID nahi mila."
-      );
-      return;
-    }
-
-    router.push(
-      `/reports/edit?id=${encodeURIComponent(
-        report.id
-      )}`
-    );
+  if (!report?.id) {
+    alert("Report ID nahi mila.");
+    return;
   }
+
+  router.push(
+    `/reports/${encodeURIComponent(report.id)}/edit`
+  );
+}
 
 
   /* =======================================================
