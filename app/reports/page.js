@@ -62,7 +62,7 @@ import { supabase } from "../../lib/supabase";
    const DASHBOARD_ROUTE = "/";
    ========================================================= */
 
-const DASHBOARD_ROUTE = "/dashboard";
+const DASHBOARD_ROUTE = "/";
 
 
 /* =========================================================
