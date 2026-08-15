@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
@@ -8,9 +8,10 @@ export default function EditLaboratoryReportPage() {
   const params = useParams();
   const router = useRouter();
 
-  const reportId = Array.isArray(params?.id)
-    ? params.id[0]
-    : params?.id;
+  const reportId = useMemo(() => {
+    if (!params?.id) return "";
+    return Array.isArray(params.id) ? params.id[0] : params.id;
+  }, [params]);
 
   const [report, setReport] = useState(null);
 
@@ -31,9 +32,9 @@ export default function EditLaboratoryReportPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  /* =========================================================
-     LOAD SAVED REPORT
-  ========================================================= */
+  // ---------------------------------------------------------
+  // LOAD REPORT
+  // ---------------------------------------------------------
 
   useEffect(() => {
     if (!reportId) return;
@@ -58,249 +59,345 @@ export default function EditLaboratoryReportPage() {
       }
 
       if (!data) {
-        throw new Error("Report nahi mili.");
+        throw new Error("Report not found");
       }
 
-      console.log("FULL SAVED REPORT:", data);
+      console.log("EDIT PAGE - FULL REPORT:", data);
+      console.log("EDIT PAGE - REPORT DATA:", data.report_data);
 
       setReport(data);
 
-      const reportData =
-        data?.report_data &&
-        typeof data.report_data === "object"
-          ? data.report_data
-          : {};
+      const reportData = data.report_data || {};
 
-      /* =====================================================
-         PATIENT DATA
-      ===================================================== */
+      // -----------------------------------------------------
+      // PATIENT DATA
+      // -----------------------------------------------------
 
       const savedPatient =
-        reportData?.patient &&
-        typeof reportData.patient === "object"
-          ? reportData.patient
-          : {};
+        reportData.patient ||
+        reportData.patientData ||
+        data.patient ||
+        {};
 
-      setPatient({
+      const normalizedPatient = {
         name:
-          savedPatient?.name ??
-          savedPatient?.patientName ??
+          savedPatient.name ||
+          savedPatient.patientName ||
+          savedPatient.patient_name ||
           "",
 
         patient_id:
-          savedPatient?.id ??
-          savedPatient?.patient_id ??
-          savedPatient?.patientId ??
+          savedPatient.id ||
+          savedPatient.patient_id ||
+          savedPatient.patientId ||
           "",
 
         age:
-          savedPatient?.age ??
+          savedPatient.age ??
+          savedPatient.patientAge ??
           "",
 
         gender:
-          savedPatient?.gender ??
-          savedPatient?.sex ??
+          savedPatient.gender ||
+          savedPatient.sex ||
+          savedPatient.patientGender ||
           "",
 
         mobile:
-          savedPatient?.mobile ??
-          savedPatient?.mobileNumber ??
+          savedPatient.mobile ||
+          savedPatient.phone ||
+          savedPatient.phoneNumber ||
           "",
 
         doctor:
-          savedPatient?.doctor ??
-          savedPatient?.referring_doctor ??
-          savedPatient?.referringDoctor ??
+          savedPatient.doctor ||
+          savedPatient.referring_doctor ||
+          savedPatient.referringDoctor ||
+          savedPatient.refDoctor ||
           "",
-      });
+      };
 
-      /* =====================================================
-         IMPORTANT:
-         SAME ARRAY USED BY SAVED REPORT VIEW
-      ===================================================== */
+      setPatient(normalizedPatient);
 
-      let savedTests = [];
-
-      if (Array.isArray(reportData?.selectedTests)) {
-        savedTests = reportData.selectedTests;
-      } else if (Array.isArray(reportData?.tests)) {
-        savedTests = reportData.tests;
-      } else if (Array.isArray(reportData?.reportTests)) {
-        savedTests = reportData.reportTests;
-      } else if (Array.isArray(data?.tests)) {
-        savedTests = data.tests;
-      }
-
-      console.log("SAVED TESTS:", savedTests);
-
-      setTests(savedTests);
-
-      /* =====================================================
-         SAVED RESULT VALUES
-      ===================================================== */
+      // -----------------------------------------------------
+      // RESULTS
+      // -----------------------------------------------------
 
       const savedResults =
-        reportData?.results &&
-        typeof reportData.results === "object"
-          ? reportData.results
-          : {};
+        reportData.results ||
+        reportData.result ||
+        reportData.testResults ||
+        {};
 
-      console.log("SAVED RESULTS:", savedResults);
+      setResults(
+        savedResults && typeof savedResults === "object"
+          ? savedResults
+          : {}
+      );
 
-      setResults(savedResults);
+      // -----------------------------------------------------
+      // TESTS
+      // -----------------------------------------------------
+
+      const savedTests =
+        reportData.selectedTests ||
+        reportData.tests ||
+        reportData.investigations ||
+        [];
+
+      const normalizedTests = normalizeTests(savedTests);
+
+      console.log(
+        "EDIT PAGE - NORMALIZED TESTS:",
+        normalizedTests
+      );
+
+      setTests(normalizedTests);
     } catch (error) {
       console.error("LOAD REPORT ERROR:", error);
 
       setErrorMessage(
-        error?.message || "Report load nahi hui."
+        error?.message ||
+          "Report load nahi hui."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  /* =========================================================
-     GET TEST ID
-  ========================================================= */
+  // ---------------------------------------------------------
+  // NORMALIZE TESTS
+  // ---------------------------------------------------------
 
-  function getTestId(test, testIndex) {
-    return (
-      test?.id ??
-      test?.testId ??
-      test?.test_id ??
-      test?.code ??
-      `test-${testIndex}`
-    );
-  }
-
-  /* =========================================================
-     GET PARAMETER NAME
-  ========================================================= */
-
-  function getParameterName(parameter) {
-    return (
-      parameter?.name ??
-      parameter?.parameterName ??
-      parameter?.parameter_name ??
-      parameter?.testName ??
-      parameter?.test_name ??
-      parameter?.investigation ??
-      parameter?.title ??
-      ""
-    );
-  }
-
-  /* =========================================================
-     GET PARAMETER ID
-  ========================================================= */
-
-  function getParameterId(parameter) {
-    return (
-      parameter?.id ??
-      parameter?.parameterId ??
-      parameter?.parameter_id ??
-      ""
-    );
-  }
-
-  /* =========================================================
-     GET REFERENCE RANGE
-  ========================================================= */
-
-  function getReferenceRange(parameter) {
-    if (parameter?.range !== undefined) {
-      return parameter.range;
+  function normalizeTests(input) {
+    if (!input) {
+      return [];
     }
 
-    if (parameter?.referenceRange !== undefined) {
-      return parameter.referenceRange;
+    let list = [];
+
+    // Array
+    if (Array.isArray(input)) {
+      list = input;
     }
 
-    if (parameter?.reference !== undefined) {
-      return parameter.reference;
-    }
-
-    if (
-      parameter?.min !== undefined &&
-      parameter?.max !== undefined
+    // Object containing selectedTests
+    else if (
+      typeof input === "object" &&
+      Array.isArray(input.selectedTests)
     ) {
-      return `${parameter.min} - ${parameter.max}`;
+      list = input.selectedTests;
     }
 
-    return "-";
+    // Object containing tests
+    else if (
+      typeof input === "object" &&
+      Array.isArray(input.tests)
+    ) {
+      list = input.tests;
+    }
+
+    // Single test object
+    else if (typeof input === "object") {
+      list = [input];
+    }
+
+    return list.map((test, index) => {
+      // -----------------------------------------------------
+      // TEST PARAMETER ARRAY
+      // -----------------------------------------------------
+
+      let parameters = [];
+
+      if (Array.isArray(test?.tests)) {
+        parameters = test.tests;
+      } else if (Array.isArray(test?.parameters)) {
+        parameters = test.parameters;
+      } else if (Array.isArray(test?.items)) {
+        parameters = test.items;
+      } else if (Array.isArray(test?.investigations)) {
+        parameters = test.investigations;
+      } else if (Array.isArray(test?.fields)) {
+        parameters = test.fields;
+      }
+
+      // -----------------------------------------------------
+      // SOME DATA MAY STORE ONE PARAMETER DIRECTLY
+      // -----------------------------------------------------
+
+      if (
+        parameters.length === 0 &&
+        (
+          test?.parameter ||
+          test?.parameterName ||
+          test?.result !== undefined ||
+          test?.value !== undefined
+        )
+      ) {
+        parameters = [
+          {
+            id:
+              test.parameterId ||
+              test.id ||
+              `parameter-${index}`,
+
+            name:
+              test.parameter ||
+              test.parameterName ||
+              test.name ||
+              "Investigation",
+
+            result:
+              test.result ??
+              test.value ??
+              "",
+
+            value:
+              test.value ??
+              test.result ??
+              "",
+
+            unit:
+              test.unit ||
+              "",
+
+            range:
+              test.range ||
+              test.referenceRange ||
+              test.reference ||
+              "",
+          },
+        ];
+      }
+
+      // -----------------------------------------------------
+      // NORMALIZE EVERY PARAMETER
+      // -----------------------------------------------------
+
+      parameters = parameters.map(
+        (parameter, parameterIndex) => {
+          if (
+            typeof parameter === "string"
+          ) {
+            return {
+              id: `${index}-${parameterIndex}`,
+              name: parameter,
+              unit: "",
+              range: "",
+              result: "",
+            };
+          }
+
+          const p = parameter || {};
+
+          return {
+            ...p,
+
+            id:
+              p.id ||
+              p.parameterId ||
+              p.parameter_id ||
+              `${index}-${parameterIndex}`,
+
+            name:
+              p.name ||
+              p.parameterName ||
+              p.parameter_name ||
+              p.parameter ||
+              "Investigation",
+
+            unit:
+              p.unit ||
+              p.units ||
+              "",
+
+            range:
+              p.range ||
+              p.referenceRange ||
+              p.reference_range ||
+              p.reference ||
+              (
+                p.min !== undefined &&
+                p.max !== undefined
+                  ? `${p.min} - ${p.max}`
+                  : ""
+              ),
+
+            result:
+              p.result ??
+              p.value ??
+              "",
+          };
+        }
+      );
+
+      return {
+        ...test,
+
+        id:
+          test?.id ||
+          test?.testId ||
+          `test-${index}`,
+
+        name:
+          test?.name ||
+          test?.testName ||
+          test?.test_name ||
+          test?.title ||
+          "Investigation",
+
+        tests: parameters,
+      };
+    });
   }
 
-  /* =========================================================
-     GET EXISTING RESULT
-     
-     This is the most important function.
-     It tries all common key formats.
-  ========================================================= */
+  // ---------------------------------------------------------
+  // FIND EXISTING RESULT
+  // ---------------------------------------------------------
 
-  function getExistingResult(
+  function getResultValue(
     test,
     parameter,
-    parameterIndex,
-    testIndex
+    testIndex,
+    parameterIndex
   ) {
-    const testId = getTestId(
-      test,
-      testIndex
-    );
+    const parameterId =
+      parameter?.id ||
+      parameter?.parameterId ||
+      parameter?.parameter_id ||
+      "";
+
+    const testId =
+      test?.id ||
+      test?.testId ||
+      `test-${testIndex}`;
 
     const parameterName =
-      getParameterName(parameter);
-
-    const parameterId =
-      getParameterId(parameter);
-
-    /* =====================================================
-       EXACT KEY USED BY REPORT VIEW PAGE
-
-       `${test.id}-${parameter.name}-${i}`
-    ===================================================== */
-
-    const exactKey =
-      `${testId}-${parameterName}-${parameterIndex}`;
-
-    if (
-      Object.prototype.hasOwnProperty.call(
-        results,
-        exactKey
-      )
-    ) {
-      return results[exactKey];
-    }
-
-    /* =====================================================
-       OTHER POSSIBLE KEY FORMATS
-    ===================================================== */
+      parameter?.name ||
+      parameter?.parameterName ||
+      parameter?.parameter ||
+      "";
 
     const possibleKeys = [
-      parameterId,
-
-      `${testId}-${parameterName}`,
+      `${testId}-${parameterName}-${parameterIndex}`,
 
       `${testId}-${parameterId}`,
 
-      `${testIndex}-${parameterName}-${parameterIndex}`,
+      parameterId,
 
-      `${testIndex}-${parameterName}`,
+      parameterName,
 
       `${testIndex}-${parameterIndex}`,
 
-      `${testIndex}_${parameterIndex}`,
+      `${testIndex}-${parameterName}`,
 
-      parameterName,
-    ].filter(
-      (key) =>
-        key !== undefined &&
-        key !== null &&
-        key !== ""
-    );
+      `${test?.name || test?.testName}-${parameterName}`,
+    ];
 
     for (const key of possibleKeys) {
       if (
+        key &&
+        results &&
         Object.prototype.hasOwnProperty.call(
           results,
           key
@@ -310,66 +407,21 @@ export default function EditLaboratoryReportPage() {
       }
     }
 
-    /* =====================================================
-       RESULT STORED INSIDE PARAMETER
-    ===================================================== */
-
-    if (
-      parameter?.result !== undefined &&
-      parameter?.result !== null &&
-      parameter?.result !== ""
-    ) {
+    // Saved result directly inside parameter
+    if (parameter?.result !== undefined) {
       return parameter.result;
     }
 
-    if (
-      parameter?.value !== undefined &&
-      parameter?.value !== null &&
-      parameter?.value !== ""
-    ) {
+    if (parameter?.value !== undefined) {
       return parameter.value;
     }
 
     return "";
   }
 
-  /* =========================================================
-     UPDATE RESULT
-  ========================================================= */
-
-  function updateResult(
-    test,
-    parameter,
-    parameterIndex,
-    testIndex,
-    value
-  ) {
-    const testId = getTestId(
-      test,
-      testIndex
-    );
-
-    const parameterName =
-      getParameterName(parameter);
-
-    /*
-      IMPORTANT:
-      Keep exactly the same key used by
-      the report view page.
-    */
-
-    const key =
-      `${testId}-${parameterName}-${parameterIndex}`;
-
-    setResults((previous) => ({
-      ...previous,
-      [key]: value,
-    }));
-  }
-
-  /* =========================================================
-     PATIENT INPUT CHANGE
-  ========================================================= */
+  // ---------------------------------------------------------
+  // UPDATE PATIENT
+  // ---------------------------------------------------------
 
   function updatePatient(field, value) {
     setPatient((previous) => ({
@@ -378,9 +430,100 @@ export default function EditLaboratoryReportPage() {
     }));
   }
 
-  /* =========================================================
-     SAVE CHANGES
-  ========================================================= */
+  // ---------------------------------------------------------
+  // UPDATE RESULT
+  // ---------------------------------------------------------
+
+  function updateResult(
+    test,
+    parameter,
+    testIndex,
+    parameterIndex,
+    value
+  ) {
+    const testId =
+      test?.id ||
+      test?.testId ||
+      `test-${testIndex}`;
+
+    const parameterId =
+      parameter?.id ||
+      parameter?.parameterId ||
+      parameter?.parameter_id ||
+      "";
+
+    const parameterName =
+      parameter?.name ||
+      parameter?.parameterName ||
+      parameter?.parameter ||
+      "";
+
+    // Keep the same key format used by the Report View
+    const primaryKey =
+      `${testId}-${parameterName}-${parameterIndex}`;
+
+    setResults((previous) => ({
+      ...previous,
+
+      [primaryKey]: value,
+
+      // Also maintain parameter ID key
+      ...(parameterId
+        ? {
+            [parameterId]: value,
+          }
+        : {}),
+    }));
+  }
+
+  // ---------------------------------------------------------
+  // GET REFERENCE
+  // ---------------------------------------------------------
+
+  function getReference(parameter) {
+    if (!parameter) return "-";
+
+    if (parameter.range) {
+      return parameter.range;
+    }
+
+    if (parameter.referenceRange) {
+      return parameter.referenceRange;
+    }
+
+    if (parameter.reference_range) {
+      return parameter.reference_range;
+    }
+
+    if (parameter.reference) {
+      return parameter.reference;
+    }
+
+    if (
+      parameter.min !== undefined &&
+      parameter.max !== undefined
+    ) {
+      return `${parameter.min} - ${parameter.max}`;
+    }
+
+    return "-";
+  }
+
+  // ---------------------------------------------------------
+  // GET UNIT
+  // ---------------------------------------------------------
+
+  function getUnit(parameter) {
+    return (
+      parameter?.unit ||
+      parameter?.units ||
+      "-"
+    );
+  }
+
+  // ---------------------------------------------------------
+  // SAVE CHANGES
+  // ---------------------------------------------------------
 
   async function saveChanges() {
     try {
@@ -388,80 +531,118 @@ export default function EditLaboratoryReportPage() {
       setErrorMessage("");
       setSuccessMessage("");
 
-      if (!reportId) {
-        throw new Error(
-          "Report ID nahi mila."
-        );
-      }
-
       if (!report) {
-        throw new Error(
-          "Report data available nahi hai."
-        );
+        throw new Error("Report available nahi hai.");
       }
 
-      /* =====================================================
-         CREATE UPDATED PATIENT OBJECT
-      ===================================================== */
+      // -----------------------------------------------------
+      // CREATE UPDATED PATIENT OBJECT
+      // -----------------------------------------------------
+
+      const oldReportData =
+        report.report_data || {};
+
+      const oldPatient =
+        oldReportData.patient ||
+        oldReportData.patientData ||
+        {};
 
       const updatedPatient = {
-        ...(report?.report_data?.patient || {}),
+        ...oldPatient,
 
         name: patient.name,
+
         patientName: patient.name,
 
         id: patient.patient_id,
+
         patient_id: patient.patient_id,
+
         patientId: patient.patient_id,
 
         age: patient.age,
 
         gender: patient.gender,
+
         sex: patient.gender,
 
         mobile: patient.mobile,
-        mobileNumber: patient.mobile,
+
+        phone: patient.mobile,
 
         doctor: patient.doctor,
+
         referring_doctor: patient.doctor,
+
         referringDoctor: patient.doctor,
       };
 
-      /* =====================================================
-         KEEP EXISTING REPORT DATA
-      ===================================================== */
+      // -----------------------------------------------------
+      // UPDATE PARAMETERS TOO
+      // -----------------------------------------------------
+      //
+      // This is important because some reports may have saved
+      // values inside parameter objects rather than results.
+      //
 
-      const oldReportData =
-        report?.report_data &&
-        typeof report.report_data === "object"
-          ? report.report_data
-          : {};
+      const updatedTests = tests.map(
+        (test, testIndex) => {
+          const updatedParameters =
+            Array.isArray(test.tests)
+              ? test.tests.map(
+                  (
+                    parameter,
+                    parameterIndex
+                  ) => {
+                    const value =
+                      getResultValue(
+                        test,
+                        parameter,
+                        testIndex,
+                        parameterIndex
+                      );
 
-      /* =====================================================
-         UPDATED REPORT DATA
-         
-         selectedTests is preserved.
-         results gets edited values.
-      ===================================================== */
+                    return {
+                      ...parameter,
+
+                      result: value,
+
+                      value: value,
+                    };
+                  }
+                )
+              : [];
+
+          return {
+            ...test,
+
+            tests: updatedParameters,
+          };
+        }
+      );
+
+      // -----------------------------------------------------
+      // KEEP ALL OLD REPORT DATA
+      // -----------------------------------------------------
 
       const updatedReportData = {
         ...oldReportData,
 
         patient: updatedPatient,
 
-        selectedTests: tests,
+        selectedTests: updatedTests,
 
         results: results,
       };
 
       console.log(
-        "UPDATED REPORT DATA:",
+        "UPDATING REPORT DATA:",
         updatedReportData
       );
 
-      /* =====================================================
-         UPDATE SUPABASE
-      ===================================================== */
+      // -----------------------------------------------------
+      // SUPABASE UPDATE
+      // -----------------------------------------------------
 
       const { data, error } = await supabase
         .from("reports")
@@ -477,27 +658,19 @@ export default function EditLaboratoryReportPage() {
       }
 
       console.log(
-        "UPDATED REPORT:",
+        "REPORT UPDATED:",
         data
       );
-
-      setReport(data);
 
       setSuccessMessage(
         "Report successfully update ho gayi."
       );
 
-      /*
-        Short delay so user can see success.
-      */
-
+      // Small delay so user can see success
       setTimeout(() => {
-        router.push(
-          `/reports/${reportId}`
-        );
-
+        router.push(`/reports/${reportId}`);
         router.refresh();
-      }, 700);
+      }, 500);
     } catch (error) {
       console.error(
         "SAVE REPORT ERROR:",
@@ -506,57 +679,51 @@ export default function EditLaboratoryReportPage() {
 
       setErrorMessage(
         error?.message ||
-        "Report save nahi hui."
+          "Report save nahi hui."
       );
     } finally {
       setSaving(false);
     }
   }
 
-  /* =========================================================
-     LOADING
-  ========================================================= */
+  // ---------------------------------------------------------
+  // CANCEL
+  // ---------------------------------------------------------
+
+  function cancelEdit() {
+    router.push(`/reports/${reportId}`);
+  }
+
+  // ---------------------------------------------------------
+  // LOADING
+  // ---------------------------------------------------------
 
   if (loading) {
     return (
       <main style={pageStyle}>
         <div style={loadingCardStyle}>
-          <div style={spinnerStyle}></div>
-
-          <h3>
-            Report loading...
-          </h3>
-
-          <p>
-            Saved report data load ho raha hai.
-          </p>
+          <h3>Report loading...</h3>
+          <p>Please wait.</p>
         </div>
       </main>
     );
   }
 
-  /* =========================================================
-     ERROR
-  ========================================================= */
+  // ---------------------------------------------------------
+  // ERROR
+  // ---------------------------------------------------------
 
-  if (errorMessage || !report) {
+  if (errorMessage && !report) {
     return (
       <main style={pageStyle}>
         <div style={errorCardStyle}>
-          <h2>
-            Report nahi mili
-          </h2>
+          <h2>Report nahi mili</h2>
 
-          <p>
-            {errorMessage ||
-              "Report available nahi hai."}
-          </p>
+          <p>{errorMessage}</p>
 
           <button
-            onClick={() =>
-              router.push("/reports")
-            }
-            style={primaryButtonStyle}
+            onClick={() => router.push("/reports")}
+            style={buttonStyle}
           >
             ← Back to Reports
           </button>
@@ -565,109 +732,86 @@ export default function EditLaboratoryReportPage() {
     );
   }
 
-  /* =========================================================
-     REPORT UI
-  ========================================================= */
+  // ---------------------------------------------------------
+  // PAGE
+  // ---------------------------------------------------------
 
   return (
     <main style={pageStyle}>
       {/* =====================================================
-          TOP HEADER
-      ===================================================== */}
+          TOP BAR
+      ====================================================== */}
 
       <div style={topBarStyle}>
         <div>
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "18px",
-              color: "#172033",
-            }}
-          >
+          <h2 style={{ margin: 0 }}>
             Edit Laboratory Report
           </h2>
 
           <div
             style={{
               fontSize: "12px",
-              color: "#168477",
-              fontWeight: 600,
+              color: "#0d746d",
               marginTop: "3px",
+              fontWeight: "600",
             }}
           >
             NIDAN PATHOLOGY LAB
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={actionGroupStyle}>
           <button
-            onClick={() =>
-              router.push(
-                `/reports/${reportId}`
-              )
-            }
-            style={secondaryButtonStyle}
+            onClick={cancelEdit}
             disabled={saving}
+            style={secondaryButtonStyle}
           >
             ← Cancel
           </button>
 
           <button
             onClick={saveChanges}
-            style={saveButtonStyle}
             disabled={saving}
+            style={primaryButtonStyle}
           >
             {saving
-              ? "⏳ Saving..."
+              ? "Saving..."
               : "💾 Save Changes"}
           </button>
         </div>
       </div>
 
       {/* =====================================================
-          SUCCESS MESSAGE
-      ===================================================== */}
+          MESSAGES
+      ====================================================== */}
 
-      {successMessage && (
-        <div style={successStyle}>
-          ✓ {successMessage}
+      {errorMessage && (
+        <div style={errorMessageStyle}>
+          <strong>Error:</strong> {errorMessage}
         </div>
       )}
 
-      {/* =====================================================
-          ERROR MESSAGE
-      ===================================================== */}
-
-      {errorMessage && (
-        <div style={dangerStyle}>
-          ⚠ {errorMessage}
+      {successMessage && (
+        <div style={successMessageStyle}>
+          {successMessage}
         </div>
       )}
 
       {/* =====================================================
           PATIENT INFORMATION
-      ===================================================== */}
+      ====================================================== */}
 
-      <section style={cardStyle}>
+      <section style={sectionStyle}>
         <SectionTitle>
           Patient Information
         </SectionTitle>
 
-        <div style={formGridStyle}>
+        <div style={patientGridStyle}>
           <InputField
             label="Patient Name"
             value={patient.name}
             onChange={(value) =>
-              updatePatient(
-                "name",
-                value
-              )
+              updatePatient("name", value)
             }
           />
 
@@ -686,10 +830,7 @@ export default function EditLaboratoryReportPage() {
             label="Age"
             value={patient.age}
             onChange={(value) =>
-              updatePatient(
-                "age",
-                value
-              )
+              updatePatient("age", value)
             }
           />
 
@@ -730,334 +871,317 @@ export default function EditLaboratoryReportPage() {
 
       {/* =====================================================
           INVESTIGATION RESULTS
-      ===================================================== */}
+      ====================================================== */}
 
-      <section style={cardStyle}>
+      <section style={sectionStyle}>
         <SectionTitle>
           Investigation Results
         </SectionTitle>
 
         {tests.length === 0 ? (
-          <div
-            style={{
-              padding: "25px",
-              textAlign: "center",
-              color: "#666",
-            }}
-          >
-            No investigations available.
+          <div style={emptyStyle}>
+            <strong>
+              No investigations found.
+            </strong>
+
+            <p>
+              Saved report में test data नहीं मिला।
+            </p>
           </div>
         ) : (
           tests.map(
-            (test, testIndex) => {
-              const parameters =
-                Array.isArray(
-                  test?.tests
-                )
-                  ? test.tests
-                  : [];
+            (test, testIndex) => (
+              <div
+                key={
+                  test.id ||
+                  `test-${testIndex}`
+                }
+                style={testCardStyle}
+              >
+                {/* TEST TITLE */}
 
-              return (
+                <div style={testTitleStyle}>
+                  {test.name ||
+                    test.testName ||
+                    "Investigation"}
+                </div>
+
+                {/* TEST TABLE */}
+
                 <div
-                  key={
-                    test?.id ??
-                    test?.testId ??
-                    `test-${testIndex}`
-                  }
                   style={{
-                    marginBottom:
-                      "28px",
+                    overflowX: "auto",
+                    width: "100%",
                   }}
                 >
-                  {/* TEST TITLE */}
-
-                  <div
-                    style={{
-                      background:
-                        "#e8f6f3",
-                      borderLeft:
-                        "4px solid #168477",
-                      padding:
-                        "9px 12px",
-                      marginBottom:
-                        "8px",
-                    }}
+                  <table
+                    style={tableStyle}
                   >
-                    <strong
-                      style={{
-                        color:
-                          "#126c62",
-                        fontSize:
-                          "16px",
-                      }}
-                    >
-                      {test?.name ||
-                        test?.testName ||
-                        test?.title ||
-                        "Investigation"}
-                    </strong>
-                  </div>
+                    <thead>
+                      <tr>
+                        <th
+                          style={
+                            headStyle
+                          }
+                        >
+                          Investigation
+                        </th>
 
-                  <div
-                    style={{
-                      overflowX:
-                        "auto",
-                    }}
-                  >
-                    <table
-                      style={
-                        resultsTableStyle
-                      }
-                    >
-                      <thead>
-                        <tr>
-                          <th
-                            style={
-                              tableHeadStyle
-                            }
-                          >
-                            Investigation
-                          </th>
+                        <th
+                          style={{
+                            ...headStyle,
+                            minWidth:
+                              "220px",
+                          }}
+                        >
+                          Result
+                        </th>
 
-                          <th
-                            style={
-                              tableHeadStyle
-                            }
-                          >
-                            Result
-                          </th>
+                        <th
+                          style={
+                            headStyle
+                          }
+                        >
+                          Unit
+                        </th>
 
-                          <th
-                            style={
-                              tableHeadStyle
-                            }
-                          >
-                            Unit
-                          </th>
+                        <th
+                          style={
+                            headStyle
+                          }
+                        >
+                          Reference Range
+                        </th>
+                      </tr>
+                    </thead>
 
-                          <th
-                            style={
-                              tableHeadStyle
-                            }
-                          >
-                            Reference Range
-                          </th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {parameters.length >
+                    <tbody>
+                      {Array.isArray(
+                        test.tests
+                      ) &&
+                      test.tests.length >
                         0 ? (
-                          parameters.map(
-                            (
-                              parameter,
-                              parameterIndex
-                            ) => {
-                              const value =
-                                getExistingResult(
-                                  test,
-                                  parameter,
-                                  parameterIndex,
-                                  testIndex
-                                );
-
-                              const parameterName =
-                                getParameterName(
-                                  parameter
-                                );
-
-                              const reference =
-                                getReferenceRange(
-                                  parameter
-                                );
-
-                              return (
-                                <tr
-                                  key={`${getTestId(
-                                    test,
-                                    testIndex
-                                  )}-${parameterName}-${parameterIndex}`}
-                                >
-                                  <td
-                                    style={
-                                      tableCellStyle
-                                    }
-                                  >
-                                    <strong>
-                                      {parameterName ||
-                                        "-"}
-                                    </strong>
-                                  </td>
-
-                                  <td
-                                    style={
-                                      tableCellStyle
-                                    }
-                                  >
-                                    <input
-                                      type="text"
-                                      value={
-                                        value ??
-                                        ""
-                                      }
-                                      placeholder="Enter result"
-                                      onChange={(
-                                        event
-                                      ) =>
-                                        updateResult(
-                                          test,
-                                          parameter,
-                                          parameterIndex,
-                                          testIndex,
-                                          event
-                                            .target
-                                            .value
-                                        )
-                                      }
-                                      style={
-                                        resultInputStyle
-                                      }
-                                    />
-                                  </td>
-
-                                  <td
-                                    style={
-                                      tableCellStyle
-                                    }
-                                  >
-                                    {parameter?.unit ||
-                                      parameter?.units ||
-                                      "-"}
-                                  </td>
-
-                                  <td
-                                    style={
-                                      tableCellStyle
-                                    }
-                                  >
-                                    {reference}
-                                  </td>
-                                </tr>
-                              );
-                            }
-                          )
-                        ) : (
-                          <SingleTestRow
-                            test={test}
-                            testIndex={
-                              testIndex
-                            }
-                            value={getExistingResult(
-                              test,
-                              test,
-                              0,
-                              testIndex
-                            )}
-                            onChange={(
-                              value
-                            ) =>
-                              updateResult(
+                        test.tests.map(
+                          (
+                            parameter,
+                            parameterIndex
+                          ) => {
+                            const value =
+                              getResultValue(
                                 test,
-                                test,
-                                0,
+                                parameter,
                                 testIndex,
-                                value
-                              )
+                                parameterIndex
+                              );
+
+                            return (
+                              <tr
+                                key={
+                                  parameter.id ||
+                                  `${testIndex}-${parameterIndex}`
+                                }
+                              >
+                                <td
+                                  style={
+                                    cellStyle
+                                  }
+                                >
+                                  <strong>
+                                    {parameter.name ||
+                                      parameter.parameterName ||
+                                      parameter.parameter ||
+                                      "-"}
+                                  </strong>
+                                </td>
+
+                                <td
+                                  style={
+                                    cellStyle
+                                  }
+                                >
+                                  <input
+                                    type="text"
+                                    value={
+                                      value ??
+                                      ""
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateResult(
+                                        test,
+                                        parameter,
+                                        testIndex,
+                                        parameterIndex,
+                                        event
+                                          .target
+                                          .value
+                                      )
+                                    }
+                                    placeholder="Enter result"
+                                    style={
+                                      resultInputStyle
+                                    }
+                                  />
+                                </td>
+
+                                <td
+                                  style={
+                                    cellStyle
+                                  }
+                                >
+                                  {getUnit(
+                                    parameter
+                                  )}
+                                </td>
+
+                                <td
+                                  style={
+                                    cellStyle
+                                  }
+                                >
+                                  {getReference(
+                                    parameter
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          }
+                        )
+                      ) : (
+                        <tr>
+                          <td
+                            style={
+                              cellStyle
                             }
-                          />
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                          >
+                            {test.parameter ||
+                              test.name ||
+                              "-"}
+                          </td>
+
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            <input
+                              type="text"
+                              value={
+                                getResultValue(
+                                  test,
+                                  test,
+                                  testIndex,
+                                  0
+                                ) ?? ""
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                updateResult(
+                                  test,
+                                  test,
+                                  testIndex,
+                                  0,
+                                  event.target
+                                    .value
+                                )
+                              }
+                              placeholder="Enter result"
+                              style={
+                                resultInputStyle
+                              }
+                            />
+                          </td>
+
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            {test.unit ||
+                              "-"}
+                          </td>
+
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            {test.range ||
+                              test.referenceRange ||
+                              "-"}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              );
-            }
+              </div>
+            )
           )
         )}
       </section>
 
       {/* =====================================================
-          BOTTOM SAVE
-      ===================================================== */}
+          BOTTOM SAVE BAR
+      ====================================================== */}
 
       <div
         style={{
-          display: "flex",
-          justifyContent:
-            "flex-end",
-          gap: "8px",
-          marginTop: "15px",
-          marginBottom: "40px",
+          ...bottomBarStyle,
+          marginBottom: "30px",
         }}
       >
         <button
-          onClick={() =>
-            router.push(
-              `/reports/${reportId}`
-            )
-          }
-          style={secondaryButtonStyle}
+          onClick={cancelEdit}
           disabled={saving}
+          style={secondaryButtonStyle}
         >
           Cancel
         </button>
 
         <button
           onClick={saveChanges}
-          style={saveButtonStyle}
           disabled={saving}
+          style={primaryButtonStyle}
         >
           {saving
-            ? "⏳ Saving..."
+            ? "Saving..."
             : "💾 Save Changes"}
         </button>
       </div>
 
       {/* =====================================================
-          GLOBAL RESPONSIVE CSS
-      ===================================================== */}
+          DEBUG INFO
+          Hidden in normal UI, useful in browser console
+      ====================================================== */}
 
-      <style jsx global>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        body {
-          margin: 0;
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-          background: #eef3f8;
-        }
-
-        input {
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-        }
-
-        button {
-          font-family:
-            Arial,
-            Helvetica,
-            sans-serif;
-        }
-
-        @media (max-width: 700px) {
-          .edit-form-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
+      <div
+        style={{
+          display: "none",
+        }}
+      >
+        <pre>
+          {JSON.stringify(
+            {
+              reportId,
+              patient,
+              tests,
+              results,
+            },
+            null,
+            2
+          )}
+        </pre>
+      </div>
     </main>
   );
 }
 
-/* ============================================================
-   INPUT FIELD
-============================================================ */
+// ============================================================
+// INPUT COMPONENT
+// ============================================================
 
 function InputField({
   label,
@@ -1065,131 +1189,45 @@ function InputField({
   onChange,
 }) {
   return (
-    <div>
-      <label
-        style={labelStyle}
-      >
-        {label}
-      </label>
+    <label style={inputLabelStyle}>
+      <span>{label}</span>
 
       <input
         type="text"
         value={value ?? ""}
         onChange={(event) =>
-          onChange(
-            event.target.value
-          )
+          onChange(event.target.value)
         }
-        style={textInputStyle}
+        style={inputStyle}
       />
-    </div>
+    </label>
   );
 }
 
-/* ============================================================
-   SECTION TITLE
-============================================================ */
+// ============================================================
+// SECTION TITLE
+// ============================================================
 
-function SectionTitle({
-  children,
-}) {
+function SectionTitle({ children }) {
   return (
-    <div
-      style={{
-        borderBottom:
-          "2px solid #168477",
-        paddingBottom: "8px",
-        marginBottom: "15px",
-        color: "#126c62",
-        fontWeight: 700,
-        fontSize: "15px",
-      }}
-    >
+    <div style={sectionTitleStyle}>
       {children}
     </div>
   );
 }
 
-/* ============================================================
-   SINGLE TEST ROW
-   For tests that don't have test.tests[]
-============================================================ */
-
-function SingleTestRow({
-  test,
-  value,
-  onChange,
-}) {
-  const name =
-    test?.parameter ||
-    test?.parameterName ||
-    test?.name ||
-    test?.testName ||
-    "-";
-
-  const unit =
-    test?.unit ||
-    test?.units ||
-    "-";
-
-  const reference =
-    test?.range ||
-    test?.referenceRange ||
-    test?.reference ||
-    "-";
-
-  return (
-    <tr>
-      <td
-        style={tableCellStyle}
-      >
-        <strong>
-          {name}
-        </strong>
-      </td>
-
-      <td
-        style={tableCellStyle}
-      >
-        <input
-          type="text"
-          value={value ?? ""}
-          placeholder="Enter result"
-          onChange={(event) =>
-            onChange(
-              event.target.value
-            )
-          }
-          style={
-            resultInputStyle
-          }
-        />
-      </td>
-
-      <td
-        style={tableCellStyle}
-      >
-        {unit}
-      </td>
-
-      <td
-        style={tableCellStyle}
-      >
-        {reference}
-      </td>
-    </tr>
-  );
-}
-
-/* ============================================================
-   STYLES
-============================================================ */
+// ============================================================
+// STYLES
+// ============================================================
 
 const pageStyle = {
   minHeight: "100vh",
-  background: "#eef3f8",
-  padding: "15px",
-  color: "#172033",
+  background: "#eef4f7",
+  padding: "14px",
+  boxSizing: "border-box",
+  fontFamily:
+    "Arial, Helvetica, sans-serif",
+  color: "#263238",
 };
 
 const topBarStyle = {
@@ -1198,175 +1236,213 @@ const topBarStyle = {
   background: "#ffffff",
   borderRadius: "8px",
   padding: "12px 14px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "12px",
-  flexWrap: "wrap",
   boxShadow:
-    "0 2px 10px rgba(0,0,0,0.08)",
+    "0 2px 8px rgba(0,0,0,0.08)",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "10px",
+  flexWrap: "wrap",
 };
 
-const cardStyle = {
+const actionGroupStyle = {
+  display: "flex",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
+const sectionStyle = {
   maxWidth: "1100px",
-  margin: "0 auto 14px",
+  margin: "0 auto 12px",
   background: "#ffffff",
   borderRadius: "8px",
-  padding: "15px",
+  padding: "14px",
   boxShadow:
-    "0 2px 10px rgba(0,0,0,0.07)",
+    "0 2px 8px rgba(0,0,0,0.07)",
 };
 
-const formGridStyle = {
+const sectionTitleStyle = {
+  fontSize: "16px",
+  fontWeight: "700",
+  color: "#147c75",
+  borderBottom:
+    "2px solid #147c75",
+  paddingBottom: "8px",
+  marginBottom: "14px",
+};
+
+const patientGridStyle = {
   display: "grid",
   gridTemplateColumns:
-    "repeat(3, minmax(0, 1fr))",
+    "repeat(auto-fit, minmax(220px, 1fr))",
   gap: "12px",
 };
 
-const labelStyle = {
-  display: "block",
-  fontSize: "11px",
-  fontWeight: 600,
-  color: "#374151",
-  marginBottom: "5px",
+const inputLabelStyle = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "5px",
+  fontSize: "12px",
+  fontWeight: "600",
+  color: "#4d5a60",
 };
 
-const textInputStyle = {
+const inputStyle = {
   width: "100%",
-  height: "38px",
-  padding: "8px 10px",
+  minHeight: "40px",
+  boxSizing: "border-box",
   border:
-    "1px solid #cfd6df",
+    "1px solid #cfd8dc",
   borderRadius: "5px",
-  background: "#ffffff",
-  fontSize: "13px",
+  padding: "8px 10px",
+  fontSize: "14px",
   outline: "none",
+  background: "#ffffff",
 };
 
 const resultInputStyle = {
   width: "100%",
-  minWidth: "130px",
-  height: "34px",
-  padding: "7px 9px",
+  minHeight: "36px",
+  boxSizing: "border-box",
   border:
-    "1px solid #cfd6df",
+    "1px solid #cfd8dc",
   borderRadius: "4px",
+  padding: "7px 9px",
+  fontSize: "14px",
   background: "#fffdf5",
-  fontSize: "13px",
-  fontWeight: 500,
-  outline: "none",
 };
 
-const resultsTableStyle = {
+const testCardStyle = {
+  marginBottom: "18px",
+  border:
+    "1px solid #d9e2e5",
+  borderRadius: "6px",
+  overflow: "hidden",
+};
+
+const testTitleStyle = {
+  background: "#e3f3f1",
+  borderLeft:
+    "4px solid #147c75",
+  padding: "10px 12px",
+  fontWeight: "700",
+  color: "#176e68",
+  fontSize: "15px",
+};
+
+const tableStyle = {
   width: "100%",
-  minWidth: "650px",
   borderCollapse: "collapse",
+  minWidth: "650px",
 };
 
-const tableHeadStyle = {
+const headStyle = {
   padding: "9px 8px",
   border:
-    "1px solid #d8e0e6",
+    "1px solid #d5dee2",
   background: "#edf4f6",
   textAlign: "left",
   fontSize: "11px",
+  fontWeight: "700",
   color: "#263238",
 };
 
-const tableCellStyle = {
-  padding: "7px 8px",
+const cellStyle = {
+  padding: "8px",
   border:
-    "1px solid #d8e0e6",
+    "1px solid #dce3e6",
   verticalAlign: "middle",
   fontSize: "12px",
-  color: "#303840",
 };
 
 const primaryButtonStyle = {
-  padding: "9px 14px",
   border: "none",
   borderRadius: "5px",
-  background: "#168477",
+  background: "#087f78",
   color: "#ffffff",
+  padding: "9px 15px",
+  fontWeight: "700",
   cursor: "pointer",
-  fontWeight: 600,
 };
 
 const secondaryButtonStyle = {
-  padding: "9px 14px",
   border:
-    "1px solid #b8c2cc",
+    "1px solid #b8c4c8",
   borderRadius: "5px",
   background: "#ffffff",
   color: "#263238",
-  cursor: "pointer",
-  fontWeight: 600,
-};
-
-const saveButtonStyle = {
   padding: "9px 15px",
-  border: "none",
-  borderRadius: "5px",
-  background: "#087f73",
-  color: "#ffffff",
+  fontWeight: "600",
   cursor: "pointer",
-  fontWeight: 700,
 };
 
-const successStyle = {
-  maxWidth: "1100px",
-  margin: "0 auto 12px",
-  padding: "10px 12px",
-  borderRadius: "6px",
-  background: "#e7f7ef",
+const buttonStyle = {
   border:
-    "1px solid #9bd8b6",
-  color: "#17663c",
-  fontSize: "13px",
-  fontWeight: 600,
+    "1px solid #b8c4c8",
+  borderRadius: "5px",
+  background: "#ffffff",
+  padding: "9px 15px",
+  cursor: "pointer",
 };
 
-const dangerStyle = {
+const bottomBarStyle = {
   maxWidth: "1100px",
-  margin: "0 auto 12px",
-  padding: "10px 12px",
-  borderRadius: "6px",
-  background: "#fff0f0",
-  border:
-    "1px solid #efb0b0",
-  color: "#a52828",
-  fontSize: "13px",
+  margin: "0 auto",
+  background: "#ffffff",
+  borderRadius: "8px",
+  padding: "12px",
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "8px",
+  boxShadow:
+    "0 2px 8px rgba(0,0,0,0.07)",
 };
 
 const loadingCardStyle = {
-  maxWidth: "500px",
-  margin: "100px auto",
+  maxWidth: "600px",
+  margin: "50px auto",
   background: "#ffffff",
   padding: "30px",
-  borderRadius: "10px",
+  borderRadius: "8px",
   textAlign: "center",
-  boxShadow:
-    "0 3px 15px rgba(0,0,0,0.08)",
 };
 
 const errorCardStyle = {
-  maxWidth: "500px",
-  margin: "80px auto",
+  maxWidth: "600px",
+  margin: "50px auto",
   background: "#ffffff",
   padding: "30px",
-  borderRadius: "10px",
-  boxShadow:
-    "0 3px 15px rgba(0,0,0,0.08)",
+  borderRadius: "8px",
 };
 
-const spinnerStyle = {
-  width: "32px",
-  height: "32px",
+const emptyStyle = {
+  padding: "20px",
   border:
-    "4px solid #d9eeee",
-  borderTop:
-    "4px solid #168477",
-  borderRadius: "50%",
-  margin: "0 auto 15px",
+    "1px dashed #b9c7cb",
+  borderRadius: "6px",
+  background: "#f8fbfc",
+};
+
+const errorMessageStyle = {
+  maxWidth: "1100px",
+  margin: "0 auto 12px",
+  padding: "10px 12px",
+  borderRadius: "6px",
+  background: "#fdecec",
+  border:
+    "1px solid #efb7b7",
+  color: "#a32626",
+  fontSize: "13px",
+};
+
+const successMessageStyle = {
+  maxWidth: "1100px",
+  margin: "0 auto 12px",
+  padding: "10px 12px",
+  borderRadius: "6px",
+  background: "#e9f8f1",
+  border:
+    "1px solid #a9ddc3",
+  color: "#176b46",
+  fontSize: "13px",
 };
