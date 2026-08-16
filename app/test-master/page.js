@@ -43,6 +43,75 @@ const EMPTY_PARAMETER = {
 };
 
 /* =========================================================
+   HELPERS
+========================================================= */
+
+function cleanNumber(value) {
+  if (
+    value === "" ||
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+function parseOptions(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    String(value).trim() === ""
+  ) {
+    return [];
+  }
+
+  if (
+    typeof value === "object"
+  ) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {
+      text: String(value),
+    };
+  }
+}
+
+function formatOptions(value) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return "";
+  }
+
+  if (
+    typeof value === "string"
+  ) {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(
+      value,
+      null,
+      2
+    );
+  } catch {
+    return String(value);
+  }
+}
+
+/* =========================================================
    MAIN
 ========================================================= */
 
@@ -51,25 +120,41 @@ export default function TestMasterPage() {
 
   const [tests, setTests] = useState([]);
   const [prices, setPrices] = useState([]);
-
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
-
-  const [selectedTest, setSelectedTest] = useState(null);
   const [parameters, setParameters] = useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [search, setSearch] =
+    useState("");
+
+  const [category, setCategory] =
+    useState("All");
+
+  const [selectedTest, setSelectedTest] =
+    useState(null);
 
   /* =======================================================
      EDIT TEST MODAL
   ======================================================= */
 
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [
+    showEditModal,
+    setShowEditModal,
+  ] = useState(false);
 
-  const [editingTestId, setEditingTestId] = useState(null);
+  const [
+    editingTestId,
+    setEditingTestId,
+  ] = useState(null);
 
-  const [testForm, setTestForm] = useState({
+  const [
+    testForm,
+    setTestForm,
+  ] = useState({
     ...EMPTY_TEST,
   });
 
@@ -77,18 +162,34 @@ export default function TestMasterPage() {
      PRICE MODAL
   ======================================================= */
 
-  const [showPriceModal, setShowPriceModal] = useState(false);
-  const [priceTest, setPriceTest] = useState(null);
-  const [priceValue, setPriceValue] = useState("");
+  const [
+    showPriceModal,
+    setShowPriceModal,
+  ] = useState(false);
+
+  const [
+    priceTest,
+    setPriceTest,
+  ] = useState(null);
+
+  const [
+    priceValue,
+    setPriceValue,
+  ] = useState("");
 
   /* =======================================================
-     PARAMETER ADD MODAL
+     PARAMETER MODAL
   ======================================================= */
 
-  const [showParameterModal, setShowParameterModal] =
-    useState(false);
+  const [
+    showParameterModal,
+    setShowParameterModal,
+  ] = useState(false);
 
-  const [parameterForm, setParameterForm] = useState({
+  const [
+    parameterForm,
+    setParameterForm,
+  ] = useState({
     ...EMPTY_PARAMETER,
   });
 
@@ -100,12 +201,19 @@ export default function TestMasterPage() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      } = await supabase
         .from("tests")
         .select("*")
-        .order("name", { ascending: true });
+        .order("name", {
+          ascending: true,
+        });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setTests(data || []);
     } catch (error) {
@@ -126,14 +234,19 @@ export default function TestMasterPage() {
 
   async function loadPrices() {
     try {
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      } = await supabase
         .from("test_prices")
         .select("*")
         .order("created_at", {
           ascending: false,
         });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setPrices(data || []);
     } catch (error) {
@@ -150,26 +263,39 @@ export default function TestMasterPage() {
      LOAD PARAMETERS
   ======================================================= */
 
-  async function loadParameters(testId) {
+  async function loadParameters(
+    testId
+  ) {
     if (!testId) {
       setParameters([]);
       return [];
     }
 
     try {
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      } = await supabase
         .from("test_parameters")
         .select("*")
-        .eq("test_id", testId)
+        .eq(
+          "test_id",
+          testId
+        )
         .order("sort_order", {
           ascending: true,
         });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      const result = data || [];
+      const result =
+        data || [];
 
-      setParameters(result);
+      setParameters(
+        result
+      );
 
       return result;
     } catch (error) {
@@ -205,19 +331,29 @@ export default function TestMasterPage() {
      CURRENT PRICE
   ======================================================= */
 
-  function getTestPrice(test) {
-    const priceRow = prices.find(
-      (item) =>
-        String(item.test_id) ===
-          String(test.id) &&
-        item.is_active !== false
-    );
+  function getTestPrice(
+    test
+  ) {
+    const priceRow =
+      prices.find(
+        (item) =>
+          String(
+            item.test_id
+          ) ===
+            String(test.id) &&
+          item.is_active !==
+            false
+      );
 
     if (priceRow) {
-      return Number(priceRow.price || 0);
+      return Number(
+        priceRow.price || 0
+      );
     }
 
-    return Number(test.price || 0);
+    return Number(
+      test.price || 0
+    );
   }
 
   /* =======================================================
@@ -227,123 +363,168 @@ export default function TestMasterPage() {
   function openNewTest() {
     setEditingTestId(null);
 
+    setSelectedTest(null);
+
+    setParameters([]);
+
     setTestForm({
       ...EMPTY_TEST,
     });
 
-    setParameters([]);
-
     setShowEditModal(true);
+
     setShowPriceModal(false);
-    setShowParameterModal(false);
+
+    setShowParameterModal(
+      false
+    );
   }
 
   /* =======================================================
      EDIT TEST
-     
-     IMPORTANT:
-     YAHI MAIN CHANGE HAI.
-     
-     Edit click karte hi:
-     - Test information
-     - Parameters
-     - Min value
-     - Max value
-     - Normal/reference range
-     - Unit
-     - Options
-     
-     SAB EK HI MODAL ME AAYEGA.
   ======================================================= */
 
-  async function openEditTest(test) {
-    setEditingTestId(test.id);
-
-    setTestForm({
-      name: test.name || "",
-      short_name: test.short_name || "",
-      category:
-        test.category || "Hematology",
-      department:
-        test.department || "Laboratory",
-      sample_type:
-        test.sample_type || "",
-      price:
-        test.price === null ||
-        test.price === undefined
-          ? ""
-          : String(test.price),
-      method: test.method || "",
-      active:
-        test.active === undefined
-          ? true
-          : test.active,
-    });
+  async function openEditTest(
+    test
+  ) {
+    setEditingTestId(
+      test.id
+    );
 
     setSelectedTest(test);
 
-    /* Parameters पहले load होंगे */
-    await loadParameters(test.id);
+    setTestForm({
+      name:
+        test.name || "",
+
+      short_name:
+        test.short_name || "",
+
+      category:
+        test.category ||
+        "Hematology",
+
+      department:
+        test.department ||
+        "Laboratory",
+
+      sample_type:
+        test.sample_type ||
+        "",
+
+      price:
+        test.price ===
+          null ||
+        test.price ===
+          undefined
+          ? ""
+          : String(
+              test.price
+            ),
+
+      method:
+        test.method || "",
+
+      active:
+        test.active !==
+        false,
+    });
+
+    await loadParameters(
+      test.id
+    );
 
     setShowEditModal(true);
+
     setShowPriceModal(false);
-    setShowParameterModal(false);
+
+    setShowParameterModal(
+      false
+    );
   }
 
   /* =======================================================
      SELECT TEST
   ======================================================= */
 
-  async function selectTest(test) {
+  async function selectTest(
+    test
+  ) {
     setSelectedTest(test);
 
-    await loadParameters(test.id);
+    await loadParameters(
+      test.id
+    );
   }
 
   /* =======================================================
-     UPDATE TEST BASIC INFORMATION
+     UPDATE TEST BASIC
   ======================================================= */
 
   async function updateTestBasic() {
     if (!editingTestId) {
-      return;
+      throw new Error(
+        "Test ID missing."
+      );
     }
 
-    if (!testForm.name.trim()) {
+    if (
+      !testForm.name.trim()
+    ) {
       throw new Error(
         "Test name zaroori hai."
       );
     }
 
     const payload = {
-      name: testForm.name.trim(),
+      name:
+        testForm.name.trim(),
+
       short_name:
         testForm.short_name.trim(),
-      category: testForm.category,
+
+      category:
+        testForm.category,
+
       department:
         testForm.department.trim(),
+
       sample_type:
         testForm.sample_type.trim(),
+
       price:
         testForm.price === ""
           ? 0
-          : Number(testForm.price),
+          : Number(
+              testForm.price
+            ),
+
       method:
         testForm.method.trim(),
-      active: testForm.active,
+
+      active:
+        testForm.active,
+
       updated_at:
         new Date().toISOString(),
     };
 
-    const { data, error } =
-      await supabase
-        .from("tests")
-        .update(payload)
-        .eq("id", editingTestId)
-        .select()
-        .single();
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("tests")
+      .update(payload)
+      .eq(
+        "id",
+        editingTestId
+      )
+      .select()
+      .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     setSelectedTest(data);
 
@@ -352,80 +533,54 @@ export default function TestMasterPage() {
 
   /* =======================================================
      UPDATE ALL PARAMETERS
-     
-     THIS SAVES:
-     - Parameter name
-     - Unit
-     - Min value
-     - Max value
-     - Reference range
-     - Options
-     - Sort order
-     - Active
+
+     IMPORTANT:
+     test_parameters table me updated_at column nahi hai.
+
+     Isliye yahan updated_at NAHI bheja ja raha hai.
   ======================================================= */
 
   async function updateAllParameters() {
-    for (const parameter of parameters) {
-      let parsedOptions = {};
-
-      if (
-        parameter.options !== null &&
-        parameter.options !== undefined &&
-        String(parameter.options).trim() !== ""
-      ) {
-        if (
-          typeof parameter.options ===
-          "object"
-        ) {
-          parsedOptions =
-            parameter.options;
-        } else {
-          try {
-            parsedOptions = JSON.parse(
-              parameter.options
-            );
-          } catch {
-            parsedOptions = {
-              text: String(
-                parameter.options
-              ),
-            };
-          }
-        }
+    for (
+      const parameter of parameters
+    ) {
+      if (!parameter.id) {
+        continue;
       }
 
       const payload = {
         parameter_name:
-          parameter.parameter_name || "",
+          String(
+            parameter.parameter_name ||
+              ""
+          ).trim(),
 
         unit:
-          parameter.unit || "",
+          String(
+            parameter.unit ||
+              ""
+          ).trim(),
 
         min_value:
-          parameter.min_value === "" ||
-          parameter.min_value === null ||
-          parameter.min_value === undefined
-            ? null
-            : Number(
-                parameter.min_value
-              ),
+          cleanNumber(
+            parameter.min_value
+          ),
 
         max_value:
-          parameter.max_value === "" ||
-          parameter.max_value === null ||
-          parameter.max_value === undefined
-            ? null
-            : Number(
-                parameter.max_value
-              ),
-
-        /* MAIN REFERENCE RANGE FIELD */
+          cleanNumber(
+            parameter.max_value
+          ),
 
         reference_range:
-          parameter.reference_range ||
-          "",
+          String(
+            parameter.reference_range ||
+              ""
+          ).trim(),
 
-        options: parsedOptions,
+        options:
+          parseOptions(
+            parameter.options
+          ),
 
         sort_order:
           Number(
@@ -433,99 +588,140 @@ export default function TestMasterPage() {
           ) || 1,
 
         active:
-          parameter.active !== false,
-
-        updated_at:
-          new Date().toISOString(),
+          parameter.active !==
+          false,
       };
 
-      const { error } =
-        await supabase
-          .from("test_parameters")
-          .update(payload)
-          .eq("id", parameter.id);
+      if (
+        !payload.parameter_name
+      ) {
+        throw new Error(
+          "Parameter name empty nahi ho sakta."
+        );
+      }
 
-      if (error) throw error;
+      const {
+        error,
+      } = await supabase
+        .from(
+          "test_parameters"
+        )
+        .update(payload)
+        .eq(
+          "id",
+          parameter.id
+        );
+
+      if (error) {
+        throw error;
+      }
     }
   }
 
   /* =======================================================
-     SAVE TEST + ALL PARAMETERS
-     
-     ONE BUTTON:
-     "Update Test & Reference Ranges"
+     SAVE TEST + PARAMETERS
   ======================================================= */
 
-  async function saveEverything(event) {
+  async function saveEverything(
+    event
+  ) {
     event.preventDefault();
 
-    if (!editingTestId) {
-      /* New Test */
+    if (
+      !testForm.name.trim()
+    ) {
+      alert(
+        "Test name zaroori hai."
+      );
 
-      try {
-        setSaving(true);
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      /* ===============================================
+         NEW TEST
+      =============================================== */
+
+      if (!editingTestId) {
+        const now =
+          new Date().toISOString();
 
         const payload = {
-          name: testForm.name.trim(),
+          name:
+            testForm.name.trim(),
+
           short_name:
             testForm.short_name.trim(),
+
           category:
             testForm.category,
+
           department:
             testForm.department.trim(),
+
           sample_type:
             testForm.sample_type.trim(),
+
           price:
             testForm.price === ""
               ? 0
-              : Number(testForm.price),
+              : Number(
+                  testForm.price
+                ),
+
           method:
             testForm.method.trim(),
+
           active:
             testForm.active,
-          created_at:
-            new Date().toISOString(),
-          updated_at:
-            new Date().toISOString(),
+
+          created_at: now,
+
+          updated_at: now,
         };
 
-        const { data, error } =
-          await supabase
-            .from("tests")
-            .insert([payload])
-            .select()
-            .single();
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("tests")
+          .insert([
+            payload,
+          ])
+          .select()
+          .single();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         setSelectedTest(data);
-        setEditingTestId(data.id);
 
-        await loadTests();
+        setEditingTestId(
+          data.id
+        );
+
+        await Promise.all([
+          loadTests(),
+          loadPrices(),
+        ]);
 
         alert(
           "New test successfully added."
         );
 
-        setShowEditModal(false);
-      } catch (error) {
-        console.error(error);
-
-        alert(
-          "Test save nahi hua:\n" +
-            error.message
+        setShowEditModal(
+          false
         );
-      } finally {
-        setSaving(false);
+
+        return;
       }
 
-      return;
-    }
-
-    /* Existing test */
-
-    try {
-      setSaving(true);
+      /* ===============================================
+         EXISTING TEST
+      =============================================== */
 
       await updateTestBasic();
 
@@ -543,7 +739,9 @@ export default function TestMasterPage() {
         "Test + Normal Value + Reference Range successfully updated."
       );
 
-      setShowEditModal(false);
+      setShowEditModal(
+        false
+      );
     } catch (error) {
       console.error(error);
 
@@ -557,7 +755,7 @@ export default function TestMasterPage() {
   }
 
   /* =======================================================
-     CHANGE PARAMETER FIELD IN MEMORY
+     CHANGE PARAMETER
   ======================================================= */
 
   function changeParameter(
@@ -565,15 +763,19 @@ export default function TestMasterPage() {
     field,
     value
   ) {
-    setParameters((old) =>
-      old.map((item) =>
-        item.id === parameterId
-          ? {
-              ...item,
-              [field]: value,
-            }
-          : item
-      )
+    setParameters(
+      (old) =>
+        old.map(
+          (item) =>
+            item.id ===
+            parameterId
+              ? {
+                  ...item,
+                  [field]:
+                    value,
+                }
+              : item
+        )
     );
   }
 
@@ -586,16 +788,21 @@ export default function TestMasterPage() {
       alert(
         "Pehle test save karein."
       );
+
       return;
     }
 
     setParameterForm({
       ...EMPTY_PARAMETER,
+
       sort_order:
-        parameters.length + 1,
+        parameters.length +
+        1,
     });
 
-    setShowParameterModal(true);
+    setShowParameterModal(
+      true
+    );
   }
 
   /* =======================================================
@@ -611,6 +818,7 @@ export default function TestMasterPage() {
       alert(
         "Test select nahi hai."
       );
+
       return;
     }
 
@@ -620,31 +828,16 @@ export default function TestMasterPage() {
       alert(
         "Parameter name zaroori hai."
       );
+
       return;
     }
 
     try {
       setSaving(true);
 
-      let options = {};
-
-      if (
-        parameterForm.options.trim()
-      ) {
-        try {
-          options = JSON.parse(
-            parameterForm.options
-          );
-        } catch {
-          options = {
-            text:
-              parameterForm.options.trim(),
-          };
-        }
-      }
-
       const payload = {
-        test_id: editingTestId,
+        test_id:
+          editingTestId,
 
         parameter_name:
           parameterForm.parameter_name.trim(),
@@ -653,23 +846,22 @@ export default function TestMasterPage() {
           parameterForm.unit.trim(),
 
         min_value:
-          parameterForm.min_value === ""
-            ? null
-            : Number(
-                parameterForm.min_value
-              ),
+          cleanNumber(
+            parameterForm.min_value
+          ),
 
         max_value:
-          parameterForm.max_value === ""
-            ? null
-            : Number(
-                parameterForm.max_value
-              ),
+          cleanNumber(
+            parameterForm.max_value
+          ),
 
         reference_range:
           parameterForm.reference_range.trim(),
 
-        options,
+        options:
+          parseOptions(
+            parameterForm.options
+          ),
 
         sort_order:
           Number(
@@ -681,23 +873,29 @@ export default function TestMasterPage() {
 
         created_at:
           new Date().toISOString(),
-
-        updated_at:
-          new Date().toISOString(),
       };
 
-      const { error } =
-        await supabase
-          .from("test_parameters")
-          .insert([payload]);
+      const {
+        error,
+      } = await supabase
+        .from(
+          "test_parameters"
+        )
+        .insert([
+          payload,
+        ]);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       await loadParameters(
         editingTestId
       );
 
-      setShowParameterModal(false);
+      setShowParameterModal(
+        false
+      );
 
       setParameterForm({
         ...EMPTY_PARAMETER,
@@ -725,25 +923,33 @@ export default function TestMasterPage() {
   async function deleteParameter(
     parameter
   ) {
-    const ok = window.confirm(
-      `Kya "${parameter.parameter_name}" delete karna hai?`
-    );
+    const ok =
+      window.confirm(
+        `Kya "${parameter.parameter_name}" delete karna hai?`
+      );
 
-    if (!ok) return;
+    if (!ok) {
+      return;
+    }
 
     try {
       setSaving(true);
 
-      const { error } =
-        await supabase
-          .from("test_parameters")
-          .delete()
-          .eq(
-            "id",
-            parameter.id
-          );
+      const {
+        error,
+      } = await supabase
+        .from(
+          "test_parameters"
+        )
+        .delete()
+        .eq(
+          "id",
+          parameter.id
+        );
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       await loadParameters(
         editingTestId ||
@@ -754,6 +960,8 @@ export default function TestMasterPage() {
         "Parameter deleted."
       );
     } catch (error) {
+      console.error(error);
+
       alert(
         "Parameter delete nahi hua:\n" +
           error.message
@@ -764,40 +972,55 @@ export default function TestMasterPage() {
   }
 
   /* =======================================================
-     PRICE EDIT
+     PRICE EDITOR
   ======================================================= */
 
-  function openPriceEditor(test) {
+  function openPriceEditor(
+    test
+  ) {
     setPriceTest(test);
 
     setPriceValue(
-      String(getTestPrice(test))
+      String(
+        getTestPrice(test)
+      )
     );
 
     setShowPriceModal(true);
+
     setShowEditModal(false);
-    setShowParameterModal(false);
+
+    setShowParameterModal(
+      false
+    );
   }
 
   /* =======================================================
      SAVE PRICE
   ======================================================= */
 
-  async function savePrice(event) {
+  async function savePrice(
+    event
+  ) {
     event.preventDefault();
 
-    if (!priceTest) return;
+    if (!priceTest) {
+      return;
+    }
 
     const numericPrice =
       Number(priceValue);
 
     if (
-      Number.isNaN(numericPrice) ||
+      !Number.isFinite(
+        numericPrice
+      ) ||
       numericPrice < 0
     ) {
       alert(
         "Valid price enter karein."
       );
+
       return;
     }
 
@@ -805,73 +1028,105 @@ export default function TestMasterPage() {
       setSaving(true);
 
       const testId =
-        String(priceTest.id);
+        String(
+          priceTest.id
+        );
 
-      const { data: existing, error } =
-        await supabase
-          .from("test_prices")
-          .select("*")
-          .eq(
-            "test_id",
-            testId
-          )
-          .eq(
-            "is_active",
-            true
-          )
-          .order("created_at", {
+      const {
+        data: existing,
+        error,
+      } = await supabase
+        .from(
+          "test_prices"
+        )
+        .select("*")
+        .eq(
+          "test_id",
+          testId
+        )
+        .eq(
+          "is_active",
+          true
+        )
+        .order(
+          "created_at",
+          {
             ascending: false,
-          })
-          .limit(1);
+          }
+        )
+        .limit(1);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       if (
         existing &&
         existing.length > 0
       ) {
-        const { error: updateError } =
-          await supabase
-            .from("test_prices")
-            .update({
-              price:
-                numericPrice,
-              test_name:
-                priceTest.name,
-              category:
-                priceTest.category,
-              is_active: true,
-              updated_at:
-                new Date().toISOString(),
-            })
-            .eq(
-              "id",
-              existing[0].id
-            );
+        const {
+          error:
+            updateError,
+        } = await supabase
+          .from(
+            "test_prices"
+          )
+          .update({
+            price:
+              numericPrice,
+
+            test_name:
+              priceTest.name,
+
+            category:
+              priceTest.category,
+
+            is_active:
+              true,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            existing[0].id
+          );
 
         if (updateError) {
           throw updateError;
         }
       } else {
-        const { error: insertError } =
-          await supabase
-            .from("test_prices")
-            .insert([
-              {
-                test_id: testId,
-                test_name:
-                  priceTest.name,
-                category:
-                  priceTest.category,
-                price:
-                  numericPrice,
-                is_active: true,
-                created_at:
-                  new Date().toISOString(),
-                updated_at:
-                  new Date().toISOString(),
-              },
-            ]);
+        const {
+          error:
+            insertError,
+        } = await supabase
+          .from(
+            "test_prices"
+          )
+          .insert([
+            {
+              test_id:
+                testId,
+
+              test_name:
+                priceTest.name,
+
+              category:
+                priceTest.category,
+
+              price:
+                numericPrice,
+
+              is_active:
+                true,
+
+              created_at:
+                new Date().toISOString(),
+
+              updated_at:
+                new Date().toISOString(),
+            },
+          ]);
 
         if (insertError) {
           throw insertError;
@@ -880,19 +1135,22 @@ export default function TestMasterPage() {
 
       /* Sync tests table */
 
-      const { error: syncError } =
-        await supabase
-          .from("tests")
-          .update({
-            price:
-              numericPrice,
-            updated_at:
-              new Date().toISOString(),
-          })
-          .eq(
-            "id",
-            priceTest.id
-          );
+      const {
+        error:
+          syncError,
+      } = await supabase
+        .from("tests")
+        .update({
+          price:
+            numericPrice,
+
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          priceTest.id
+        );
 
       if (syncError) {
         console.warn(
@@ -906,7 +1164,9 @@ export default function TestMasterPage() {
         loadPrices(),
       ]);
 
-      setShowPriceModal(false);
+      setShowPriceModal(
+        false
+      );
 
       alert(
         "Price successfully updated."
@@ -931,21 +1191,25 @@ export default function TestMasterPage() {
     test
   ) {
     try {
-      const { error } =
-        await supabase
-          .from("tests")
-          .update({
-            active:
-              !test.active,
-            updated_at:
-              new Date().toISOString(),
-          })
-          .eq(
-            "id",
-            test.id
-          );
+      const {
+        error,
+      } = await supabase
+        .from("tests")
+        .update({
+          active:
+            !test.active,
 
-      if (error) throw error;
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          test.id
+        );
+
+      if (error) {
+        throw error;
+      }
 
       await loadTests();
     } catch (error) {
@@ -968,54 +1232,67 @@ export default function TestMasterPage() {
         `Kya "${test.name}" ko delete karna hai?\n\nIske parameters bhi delete honge.`
       );
 
-    if (!ok) return;
+    if (!ok) {
+      return;
+    }
 
     try {
       setSaving(true);
 
-      const { error: pError } =
-        await supabase
-          .from(
-            "test_parameters"
-          )
-          .delete()
-          .eq(
-            "test_id",
-            test.id
-          );
+      const {
+        error:
+          parameterError,
+      } = await supabase
+        .from(
+          "test_parameters"
+        )
+        .delete()
+        .eq(
+          "test_id",
+          test.id
+        );
 
-      if (pError) {
-        throw pError;
+      if (parameterError) {
+        throw parameterError;
       }
 
-      const { error: tError } =
-        await supabase
-          .from("tests")
-          .delete()
-          .eq(
-            "id",
-            test.id
-          );
+      const {
+        error:
+          testError,
+      } = await supabase
+        .from("tests")
+        .delete()
+        .eq(
+          "id",
+          test.id
+        );
 
-      if (tError) {
-        throw tError;
+      if (testError) {
+        throw testError;
       }
 
       if (
         selectedTest?.id ===
         test.id
       ) {
-        setSelectedTest(null);
+        setSelectedTest(
+          null
+        );
+
         setParameters([]);
       }
 
-      await loadTests();
-      await loadPrices();
+      await Promise.all([
+        loadTests(),
+        loadPrices(),
+      ]);
 
       alert(
         "Test successfully deleted."
       );
     } catch (error) {
+      console.error(error);
+
       alert(
         "Delete nahi hua:\n" +
           error.message
@@ -1043,13 +1320,16 @@ export default function TestMasterPage() {
             (test.name || "")
               .toLowerCase()
               .includes(q) ||
-            (test.short_name || "")
+            (test.short_name ||
+              "")
               .toLowerCase()
               .includes(q) ||
-            (test.category || "")
+            (test.category ||
+              "")
               .toLowerCase()
               .includes(q) ||
-            (test.sample_type || "")
+            (test.sample_type ||
+              "")
               .toLowerCase()
               .includes(q);
 
@@ -1076,7 +1356,11 @@ export default function TestMasterPage() {
   ======================================================= */
 
   return (
-    <div style={pageStyle}>
+    <div
+      style={
+        pageStyle
+      }
+    >
       {/* HEADER */}
 
       <header
@@ -1086,16 +1370,9 @@ export default function TestMasterPage() {
       >
         <div>
           <div
-            style={{
-              fontSize:
-                "9px",
-              fontWeight:
-                "900",
-              color:
-                "#079b94",
-              letterSpacing:
-                "1px",
-            }}
+            style={
+              eyebrowStyle
+            }
           >
             NIDAN PATHOLOGY LAB
           </div>
@@ -1112,13 +1389,9 @@ export default function TestMasterPage() {
           </h1>
 
           <p
-            style={{
-              margin: 0,
-              fontSize:
-                "10px",
-              color:
-                "#718096",
-            }}
+            style={
+              subTextStyle
+            }
           >
             Tests, prices,
             parameters &
@@ -1128,11 +1401,9 @@ export default function TestMasterPage() {
         </div>
 
         <div
-          style={{
-            display:
-              "flex",
-            gap: "6px",
-          }}
+          style={
+            buttonRow
+          }
         >
           <button
             onClick={() =>
@@ -1254,14 +1525,9 @@ export default function TestMasterPage() {
                 </h2>
 
                 <p
-                  style={{
-                    margin:
-                      "3px 0 0",
-                    color:
-                      "#718096",
-                    fontSize:
-                      "10px",
-                  }}
+                  style={
+                    subTextStyle
+                  }
                 >
                   {
                     filteredTests.length
@@ -1271,12 +1537,12 @@ export default function TestMasterPage() {
               </div>
 
               <button
-                onClick={
-                  async () => {
-                    await loadTests();
-                    await loadPrices();
-                  }
-                }
+                onClick={async () => {
+                  await Promise.all([
+                    loadTests(),
+                    loadPrices(),
+                  ]);
+                }}
                 style={
                   smallButton
                 }
@@ -1346,14 +1612,9 @@ export default function TestMasterPage() {
                     }}
                   >
                     <div
-                      style={{
-                        display:
-                          "flex",
-                        justifyContent:
-                          "space-between",
-                        gap:
-                          "8px",
-                      }}
+                      style={
+                        testRow
+                      }
                     >
                       <div
                         style={{
@@ -1380,7 +1641,9 @@ export default function TestMasterPage() {
                             fontSize:
                               "8px",
                             color:
-                              "#087f68",
+                              test.active
+                                ? "#087f68"
+                                : "#b42323",
                             fontWeight:
                               "900",
                           }}
@@ -1391,16 +1654,9 @@ export default function TestMasterPage() {
                         </span>
 
                         <div
-                          style={{
-                            marginTop:
-                              "5px",
-                            display:
-                              "flex",
-                            gap:
-                              "5px",
-                            flexWrap:
-                              "wrap",
-                          }}
+                          style={
+                            badgeRow
+                          }
                         >
                           <Badge>
                             {
@@ -1425,18 +1681,9 @@ export default function TestMasterPage() {
                       </div>
 
                       <div
-                        style={{
-                          display:
-                            "flex",
-                          alignItems:
-                            "center",
-                          gap:
-                            "4px",
-                          flexWrap:
-                            "wrap",
-                          justifyContent:
-                            "flex-end",
-                        }}
+                        style={
+                          actionRow
+                        }
                       >
                         <button
                           onClick={(
@@ -1454,8 +1701,6 @@ export default function TestMasterPage() {
                         >
                           💰 Edit Price
                         </button>
-
-                        {/* MAIN EDIT BUTTON */}
 
                         <button
                           onClick={(
@@ -1563,25 +1808,15 @@ export default function TestMasterPage() {
                 }}
               >
                 <div
-                  style={{
-                    display:
-                      "flex",
-                    justifyContent:
-                      "space-between",
-                    gap:
-                      "10px",
-                  }}
+                  style={
+                    selectedHeader
+                  }
                 >
                   <div>
                     <div
-                      style={{
-                        fontSize:
-                          "9px",
-                        fontWeight:
-                          "900",
-                        color:
-                          "#079b94",
-                      }}
+                      style={
+                        eyebrowStyle
+                      }
                     >
                       SELECTED TEST
                     </div>
@@ -1615,14 +1850,9 @@ export default function TestMasterPage() {
                 </div>
 
                 <hr
-                  style={{
-                    border:
-                      "none",
-                    borderTop:
-                      "1px solid #e8edf2",
-                    margin:
-                      "12px 0",
-                  }}
+                  style={
+                    hrStyle
+                  }
                 />
 
                 <h3
@@ -1633,7 +1863,11 @@ export default function TestMasterPage() {
                       "14px",
                   }}
                 >
-                  Parameters
+                  Parameters (
+                  {
+                    parameters.length
+                  }
+                  )
                 </h3>
 
                 {parameters.length ===
@@ -1647,9 +1881,7 @@ export default function TestMasterPage() {
                   </div>
                 ) : (
                   parameters.map(
-                    (
-                      p
-                    ) => (
+                    (p) => (
                       <ParameterPreview
                         key={
                           p.id
@@ -1668,7 +1900,7 @@ export default function TestMasterPage() {
       </main>
 
       {/* =====================================================
-          EDIT TEST + PARAMETERS MODAL
+          EDIT TEST MODAL
       ===================================================== */}
 
       {showEditModal && (
@@ -1682,8 +1914,6 @@ export default function TestMasterPage() {
               largeModalStyle
             }
           >
-            {/* MODAL HEADER */}
-
             <div
               style={
                 modalHeader
@@ -1691,16 +1921,9 @@ export default function TestMasterPage() {
             >
               <div>
                 <div
-                  style={{
-                    fontSize:
-                      "9px",
-                    fontWeight:
-                      "900",
-                    color:
-                      "#079b94",
-                    letterSpacing:
-                      "1px",
-                  }}
+                  style={
+                    eyebrowStyle
+                  }
                 >
                   TEST MASTER
                 </div>
@@ -1719,16 +1942,13 @@ export default function TestMasterPage() {
                 </h2>
 
                 <p
-                  style={{
-                    margin: 0,
-                    fontSize:
-                      "10px",
-                    color:
-                      "#718096",
-                  }}
+                  style={
+                    subTextStyle
+                  }
                 >
-                  Test details aur normal/reference
-                  values yahin se manage karein.
+                  Test details aur
+                  normal/reference values
+                  yahin se manage karein.
                 </p>
               </div>
 
@@ -1752,9 +1972,7 @@ export default function TestMasterPage() {
                 saveEverything
               }
             >
-              {/* =================================================
-                  BASIC TEST INFORMATION
-              ================================================= */}
+              {/* TEST INFORMATION */}
 
               <div
                 style={
@@ -1895,9 +2113,7 @@ export default function TestMasterPage() {
                 />
               </div>
 
-              {/* =================================================
-                  PARAMETERS
-              ================================================= */}
+              {/* PARAMETERS */}
 
               {editingTestId && (
                 <div
@@ -1906,18 +2122,9 @@ export default function TestMasterPage() {
                   }
                 >
                   <div
-                    style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems:
-                        "center",
-                      gap:
-                        "10px",
-                      marginBottom:
-                        "12px",
-                    }}
+                    style={
+                      sectionTop
+                    }
                   >
                     <div>
                       <div
@@ -1931,18 +2138,14 @@ export default function TestMasterPage() {
                       </div>
 
                       <div
-                        style={{
-                          fontSize:
-                            "10px",
-                          color:
-                            "#718096",
-                          marginTop:
-                            "3px",
-                        }}
+                        style={
+                          helpStyle
+                        }
                       >
-                        Yahin se Normal Min,
-                        Max aur Reference
-                        Range change karein.
+                        Normal Min, Max,
+                        Unit aur Reference
+                        Range yahin change
+                        karein.
                       </div>
                     </div>
 
@@ -1963,18 +2166,9 @@ export default function TestMasterPage() {
                   {parameters.length ===
                   0 ? (
                     <div
-                      style={{
-                        border:
-                          "1px dashed #cbd5e1",
-                        borderRadius:
-                          "8px",
-                        padding:
-                          "25px",
-                        textAlign:
-                          "center",
-                        color:
-                          "#718096",
-                      }}
+                      style={
+                        noParameterBox
+                      }
                     >
                       <div
                         style={{
@@ -1996,19 +2190,14 @@ export default function TestMasterPage() {
                         }}
                       >
                         + Add Parameter
-                        पर click करें।
+                        par click karein.
                       </p>
                     </div>
                   ) : (
                     <div
-                      style={{
-                        display:
-                          "flex",
-                        flexDirection:
-                          "column",
-                        gap:
-                          "12px",
-                      }}
+                      style={
+                        parameterList
+                      }
                     >
                       {parameters.map(
                         (
@@ -2041,9 +2230,7 @@ export default function TestMasterPage() {
                 </div>
               )}
 
-              {/* =================================================
-                  FOOTER BUTTONS
-              ================================================= */}
+              {/* FOOTER */}
 
               <div
                 style={
@@ -2116,25 +2303,18 @@ export default function TestMasterPage() {
               />
 
               <div
-                style={{
-                  padding:
-                    "10px",
-                  background:
-                    "#f0fdfa",
-                  border:
-                    "1px solid #ccfbf1",
-                  borderRadius:
-                    "8px",
-                  marginBottom:
-                    "12px",
-                }}
+                style={
+                  priceInfo
+                }
               >
                 Current Price:{" "}
                 <strong>
                   ₹
-                  {getTestPrice(
-                    priceTest
-                  )}
+                  {
+                    getTestPrice(
+                      priceTest
+                    )
+                  }
                 </strong>
               </div>
 
@@ -2348,8 +2528,8 @@ export default function TestMasterPage() {
                   }
                 >
                   Example: Male: 13-17
-                  g/dL | Female: 12-15
-                  g/dL
+                  g/dL | Female:
+                  12-15 g/dL
                 </div>
               </div>
 
@@ -2364,7 +2544,7 @@ export default function TestMasterPage() {
                     labelStyle
                   }
                 >
-                  Options
+                  Options / Choices
                 </label>
 
                 <textarea
@@ -2379,9 +2559,11 @@ export default function TestMasterPage() {
                     })
                   }
                   placeholder='{"choices":["Positive","Negative"]}'
-                  style={
-                    textareaStyle
-                  }
+                  style={{
+                    ...textareaStyle,
+                    fontFamily:
+                      "monospace",
+                  }}
                 />
               </div>
 
@@ -2454,28 +2636,14 @@ function ParameterEditor({
 }) {
   return (
     <div
-      style={{
-        border:
-          "1px solid #dce6eb",
-        borderRadius:
-          "10px",
-        padding:
-          "12px",
-        background:
-          "#fbfefe",
-      }}
+      style={
+        parameterBox
+      }
     >
       <div
-        style={{
-          display:
-            "flex",
-          justifyContent:
-            "space-between",
-          alignItems:
-            "center",
-          marginBottom:
-            "10px",
-        }}
+        style={
+          parameterHeader
+        }
       >
         <div>
           <strong
@@ -2484,7 +2652,8 @@ function ParameterEditor({
                 "13px",
             }}
           >
-            Parameter #{index + 1}
+            Parameter #
+            {index + 1}
           </strong>
 
           <span
@@ -2620,24 +2789,9 @@ function ParameterEditor({
           </label>
 
           <label
-            style={{
-              display:
-                "flex",
-              alignItems:
-                "center",
-              gap:
-                "7px",
-              fontSize:
-                "11px",
-              padding:
-                "10px",
-              border:
-                "1px solid #d7e0e8",
-              borderRadius:
-                "7px",
-              background:
-                "#fff",
-            }}
+            style={
+              checkboxBox
+            }
           >
             <input
               type="checkbox"
@@ -2659,23 +2813,12 @@ function ParameterEditor({
         </div>
       </div>
 
-      {/* =====================================================
-          MAIN REFERENCE RANGE FIELD
-      ===================================================== */}
+      {/* REFERENCE RANGE */}
 
       <div
-        style={{
-          marginTop:
-            "11px",
-          padding:
-            "10px",
-          border:
-            "1px solid #bfe8e3",
-          background:
-            "#f0fdfa",
-          borderRadius:
-            "8px",
-        }}
+        style={
+          referenceBox
+        }
       >
         <label
           style={{
@@ -2711,10 +2854,9 @@ function ParameterEditor({
             helpStyle
           }
         >
-          यही value report में normal/reference
-          range के रूप में use की जा सकती है।
-          Example: Male: 13-17 g/dL | Female:
-          12-15 g/dL
+          यही value report में
+          normal/reference range
+          के रूप में use की जा सकती है।
         </div>
       </div>
 
@@ -2768,16 +2910,9 @@ function ParameterPreview({
 }) {
   return (
     <div
-      style={{
-        border:
-          "1px solid #e3eaf0",
-        borderRadius:
-          "8px",
-        padding:
-          "10px",
-        marginBottom:
-          "7px",
-      }}
+      style={
+        previewBox
+      }
     >
       <strong
         style={{
@@ -2791,14 +2926,9 @@ function ParameterPreview({
       </strong>
 
       <div
-        style={{
-          fontSize:
-            "10px",
-          color:
-            "#667085",
-          marginTop:
-            "4px",
-        }}
+        style={
+          previewText
+        }
       >
         Unit:{" "}
         {parameter.unit ||
@@ -2806,18 +2936,9 @@ function ParameterPreview({
       </div>
 
       <div
-        style={{
-          marginTop:
-            "6px",
-          background:
-            "#f0fdfa",
-          borderRadius:
-            "6px",
-          padding:
-            "7px",
-          fontSize:
-            "10px",
-        }}
+        style={
+          previewRange
+        }
       >
         <strong>
           Normal / Reference:
@@ -2966,20 +3087,9 @@ function Checkbox({
 }) {
   return (
     <label
-      style={{
-        display:
-          "flex",
-        alignItems:
-          "center",
-        gap:
-          "7px",
-        marginTop:
-          "11px",
-        fontSize:
-          "11px",
-        fontWeight:
-          "800",
-      }}
+      style={
+        checkboxLabel
+      }
     >
       <input
         type="checkbox"
@@ -3007,20 +3117,9 @@ function Badge({
 }) {
   return (
     <span
-      style={{
-        background:
-          "#eef5f7",
-        color:
-          "#536674",
-        borderRadius:
-          "12px",
-        padding:
-          "3px 6px",
-        fontSize:
-          "8px",
-        fontWeight:
-          "700",
-      }}
+      style={
+        badgeStyle
+      }
     >
       {children}
     </span>
@@ -3054,14 +3153,9 @@ function ModalHeader({
         </h2>
 
         <p
-          style={{
-            margin:
-              "3px 0 0",
-            fontSize:
-              "10px",
-            color:
-              "#718096",
-          }}
+          style={
+            subTextStyle
+          }
         >
           {subtitle}
         </p>
@@ -3080,40 +3174,6 @@ function ModalHeader({
       </button>
     </div>
   );
-}
-
-/* =========================================================
-   FORMAT OPTIONS
-========================================================= */
-
-function formatOptions(
-  options
-) {
-  if (
-    options === null ||
-    options === undefined
-  ) {
-    return "";
-  }
-
-  if (
-    typeof options ===
-    "string"
-  ) {
-    return options;
-  }
-
-  try {
-    return JSON.stringify(
-      options,
-      null,
-      2
-    );
-  } catch {
-    return String(
-      options
-    );
-  }
 }
 
 /* =========================================================
@@ -3453,4 +3513,251 @@ const helpStyle = {
     "#64748b",
   lineHeight:
     "1.4",
+};
+
+const eyebrowStyle = {
+  fontSize:
+    "9px",
+  fontWeight:
+    "900",
+  color:
+    "#079b94",
+  letterSpacing:
+    "1px",
+};
+
+const subTextStyle = {
+  margin:
+    "3px 0 0",
+  fontSize:
+    "10px",
+  color:
+    "#718096",
+};
+
+const buttonRow = {
+  display:
+    "flex",
+  gap:
+    "6px",
+  flexWrap:
+    "wrap",
+  justifyContent:
+    "flex-end",
+};
+
+const testRow = {
+  display:
+    "flex",
+  justifyContent:
+    "space-between",
+  gap:
+    "8px",
+};
+
+const badgeRow = {
+  marginTop:
+    "5px",
+  display:
+    "flex",
+  gap:
+    "5px",
+  flexWrap:
+    "wrap",
+};
+
+const actionRow = {
+  display:
+    "flex",
+  alignItems:
+    "center",
+  gap:
+    "4px",
+  flexWrap:
+    "wrap",
+  justifyContent:
+    "flex-end",
+};
+
+const selectedHeader = {
+  display:
+    "flex",
+  justifyContent:
+    "space-between",
+  gap:
+    "10px",
+};
+
+const hrStyle = {
+  border:
+    "none",
+  borderTop:
+    "1px solid #e8edf2",
+  margin:
+    "12px 0",
+};
+
+const sectionTop = {
+  display:
+    "flex",
+  justifyContent:
+    "space-between",
+  alignItems:
+    "center",
+  gap:
+    "10px",
+  marginBottom:
+    "12px",
+};
+
+const noParameterBox = {
+  border:
+    "1px dashed #cbd5e1",
+  borderRadius:
+    "8px",
+  padding:
+    "25px",
+  textAlign:
+    "center",
+  color:
+    "#718096",
+};
+
+const parameterList = {
+  display:
+    "flex",
+  flexDirection:
+    "column",
+  gap:
+    "12px",
+};
+
+const parameterBox = {
+  border:
+    "1px solid #dce6eb",
+  borderRadius:
+    "10px",
+  padding:
+    "12px",
+  background:
+    "#fbfefe",
+};
+
+const parameterHeader = {
+  display:
+    "flex",
+  justifyContent:
+    "space-between",
+  alignItems:
+    "center",
+  marginBottom:
+    "10px",
+};
+
+const checkboxLabel = {
+  display:
+    "flex",
+  alignItems:
+    "center",
+  gap:
+    "7px",
+  marginTop:
+    "11px",
+  fontSize:
+    "11px",
+  fontWeight:
+    "800",
+};
+
+const checkboxBox = {
+  display:
+    "flex",
+  alignItems:
+    "center",
+  gap:
+    "7px",
+  fontSize:
+    "11px",
+  padding:
+    "10px",
+  border:
+    "1px solid #d7e0e8",
+  borderRadius:
+    "7px",
+  background:
+    "#fff",
+};
+
+const referenceBox = {
+  marginTop:
+    "11px",
+  padding:
+    "10px",
+  border:
+    "1px solid #bfe8e3",
+  background:
+    "#f0fdfa",
+  borderRadius:
+    "8px",
+};
+
+const previewBox = {
+  border:
+    "1px solid #e3eaf0",
+  borderRadius:
+    "8px",
+  padding:
+    "10px",
+  marginBottom:
+    "7px",
+};
+
+const previewText = {
+  fontSize:
+    "10px",
+  color:
+    "#667085",
+  marginTop:
+    "4px",
+};
+
+const previewRange = {
+  marginTop:
+    "6px",
+  background:
+    "#f0fdfa",
+  borderRadius:
+    "6px",
+  padding:
+    "7px",
+  fontSize:
+    "10px",
+};
+
+const priceInfo = {
+  padding:
+    "10px",
+  background:
+    "#f0fdfa",
+  border:
+    "1px solid #ccfbf1",
+  borderRadius:
+    "8px",
+  marginBottom:
+    "12px",
+};
+
+const badgeStyle = {
+  background:
+    "#eef5f7",
+  color:
+    "#536674",
+  borderRadius:
+    "12px",
+  padding:
+    "3px 6px",
+  fontSize:
+    "8px",
+  fontWeight:
+    "700",
 };
