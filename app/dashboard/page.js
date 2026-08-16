@@ -21,41 +21,53 @@ export default function DashboardPage() {
   const [recentPatients, setRecentPatients] = useState([]);
 
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [labOnline, setLabOnline] = useState(true);
-  const [error, setError] = useState("");
 
-  // ----------------------------------------------------
-  // AUTH + DASHBOARD LOAD
-  // ----------------------------------------------------
+  // =========================================================
+  // LOAD DASHBOARD
+  // =========================================================
+
   useEffect(() => {
     let mounted = true;
 
-    async function initDashboard() {
+    async function startDashboard() {
       try {
         setLoading(true);
-        setError("");
 
+        // Check current session
         const {
-          data: { user: currentUser },
-          error: userError,
-        } = await supabase.auth.getUser();
+          data: { session },
+        } = await supabase.auth.getSession();
 
-        if (userError || !currentUser) {
+        if (!session?.user) {
           router.replace("/login");
           return;
         }
 
         if (!mounted) return;
 
-        setUser(currentUser);
+        setUser(session.user);
 
-        await loadDashboard(currentUser);
-      } catch (err) {
-        console.error("Dashboard error:", err);
+        // Listen for authentication changes
+        const {
+          data: { subscription: authSubscription },
+        } = supabase.auth.onAuthStateChange((_event, sessionData) => {
+          if (!sessionData?.user) {
+            router.replace("/login");
+          } else {
+            setUser(sessionData.user);
+          }
+        });
 
-        if (mounted) {
-          setError("Dashboard data load nahi ho pa raha hai.");
-        }
+        // Load all dashboard data
+        await loadDashboard(session.user);
+
+        return () => {
+          authSubscription?.unsubscribe();
+        };
+      } catch (error) {
+        console.error("Dashboard loading error:", error);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -63,37 +75,27 @@ export default function DashboardPage() {
       }
     }
 
-    initDashboard();
-
-    // Auth state listener
-    const {
-      data: { subscription: authSubscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
-
-      if (event === "SIGNED_OUT" || !session?.user) {
-        router.replace("/login");
-      } else {
-        setUser(session.user);
-      }
-    });
+    startDashboard();
 
     return () => {
       mounted = false;
-      authSubscription?.unsubscribe();
     };
   }, [router]);
 
-  // ----------------------------------------------------
-  // LOAD DASHBOARD DATA
-  // ----------------------------------------------------
-  async function loadDashboard(currentUser) {
-    try {
-      setLoading(true);
+  // =========================================================
+  // LOAD DATA
+  // =========================================================
 
-      // -----------------------------
+  async function loadDashboard(currentUser = user) {
+    try {
+      if (!currentUser?.id) return;
+
+      setLabOnline(true);
+
+      // -------------------------------------------------------
       // SUBSCRIPTION
-      // -----------------------------
+      // -------------------------------------------------------
+
       const { data: subscriptionData, error: subscriptionError } =
         await supabase
           .from("subscriptions")
@@ -103,224 +105,262 @@ export default function DashboardPage() {
           .limit(1)
           .maybeSingle();
 
-      if (!subscriptionError && subscriptionData) {
+      if (subscriptionError) {
+        console.error("Subscription error:", subscriptionError);
+      }
+
+      if (subscriptionData) {
         setSubscription(subscriptionData);
       }
 
-      // -----------------------------
+      // -------------------------------------------------------
       // PATIENTS
-      // -----------------------------
-      let patientCount = 0;
+      // -------------------------------------------------------
+
       let patients = [];
 
-      const {
-        count: patientsCount,
-        data: patientData,
-        error: patientsError,
-      } = await supabase
+      const { data: patientData, error: patientError } = await supabase
         .from("patients")
-        .select("*", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .select("*");
 
-      if (!patientsError) {
-        patientCount = patientsCount || 0;
-        patients = patientData || [];
-      } else {
-        console.error("Patients error:", patientsError);
+      if (patientError) {
+        console.error("Patients error:", patientError);
+      } else if (patientData) {
+        patients = patientData;
       }
 
-      setRecentPatients(patients);
+      // Sort latest patients first
+      patients.sort((a, b) => {
+        const dateA = new Date(
+          a.created_at ||
+            a.createdAt ||
+            a.registration_date ||
+            a.date ||
+            0
+        ).getTime();
 
-      // -----------------------------
+        const dateB = new Date(
+          b.created_at ||
+            b.createdAt ||
+            b.registration_date ||
+            b.date ||
+            0
+        ).getTime();
+
+        return dateB - dateA;
+      });
+
+      setRecentPatients(patients.slice(0, 5));
+
+      // -------------------------------------------------------
       // BILLS
-      // -----------------------------
-      let billCount = 0;
-      let collection = 0;
+      // -------------------------------------------------------
 
-      const {
-        data: billData,
-        count: billsCount,
-        error: billsError,
-      } = await supabase
+      let bills = [];
+
+      const { data: billData, error: billError } = await supabase
         .from("bills")
-        .select("*", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .select("*");
 
-      if (!billsError) {
-        billCount = billsCount || 0;
-
-        collection = (billData || []).reduce((total, bill) => {
-          const amount =
-            Number(
-              bill.total_amount ??
-                bill.amount ??
-                bill.grand_total ??
-                bill.paid_amount ??
-                0
-            ) || 0;
-
-          return total + amount;
-        }, 0);
-      } else {
-        console.error("Bills error:", billsError);
+      if (billError) {
+        console.error("Bills error:", billError);
+      } else if (billData) {
+        bills = billData;
       }
 
-      // -----------------------------
+      // -------------------------------------------------------
       // REPORTS
-      // -----------------------------
-      let pendingReports = 0;
+      // -------------------------------------------------------
 
-      const {
-        data: reportsData,
-        error: reportsError,
-      } = await supabase
+      let reports = [];
+
+      const { data: reportData, error: reportError } = await supabase
         .from("reports")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .select("*");
 
-      if (!reportsError) {
-        pendingReports = (reportsData || []).filter((report) => {
-          const status = String(
-            report.status ??
-              report.report_status ??
-              report.result_status ??
-              ""
-          ).toUpperCase();
-
-          return (
-            status === "PENDING" ||
-            status === "INCOMPLETE" ||
-            status === "DRAFT" ||
-            status === "PROCESSING"
-          );
-        }).length;
-      } else {
-        console.error("Reports error:", reportsError);
+      if (reportError) {
+        console.error("Reports error:", reportError);
+      } else if (reportData) {
+        reports = reportData;
       }
+
+      // -------------------------------------------------------
+      // TODAY
+      // -------------------------------------------------------
+
+      const today = new Date();
+
+      const isToday = (value) => {
+        if (!value) return false;
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) return false;
+
+        return (
+          date.getFullYear() === today.getFullYear() &&
+          date.getMonth() === today.getMonth() &&
+          date.getDate() === today.getDate()
+        );
+      };
+
+      // Today's bills
+      const todayBills = bills.filter((bill) => {
+        return isToday(
+          bill.created_at ||
+            bill.createdAt ||
+            bill.bill_date ||
+            bill.date ||
+            bill.created
+        );
+      });
+
+      // Today's collection
+      const todayCollection = todayBills.reduce((total, bill) => {
+        const amount = Number(
+          bill.amount ||
+            bill.total ||
+            bill.total_amount ||
+            bill.paid_amount ||
+            bill.net_amount ||
+            0
+        );
+
+        return total + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
+
+      // Pending reports
+      const pendingReports = reports.filter((report) => {
+        const status = String(
+          report.status ||
+            report.report_status ||
+            report.result_status ||
+            ""
+        ).toLowerCase();
+
+        return (
+          status === "pending" ||
+          status === "incomplete" ||
+          status === "processing" ||
+          status === "draft"
+        );
+      });
 
       setStats({
-        patients: patientCount,
-        collection,
-        bills: billCount,
-        pendingReports,
+        patients: patients.length,
+        collection: todayCollection,
+        bills: todayBills.length,
+        pendingReports: pendingReports.length,
       });
-    } catch (err) {
-      console.error("loadDashboard:", err);
-      setError("Dashboard data load karne mein problem hui.");
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error("Dashboard data error:", error);
+      setLabOnline(false);
     }
   }
 
-  // ----------------------------------------------------
+  // =========================================================
   // LOGOUT
-  // ----------------------------------------------------
+  // =========================================================
+
   async function logout() {
+    if (loggingOut) return;
+
     try {
-      setLoading(true);
+      setLoggingOut(true);
 
-      const { error: logoutError } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
 
-      if (logoutError) {
-        console.error("Logout error:", logoutError);
-        setError("Logout nahi ho paya. Dobara try karein.");
-        setLoading(false);
+      if (error) {
+        console.error("Logout error:", error);
+        alert("Logout failed. Please try again.");
+        setLoggingOut(false);
         return;
       }
 
+      // Clear browser-side session data if any
+      try {
+        localStorage.removeItem("supabase.auth.token");
+        sessionStorage.clear();
+      } catch (storageError) {
+        console.log("Storage clear skipped:", storageError);
+      }
+
+      // Go to login page
       router.replace("/login");
       router.refresh();
-    } catch (err) {
-      console.error(err);
-      setError("Logout mein error aaya.");
-      setLoading(false);
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Logout failed. Please try again.");
+      setLoggingOut(false);
     }
   }
 
-  // ----------------------------------------------------
-  // REFRESH
-  // ----------------------------------------------------
-  async function refreshDashboard() {
-    if (!user) return;
+  // =========================================================
+  // HELPERS
+  // =========================================================
 
-    setError("");
-    await loadDashboard(user);
-  }
-
-  // ----------------------------------------------------
-  // DATE FORMAT
-  // ----------------------------------------------------
-  function formatDate(dateValue) {
-    if (!dateValue) return "-";
-
-    try {
-      return new Date(dateValue).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return "-";
-    }
-  }
-
-  // ----------------------------------------------------
-  // PATIENT NAME
-  // ----------------------------------------------------
   function getPatientName(patient) {
-    if (!patient) return "Unknown Patient";
-
     return (
-      patient.patient_name ||
       patient.name ||
+      patient.patient_name ||
       patient.full_name ||
-      `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+      patient.patientName ||
       "Unknown Patient"
     );
   }
 
-  // ----------------------------------------------------
-  // PATIENT ID
-  // ----------------------------------------------------
   function getPatientId(patient) {
-    if (!patient) return "-";
-
     return (
       patient.patient_id ||
-      patient.patient_code ||
+      patient.patientId ||
       patient.registration_no ||
-      patient.opd_no ||
+      patient.registration_number ||
+      patient.patient_number ||
       patient.id ||
-      "-"
+      "N/A"
     );
   }
 
-  // ----------------------------------------------------
-  // PATIENT AGE
-  // ----------------------------------------------------
   function getPatientAge(patient) {
-    if (!patient) return "";
-
-    if (patient.age !== null && patient.age !== undefined) {
-      return `${patient.age} Years`;
-    }
-
-    return "";
+    return (
+      patient.age ||
+      patient.patient_age ||
+      patient.years ||
+      "N/A"
+    );
   }
 
-  // ----------------------------------------------------
-  // SUBSCRIPTION DAYS
-  // ----------------------------------------------------
+  function getPatientMobile(patient) {
+    return (
+      patient.mobile ||
+      patient.phone ||
+      patient.mobile_number ||
+      patient.phone_number ||
+      "No mobile"
+    );
+  }
+
+  function formatDate(dateValue) {
+    if (!dateValue) return "N/A";
+
+    const date = new Date(dateValue);
+
+    if (Number.isNaN(date.getTime())) return "N/A";
+
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
   function getDaysRemaining() {
     if (!subscription?.expiry_date) return null;
 
     const expiry = new Date(subscription.expiry_date);
-    const today = new Date();
+    const now = new Date();
 
-    const difference = expiry.getTime() - today.getTime();
+    const difference = expiry.getTime() - now.getTime();
 
     return Math.max(
       0,
@@ -330,288 +370,351 @@ export default function DashboardPage() {
 
   const daysRemaining = getDaysRemaining();
 
-  // ----------------------------------------------------
-  // LOADING SCREEN
-  // ----------------------------------------------------
-  if (loading && !user) {
+  // =========================================================
+  // LOADING
+  // =========================================================
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600"></div>
-          <p className="font-medium text-slate-700">
-            Dashboard loading...
-          </p>
-          <p className="mt-1 text-sm text-slate-400">
+
+          <h2 className="text-lg font-bold text-slate-800">
+            Loading Dashboard...
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
             NIDAN Pathology Lab
           </p>
         </div>
-      </div>
+      </main>
     );
   }
 
-  // ----------------------------------------------------
+  // =========================================================
   // DASHBOARD UI
-  // ----------------------------------------------------
+  // =========================================================
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
+    <main className="min-h-screen bg-slate-50 text-slate-800">
       <div className="flex min-h-screen">
 
-        {/* =================================================
+        {/* ===================================================
             SIDEBAR
-        ================================================= */}
-        <aside className="hidden w-64 flex-shrink-0 bg-[#08283a] text-white md:flex md:flex-col">
+        =================================================== */}
 
+        <aside className="hidden w-56 shrink-0 bg-[#082638] text-white md:flex md:flex-col">
           {/* Logo */}
-          <div className="border-b border-white/10 px-5 py-5">
+          <div className="border-b border-white/10 p-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500 font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500 text-xl">
                 N+
               </div>
 
               <div>
-                <div className="text-lg font-bold tracking-wide">
+                <h1 className="text-sm font-bold tracking-wide">
                   NIDAN
-                </div>
+                </h1>
 
-                <div className="text-[9px] uppercase tracking-[2px] text-slate-300">
-                  Pathology Lab
-                </div>
+                <p className="text-[9px] tracking-wider text-slate-300">
+                  PATHOLOGY LAB
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Menu */}
-          <div className="flex-1 overflow-y-auto px-3 py-5">
-
-            <div className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[2px] text-slate-400">
+          {/* Main Menu */}
+          <div className="flex-1 px-3 py-5">
+            <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
               Main Menu
-            </div>
+            </p>
 
-            <SidebarLink
-              href="/dashboard"
-              icon="▦"
-              label="Dashboard"
-              active
-            />
+            <nav className="space-y-1">
+              <NavItem
+                href="/dashboard"
+                icon="▦"
+                label="Dashboard"
+                active
+              />
 
-            <SidebarLink
-              href="/patients?new=1"
-              icon="+"
-              label="New Patient"
-            />
+              <NavItem
+                href="/patients"
+                icon="+"
+                label="New Patient"
+              />
 
-            <SidebarLink
-              href="/patients"
-              icon="♙"
-              label="Patients"
-            />
+              <NavItem
+                href="/patients"
+                icon="♙"
+                label="Patients"
+              />
 
-            <SidebarLink
-              href="/billing"
-              icon="₹"
-              label="Billing"
-            />
+              <NavItem
+                href="/billing"
+                icon="₹"
+                label="Billing"
+              />
 
-            <SidebarLink
-              href="/results"
-              icon="⌁"
-              label="Samples"
-            />
+              <NavItem
+                href="/results"
+                icon="⌁"
+                label="Samples"
+              />
 
-            <SidebarLink
-              href="/results"
-              icon="▤"
-              label="Result Entry"
-            />
+              <NavItem
+                href="/results"
+                icon="▤"
+                label="Result Entry"
+              />
 
-            <SidebarLink
-              href="/reports"
-              icon="▧"
-              label="Reports"
-            />
+              <NavItem
+                href="/reports"
+                icon="▧"
+                label="Reports"
+              />
+            </nav>
 
-            <div className="mb-3 mt-7 px-3 text-[10px] font-semibold uppercase tracking-[2px] text-slate-400">
+            <p className="mb-3 mt-8 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
               Management
-            </div>
+            </p>
 
-            <SidebarLink
-              href="/test-master"
-              icon="♧"
-              label="Test Master"
-            />
+            <nav className="space-y-1">
+              <NavItem
+                href="/test-master"
+                icon="♙"
+                label="Test Master"
+              />
 
-            <SidebarLink
-              href="/doctors"
-              icon="♧"
-              label="Doctors"
-            />
+              <NavItem
+                href="/doctors"
+                icon="♧"
+                label="Doctors"
+              />
 
-            <SidebarLink
-              href="/settings"
-              icon="⚙"
-              label="Settings"
-            />
+              <NavItem
+                href="/settings"
+                icon="⚙"
+                label="Settings"
+              />
+            </nav>
           </div>
 
-          {/* Subscription */}
-          {subscription && (
-            <div className="mx-3 mb-3 rounded-xl border border-teal-400/20 bg-white/5 p-3">
-              <div className="text-xs font-semibold text-teal-300">
-                {subscription.plan || "TRIAL"} PLAN
-              </div>
-
-              {daysRemaining !== null && (
-                <div className="mt-1 text-[11px] text-slate-300">
-                  {daysRemaining} days remaining
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* LOGOUT */}
+          {/* Sidebar Logout */}
           <div className="border-t border-white/10 p-3">
             <button
               type="button"
               onClick={logout}
-              disabled={loading}
-              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/10 hover:text-red-200 disabled:opacity-50"
+              disabled={loggingOut}
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold text-red-300 transition hover:bg-red-500/10 hover:text-red-200 disabled:opacity-50"
             >
-              <span className="text-base">🚪</span>
+              <span className="text-lg">🚪</span>
+
               <span>
-                {loading ? "Logging out..." : "Logout"}
+                {loggingOut ? "Logging out..." : "Logout"}
               </span>
             </button>
           </div>
         </aside>
 
-        {/* =================================================
-            MAIN CONTENT
-        ================================================= */}
-        <main className="min-w-0 flex-1">
+        {/* ===================================================
+            MAIN AREA
+        =================================================== */}
 
-          {/* Header */}
-          <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm md:px-7">
+        <section className="min-w-0 flex-1">
+
+          {/* =================================================
+              TOP HEADER
+          ================================================= */}
+
+          <header className="sticky top-0 z-40 flex min-h-[68px] items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm md:px-6">
 
             <div>
-              <h1 className="text-lg font-bold text-slate-800">
+              <h2 className="text-lg font-bold text-slate-800">
                 Dashboard
-              </h1>
+              </h2>
 
               <p className="hidden text-[10px] text-slate-400 sm:block">
                 NIDAN Pathology Laboratory Management System
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
 
-              <div className="hidden items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 sm:flex">
-                <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+              {/* Online Status */}
+              <div className="hidden items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 sm:flex">
+                <span className="h-2 w-2 rounded-full bg-green-500"></span>
                 {labOnline ? "Lab Online" : "Offline"}
               </div>
+
+              {/* =================================================
+                  IMPORTANT LOGOUT BUTTON
+              ================================================= */}
 
               <button
                 type="button"
                 onClick={logout}
-                className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 md:hidden"
+                disabled={loggingOut}
+                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95 disabled:opacity-60 sm:px-4 sm:text-sm"
               >
-                Logout
+                <span>🚪</span>
+                <span>
+                  {loggingOut ? "Logout..." : "Logout"}
+                </span>
               </button>
             </div>
           </header>
 
-          <div className="p-4 md:p-7">
+          {/* =================================================
+              MOBILE NAV
+          ================================================= */}
 
-            {/* Error */}
-            {error && (
-              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
+          <div className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:hidden">
+            <MobileNav href="/dashboard" label="Dashboard" />
 
-            {/* Welcome */}
-            <section className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <MobileNav href="/patients" label="Patients" />
+
+            <MobileNav href="/billing" label="Billing" />
+
+            <MobileNav href="/results" label="Results" />
+
+            <MobileNav href="/reports" label="Reports" />
+
+            <MobileNav href="/settings" label="Settings" />
+          </div>
+
+          {/* =================================================
+              CONTENT
+          ================================================= */}
+
+          <div className="p-4 md:p-6">
+
+            {/* Lab Heading */}
+            <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
 
               <div>
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-[2px] text-teal-600">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-600">
                   Laboratory Dashboard
-                </div>
+                </p>
 
-                <h2 className="text-2xl font-bold text-slate-800 md:text-3xl">
+                <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-800 md:text-3xl">
                   Welcome to NIDAN Pathology Lab
-                </h2>
+                </h1>
 
-                <p className="mt-2 max-w-2xl text-sm text-slate-500">
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">
                   Patients, billing, samples, test results aur laboratory
-                  reports ko ek jagah manage karein.
+                  reports ek jagah manage karein.
                 </p>
               </div>
 
               <Link
-                href="/patients?new=1"
-                className="inline-flex items-center justify-center rounded-lg bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-teal-600/20 transition hover:bg-teal-700"
+                href="/patients"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-teal-700 active:scale-95"
               >
-                + New Patient
+                <span>+</span>
+                New Patient
               </Link>
-            </section>
+            </div>
+
+            {/* =================================================
+                SUBSCRIPTION CARD
+            ================================================= */}
+
+            {subscription && (
+              <div className="mb-5 rounded-xl border border-teal-100 bg-gradient-to-r from-teal-50 to-white p-4 shadow-sm">
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-teal-600 px-2.5 py-1 text-[10px] font-bold text-white">
+                        {subscription.plan || "TRIAL"}
+                      </span>
+
+                      <span className="text-xs font-semibold text-green-600">
+                        ● {subscription.status || "ACTIVE"}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-sm font-bold text-slate-800">
+                      Laboratory Subscription
+                    </p>
+
+                    <p className="text-xs text-slate-500">
+                      {subscription.notes ||
+                        "NIDAN Pathology Lab subscription active hai."}
+                    </p>
+                  </div>
+
+                  <div className="text-left sm:text-right">
+                    {daysRemaining !== null && (
+                      <p className="text-xl font-extrabold text-teal-700">
+                        {daysRemaining} Days
+                      </p>
+                    )}
+
+                    <p className="text-[11px] text-slate-500">
+                      Expiry: {formatDate(subscription.expiry_date)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* =================================================
                 STAT CARDS
             ================================================= */}
-            <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 
               <StatCard
                 icon="♙"
-                title="Total Patients"
+                label="Total Patients"
                 value={stats.patients}
-                href="/patients"
               />
 
               <StatCard
                 icon="₹"
-                title="Today's Collection"
-                value={`₹${Number(stats.collection || 0).toLocaleString(
-                  "en-IN"
-                )}`}
-                href="/billing"
+                label="Today's Collection"
+                value={`₹${stats.collection.toLocaleString("en-IN")}`}
               />
 
               <StatCard
                 icon="▣"
-                title="Today's Bills"
+                label="Today's Bills"
                 value={stats.bills}
-                href="/billing"
               />
 
               <StatCard
                 icon="▤"
-                title="Pending Reports"
+                label="Pending Reports"
                 value={stats.pendingReports}
-                href="/reports"
               />
-            </section>
+            </div>
 
             {/* =================================================
-                CONTENT GRID
+                MAIN GRID
             ================================================= */}
-            <section className="grid gap-5 xl:grid-cols-[1fr_330px]">
+
+            <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_300px]">
 
               {/* Recent Patients */}
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
 
                 <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                   <div>
-                    <h3 className="font-bold text-slate-800">
+                    <h2 className="font-bold text-slate-800">
                       Recent Patients
-                    </h3>
+                    </h2>
 
-                    <p className="mt-0.5 text-xs text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Latest registered patients
                     </p>
                   </div>
 
                   <Link
                     href="/patients"
-                    className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-700 hover:bg-teal-100"
+                    className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700 hover:bg-teal-100"
                   >
                     View All
                   </Link>
@@ -620,62 +723,41 @@ export default function DashboardPage() {
                 <div className="divide-y divide-slate-100">
 
                   {recentPatients.length === 0 ? (
-                    <div className="px-5 py-12 text-center">
-                      <div className="mb-3 text-4xl">♙</div>
+                    <div className="px-5 py-10 text-center">
+                      <div className="text-3xl">♙</div>
 
-                      <p className="font-semibold text-slate-700">
+                      <p className="mt-2 text-sm font-semibold text-slate-600">
                         No patients found
                       </p>
 
                       <p className="mt-1 text-xs text-slate-400">
-                        New patient register karne ke liye button dabayein.
+                        New Patient add karne ke liye button use karein.
                       </p>
-
-                      <Link
-                        href="/patients?new=1"
-                        className="mt-4 inline-flex rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white"
-                      >
-                        + Add Patient
-                      </Link>
                     </div>
                   ) : (
-                    recentPatients.slice(0, 8).map((patient, index) => (
+                    recentPatients.map((patient, index) => (
                       <div
-                        key={
-                          patient.id ||
-                          patient.patient_id ||
-                          `patient-${index}`
-                        }
+                        key={patient.id || patient.patient_id || index}
                         className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50"
                       >
                         <div className="min-w-0">
-
-                          <div className="truncate text-sm font-bold text-slate-800">
+                          <p className="truncate text-sm font-bold text-slate-800">
                             {getPatientName(patient)}
-                          </div>
+                          </p>
 
-                          <div className="mt-1 text-xs text-slate-500">
+                          <p className="mt-0.5 text-xs font-medium text-slate-500">
                             {getPatientId(patient)}
-                          </div>
+                          </p>
 
-                          <div className="mt-1 text-[11px] text-slate-400">
-                            {patient.mobile ||
-                              patient.phone ||
-                              "No mobile"}{" "}
-                            •{" "}
-                            {getPatientAge(patient) || "Age N/A"}
-                          </div>
+                          <p className="text-xs text-slate-400">
+                            {getPatientMobile(patient)} •{" "}
+                            {getPatientAge(patient)} Years
+                          </p>
                         </div>
 
-                        <div className="hidden text-right sm:block">
-                          <div className="text-[10px] text-slate-400">
-                            Registered
-                          </div>
-
-                          <div className="mt-1 text-xs font-semibold text-slate-600">
-                            {formatDate(patient.created_at)}
-                          </div>
-                        </div>
+                        <span className="hidden shrink-0 rounded-full bg-teal-50 px-2 py-1 text-[10px] font-bold text-teal-700 sm:inline-block">
+                          Patient
+                        </span>
                       </div>
                     ))
                   )}
@@ -683,14 +765,14 @@ export default function DashboardPage() {
               </div>
 
               {/* Quick Actions */}
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
 
                 <div className="border-b border-slate-100 px-5 py-4">
-                  <h3 className="font-bold text-slate-800">
+                  <h2 className="font-bold text-slate-800">
                     Quick Actions
-                  </h3>
+                  </h2>
 
-                  <p className="mt-0.5 text-xs text-slate-400">
+                  <p className="text-xs text-slate-400">
                     Frequently used options
                   </p>
                 </div>
@@ -698,138 +780,98 @@ export default function DashboardPage() {
                 <div className="p-3">
 
                   <QuickAction
-                    href="/patients?new=1"
+                    href="/patients"
                     icon="+"
                     title="New Patient"
-                    subtitle="Register new patient"
+                    description="Register new patient"
                   />
 
                   <QuickAction
                     href="/billing"
                     icon="₹"
                     title="Create Bill"
-                    subtitle="Patient billing"
+                    description="Patient billing"
                   />
 
                   <QuickAction
                     href="/results"
                     icon="▤"
                     title="Result Entry"
-                    subtitle="Enter test results"
+                    description="Enter test results"
                   />
 
                   <QuickAction
                     href="/reports"
                     icon="▣"
                     title="Reports"
-                    subtitle="View final reports"
+                    description="View final reports"
                   />
 
-                  <QuickAction
-                    href="/test-master"
-                    icon="⚗"
-                    title="Test Master"
-                    subtitle="Manage laboratory tests"
-                  />
                 </div>
               </div>
-            </section>
+            </div>
 
             {/* =================================================
-                SUBSCRIPTION
+                BOTTOM ACTIONS
             ================================================= */}
-            {subscription && (
-              <section className="mt-5 rounded-2xl border border-teal-100 bg-gradient-to-r from-teal-50 to-white p-5">
 
-                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
 
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-teal-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-teal-700">
-                        {subscription.plan || "TRIAL"}
-                      </span>
-
-                      <span className="text-xs font-medium text-emerald-600">
-                        ● {subscription.status || "ACTIVE"}
-                      </span>
-                    </div>
-
-                    <h3 className="mt-2 font-bold text-slate-800">
-                      Laboratory Subscription
-                    </h3>
-
-                    <p className="mt-1 text-xs text-slate-500">
-                      {subscription.notes ||
-                        "Your laboratory subscription is active."}
-                    </p>
-                  </div>
-
-                  <div className="text-left sm:text-right">
-                    {daysRemaining !== null && (
-                      <div className="text-2xl font-bold text-teal-700">
-                        {daysRemaining}
-                      </div>
-                    )}
-
-                    <div className="text-[11px] text-slate-400">
-                      Days Remaining
-                    </div>
-
-                    {subscription.expiry_date && (
-                      <div className="mt-1 text-[10px] text-slate-400">
-                        Expires: {formatDate(subscription.expiry_date)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* =================================================
-                REFRESH
-            ================================================= */}
-            <div className="mt-5 flex justify-end">
               <button
                 type="button"
-                onClick={refreshDashboard}
-                disabled={loading}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                onClick={() => loadDashboard()}
+                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
               >
-                ↻ {loading ? "Refreshing..." : "Refresh Dashboard"}
+                ↻ Refresh Dashboard
+              </button>
+
+              {/* Extra visible logout */}
+              <button
+                type="button"
+                onClick={logout}
+                disabled={loggingOut}
+                className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+              >
+                🚪 {loggingOut ? "Logging out..." : "Logout"}
               </button>
             </div>
 
-            {/* Footer */}
-            <footer className="mt-8 border-t border-slate-200 pt-5 text-center text-[10px] text-slate-400">
-              NIDAN PATHOLOGY LAB • Laboratory Management Software • © 2026
+            {/* =================================================
+                FOOTER
+            ================================================= */}
+
+            <footer className="mt-8 border-t border-slate-200 py-5 text-center">
+              <p className="text-xs font-semibold text-slate-400">
+                NIDAN PATHOLOGY LAB • Laboratory Management Software
+              </p>
+
+              <p className="mt-1 text-[10px] text-slate-400">
+                © {new Date().getFullYear()} NIDAN Pathology Lab
+              </p>
             </footer>
+
           </div>
-        </main>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
-// ========================================================
-// SIDEBAR LINK
-// ========================================================
-function SidebarLink({ href, icon, label, active = false }) {
+// =============================================================
+// NAV ITEM
+// =============================================================
+
+function NavItem({ href, icon, label, active = false }) {
   return (
     <Link
       href={href}
-      className={`mb-1 flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition ${
+      className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold transition ${
         active
-          ? "bg-teal-600/20 text-white ring-1 ring-teal-400/20"
+          ? "bg-teal-600/30 text-white ring-1 ring-teal-400/30"
           : "text-slate-300 hover:bg-white/5 hover:text-white"
       }`}
     >
-      <span
-        className={`flex h-7 w-7 items-center justify-center rounded-md text-sm ${
-          active
-            ? "bg-teal-500/20 text-teal-300"
-            : "text-slate-400"
-        }`}
-      >
+      <span className="w-5 text-center text-base">
         {icon}
       </span>
 
@@ -838,56 +880,72 @@ function SidebarLink({ href, icon, label, active = false }) {
   );
 }
 
-// ========================================================
-// STAT CARD
-// ========================================================
-function StatCard({ icon, title, value, href }) {
+// =============================================================
+// MOBILE NAV
+// =============================================================
+
+function MobileNav({ href, label }) {
   return (
     <Link
       href={href}
-      className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      className="whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-teal-50 hover:text-teal-700"
     >
-      <div className="flex items-center gap-3">
-
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-teal-50 text-lg text-teal-600">
-          {icon}
-        </div>
-
-        <div className="min-w-0">
-          <div className="truncate text-[10px] font-medium text-slate-400">
-            {title}
-          </div>
-
-          <div className="mt-1 text-xl font-bold text-slate-800">
-            {value}
-          </div>
-        </div>
-      </div>
+      {label}
     </Link>
   );
 }
 
-// ========================================================
+// =============================================================
+// STAT CARD
+// =============================================================
+
+function StatCard({ icon, label, value }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+
+      <div className="flex items-center gap-3">
+
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-lg font-bold text-teal-600">
+          {icon}
+        </div>
+
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-medium text-slate-400">
+            {label}
+          </p>
+
+          <p className="mt-0.5 text-xl font-extrabold text-slate-800">
+            {value}
+          </p>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// =============================================================
 // QUICK ACTION
-// ========================================================
-function QuickAction({ href, icon, title, subtitle }) {
+// =============================================================
+
+function QuickAction({ href, icon, title, description }) {
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-xl p-3 transition hover:bg-slate-50"
+      className="flex items-center gap-3 rounded-lg p-3 transition hover:bg-slate-50"
     >
-      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-teal-50 text-lg font-bold text-teal-600 transition group-hover:bg-teal-100">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-lg font-bold text-teal-600">
         {icon}
       </div>
 
       <div className="min-w-0">
-        <div className="text-sm font-bold text-slate-800">
+        <p className="text-sm font-bold text-slate-800">
           {title}
-        </div>
+        </p>
 
-        <div className="mt-0.5 text-[11px] text-slate-400">
-          {subtitle}
-        </div>
+        <p className="truncate text-[11px] text-slate-400">
+          {description}
+        </p>
       </div>
     </Link>
   );
