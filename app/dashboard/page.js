@@ -22,23 +22,29 @@ export default function DashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [labOnline, setLabOnline] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // =========================================================
-  // LOAD DASHBOARD
-  // =========================================================
+  // ============================================================
+  // AUTH + INITIAL DASHBOARD LOAD
+  // ============================================================
 
   useEffect(() => {
     let mounted = true;
 
-    async function startDashboard() {
+    async function initializeDashboard() {
       try {
         setLoading(true);
 
-        // Check current session
         const {
           data: { session },
+          error,
         } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error("Session error:", error);
+          router.replace("/login");
+          return;
+        }
 
         if (!session?.user) {
           router.replace("/login");
@@ -49,9 +55,11 @@ export default function DashboardPage() {
 
         setUser(session.user);
 
-        // Listen for authentication changes
+        await loadDashboardData(session.user);
+
+        // Listen for login/logout changes
         const {
-          data: { subscription: authSubscription },
+          data: { subscription: authListener },
         } = supabase.auth.onAuthStateChange((_event, sessionData) => {
           if (!sessionData?.user) {
             router.replace("/login");
@@ -60,14 +68,11 @@ export default function DashboardPage() {
           }
         });
 
-        // Load all dashboard data
-        await loadDashboard(session.user);
-
         return () => {
-          authSubscription?.unsubscribe();
+          authListener?.unsubscribe();
         };
       } catch (error) {
-        console.error("Dashboard loading error:", error);
+        console.error("Dashboard initialization error:", error);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -75,161 +80,173 @@ export default function DashboardPage() {
       }
     }
 
-    startDashboard();
+    initializeDashboard();
 
     return () => {
       mounted = false;
     };
   }, [router]);
 
-  // =========================================================
-  // LOAD DATA
-  // =========================================================
+  // ============================================================
+  // LOAD DASHBOARD DATA
+  // ============================================================
 
-  async function loadDashboard(currentUser = user) {
+  async function loadDashboardData(currentUser = user) {
+    if (!currentUser?.id) return;
+
     try {
-      if (!currentUser?.id) return;
-
-      setLabOnline(true);
-
-      // -------------------------------------------------------
+      // ----------------------------------------------------------
       // SUBSCRIPTION
-      // -------------------------------------------------------
+      // ----------------------------------------------------------
 
-      const { data: subscriptionData, error: subscriptionError } =
-        await supabase
-          .from("subscriptions")
-          .select("*")
-          .eq("user_id", currentUser.id)
-          .order("start_date", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      const {
+        data: subscriptionData,
+        error: subscriptionError,
+      } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .order("start_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (subscriptionError) {
-        console.error("Subscription error:", subscriptionError);
+        console.error(
+          "Subscription error:",
+          subscriptionError
+        );
       }
 
       if (subscriptionData) {
         setSubscription(subscriptionData);
       }
 
-      // -------------------------------------------------------
+      // ----------------------------------------------------------
       // PATIENTS
-      // -------------------------------------------------------
+      // ----------------------------------------------------------
 
-      let patients = [];
-
-      const { data: patientData, error: patientError } = await supabase
+      const {
+        data: patientData,
+        error: patientError,
+      } = await supabase
         .from("patients")
         .select("*");
 
       if (patientError) {
         console.error("Patients error:", patientError);
-      } else if (patientData) {
-        patients = patientData;
       }
 
-      // Sort latest patients first
-      patients.sort((a, b) => {
-        const dateA = new Date(
-          a.created_at ||
-            a.createdAt ||
-            a.registration_date ||
-            a.date ||
-            0
-        ).getTime();
+      const patients = patientData || [];
 
-        const dateB = new Date(
-          b.created_at ||
-            b.createdAt ||
-            b.registration_date ||
-            b.date ||
-            0
-        ).getTime();
+      setRecentPatients(
+        [...patients]
+          .sort((a, b) => {
+            const dateA = new Date(
+              a.created_at ||
+                a.createdAt ||
+                a.registration_date ||
+                a.date ||
+                0
+            ).getTime();
 
-        return dateB - dateA;
-      });
+            const dateB = new Date(
+              b.created_at ||
+                b.createdAt ||
+                b.registration_date ||
+                b.date ||
+                0
+            ).getTime();
 
-      setRecentPatients(patients.slice(0, 5));
+            return dateB - dateA;
+          })
+          .slice(0, 5)
+      );
 
-      // -------------------------------------------------------
+      // ----------------------------------------------------------
       // BILLS
-      // -------------------------------------------------------
+      // ----------------------------------------------------------
 
-      let bills = [];
-
-      const { data: billData, error: billError } = await supabase
+      const {
+        data: billData,
+        error: billError,
+      } = await supabase
         .from("bills")
         .select("*");
 
       if (billError) {
         console.error("Bills error:", billError);
-      } else if (billData) {
-        bills = billData;
       }
 
-      // -------------------------------------------------------
+      const bills = billData || [];
+
+      // ----------------------------------------------------------
       // REPORTS
-      // -------------------------------------------------------
+      // ----------------------------------------------------------
 
-      let reports = [];
-
-      const { data: reportData, error: reportError } = await supabase
+      const {
+        data: reportData,
+        error: reportError,
+      } = await supabase
         .from("reports")
         .select("*");
 
       if (reportError) {
         console.error("Reports error:", reportError);
-      } else if (reportData) {
-        reports = reportData;
       }
 
-      // -------------------------------------------------------
+      const reports = reportData || [];
+
+      // ----------------------------------------------------------
       // TODAY
-      // -------------------------------------------------------
+      // ----------------------------------------------------------
 
       const today = new Date();
 
-      const isToday = (value) => {
+      function isToday(value) {
         if (!value) return false;
 
         const date = new Date(value);
 
-        if (Number.isNaN(date.getTime())) return false;
+        if (Number.isNaN(date.getTime())) {
+          return false;
+        }
 
         return (
           date.getFullYear() === today.getFullYear() &&
           date.getMonth() === today.getMonth() &&
           date.getDate() === today.getDate()
         );
-      };
+      }
 
-      // Today's bills
-      const todayBills = bills.filter((bill) => {
-        return isToday(
+      const todayBills = bills.filter((bill) =>
+        isToday(
           bill.created_at ||
             bill.createdAt ||
             bill.bill_date ||
-            bill.date ||
-            bill.created
-        );
-      });
+            bill.date
+        )
+      );
 
-      // Today's collection
-      const todayCollection = todayBills.reduce((total, bill) => {
-        const amount = Number(
-          bill.amount ||
-            bill.total ||
-            bill.total_amount ||
-            bill.paid_amount ||
-            bill.net_amount ||
-            0
-        );
+      const todayCollection = todayBills.reduce(
+        (total, bill) => {
+          const amount = Number(
+            bill.amount ||
+              bill.total ||
+              bill.total_amount ||
+              bill.paid_amount ||
+              bill.net_amount ||
+              0
+          );
 
-        return total + (Number.isFinite(amount) ? amount : 0);
-      }, 0);
+          return total + (Number.isFinite(amount) ? amount : 0);
+        },
+        0
+      );
 
-      // Pending reports
+      // ----------------------------------------------------------
+      // PENDING REPORTS
+      // ----------------------------------------------------------
+
       const pendingReports = reports.filter((report) => {
         const status = String(
           report.status ||
@@ -254,13 +271,29 @@ export default function DashboardPage() {
       });
     } catch (error) {
       console.error("Dashboard data error:", error);
-      setLabOnline(false);
     }
   }
 
-  // =========================================================
+  // ============================================================
+  // REFRESH DASHBOARD
+  // ============================================================
+
+  async function refreshDashboard() {
+    if (!user) return;
+
+    try {
+      setRefreshing(true);
+      await loadDashboardData(user);
+    } catch (error) {
+      console.error("Refresh error:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  // ============================================================
   // LOGOUT
-  // =========================================================
+  // ============================================================
 
   async function logout() {
     if (loggingOut) return;
@@ -272,32 +305,43 @@ export default function DashboardPage() {
 
       if (error) {
         console.error("Logout error:", error);
-        alert("Logout failed. Please try again.");
+
+        alert(
+          "Logout failed. Please try again."
+        );
+
         setLoggingOut(false);
         return;
       }
 
-      // Clear browser-side session data if any
+      // Remove local storage items if available
       try {
-        localStorage.removeItem("supabase.auth.token");
+        localStorage.clear();
         sessionStorage.clear();
       } catch (storageError) {
-        console.log("Storage clear skipped:", storageError);
+        console.log(
+          "Storage clear skipped:",
+          storageError
+        );
       }
 
-      // Go to login page
+      // Redirect to login
       router.replace("/login");
       router.refresh();
     } catch (error) {
       console.error("Logout error:", error);
-      alert("Logout failed. Please try again.");
+
+      alert(
+        "Logout failed. Please try again."
+      );
+
       setLoggingOut(false);
     }
   }
 
-  // =========================================================
+  // ============================================================
   // HELPERS
-  // =========================================================
+  // ============================================================
 
   function getPatientName(patient) {
     return (
@@ -340,12 +384,14 @@ export default function DashboardPage() {
     );
   }
 
-  function formatDate(dateValue) {
-    if (!dateValue) return "N/A";
+  function formatDate(value) {
+    if (!value) return "N/A";
 
-    const date = new Date(dateValue);
+    const date = new Date(value);
 
-    if (Number.isNaN(date.getTime())) return "N/A";
+    if (Number.isNaN(date.getTime())) {
+      return "N/A";
+    }
 
     return date.toLocaleDateString("en-IN", {
       day: "2-digit",
@@ -355,30 +401,39 @@ export default function DashboardPage() {
   }
 
   function getDaysRemaining() {
-    if (!subscription?.expiry_date) return null;
+    if (!subscription?.expiry_date) {
+      return null;
+    }
 
-    const expiry = new Date(subscription.expiry_date);
+    const expiry = new Date(
+      subscription.expiry_date
+    );
+
     const now = new Date();
 
-    const difference = expiry.getTime() - now.getTime();
+    const difference =
+      expiry.getTime() - now.getTime();
 
     return Math.max(
       0,
-      Math.ceil(difference / (1000 * 60 * 60 * 24))
+      Math.ceil(
+        difference /
+          (1000 * 60 * 60 * 24)
+      )
     );
   }
 
   const daysRemaining = getDaysRemaining();
 
-  // =========================================================
-  // LOADING
-  // =========================================================
+  // ============================================================
+  // LOADING SCREEN
+  // ============================================================
 
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600"></div>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600" />
 
           <h2 className="text-lg font-bold text-slate-800">
             Loading Dashboard...
@@ -392,28 +447,29 @@ export default function DashboardPage() {
     );
   }
 
-  // =========================================================
-  // DASHBOARD UI
-  // =========================================================
+  // ============================================================
+  // DASHBOARD
+  // ============================================================
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-800">
       <div className="flex min-h-screen">
 
-        {/* ===================================================
-            SIDEBAR
-        =================================================== */}
+        {/* ======================================================
+            DESKTOP SIDEBAR
+        ====================================================== */}
 
         <aside className="hidden w-56 shrink-0 bg-[#082638] text-white md:flex md:flex-col">
+
           {/* Logo */}
           <div className="border-b border-white/10 p-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500 text-xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500 text-xl font-bold">
                 N+
               </div>
 
               <div>
-                <h1 className="text-sm font-bold tracking-wide">
+                <h1 className="text-sm font-bold">
                   NIDAN
                 </h1>
 
@@ -424,13 +480,15 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Main Menu */}
+          {/* Menu */}
           <div className="flex-1 px-3 py-5">
+
             <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
               Main Menu
             </p>
 
             <nav className="space-y-1">
+
               <NavItem
                 href="/dashboard"
                 icon="▦"
@@ -473,6 +531,7 @@ export default function DashboardPage() {
                 icon="▧"
                 label="Reports"
               />
+
             </nav>
 
             <p className="mb-3 mt-8 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
@@ -480,6 +539,7 @@ export default function DashboardPage() {
             </p>
 
             <nav className="space-y-1">
+
               <NavItem
                 href="/test-master"
                 icon="♙"
@@ -497,35 +557,45 @@ export default function DashboardPage() {
                 icon="⚙"
                 label="Settings"
               />
+
             </nav>
           </div>
 
-          {/* Sidebar Logout */}
+          {/* ====================================================
+              SIDEBAR LOGOUT
+          ==================================================== */}
+
           <div className="border-t border-white/10 p-3">
+
             <button
               type="button"
               onClick={logout}
               disabled={loggingOut}
-              className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-semibold text-red-300 transition hover:bg-red-500/10 hover:text-red-200 disabled:opacity-50"
+              className="flex w-full items-center gap-3 rounded-lg bg-red-600/10 px-4 py-3 text-left text-sm font-bold text-red-300 transition hover:bg-red-600 hover:text-white disabled:opacity-50"
             >
-              <span className="text-lg">🚪</span>
+              <span className="text-lg">
+                🚪
+              </span>
 
               <span>
-                {loggingOut ? "Logging out..." : "Logout"}
+                {loggingOut
+                  ? "Logging out..."
+                  : "Logout"}
               </span>
             </button>
+
           </div>
         </aside>
 
-        {/* ===================================================
-            MAIN AREA
-        =================================================== */}
+        {/* ======================================================
+            MAIN CONTENT
+        ====================================================== */}
 
         <section className="min-w-0 flex-1">
 
-          {/* =================================================
-              TOP HEADER
-          ================================================= */}
+          {/* ====================================================
+              HEADER
+          ==================================================== */}
 
           <header className="sticky top-0 z-40 flex min-h-[68px] items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm md:px-6">
 
@@ -541,58 +611,84 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-2">
 
-              {/* Online Status */}
-              <div className="hidden items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 sm:flex">
-                <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                {labOnline ? "Lab Online" : "Offline"}
+              {/* Online */}
+              <div className="hidden items-center gap-2 rounded-full bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 sm:flex">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                Lab Online
               </div>
 
               {/* =================================================
-                  IMPORTANT LOGOUT BUTTON
+                  TOP LOGOUT BUTTON
               ================================================= */}
 
               <button
                 type="button"
                 onClick={logout}
                 disabled={loggingOut}
-                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95 disabled:opacity-60 sm:px-4 sm:text-sm"
+                aria-label="Logout"
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-sm"
               >
                 <span>🚪</span>
+
                 <span>
-                  {loggingOut ? "Logout..." : "Logout"}
+                  {loggingOut
+                    ? "Logout..."
+                    : "Logout"}
                 </span>
               </button>
+
             </div>
           </header>
 
-          {/* =================================================
-              MOBILE NAV
-          ================================================= */}
+          {/* ====================================================
+              MOBILE MENU
+          ==================================================== */}
 
           <div className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:hidden">
-            <MobileNav href="/dashboard" label="Dashboard" />
 
-            <MobileNav href="/patients" label="Patients" />
+            <MobileNav
+              href="/dashboard"
+              label="Dashboard"
+            />
 
-            <MobileNav href="/billing" label="Billing" />
+            <MobileNav
+              href="/patients"
+              label="Patients"
+            />
 
-            <MobileNav href="/results" label="Results" />
+            <MobileNav
+              href="/billing"
+              label="Billing"
+            />
 
-            <MobileNav href="/reports" label="Reports" />
+            <MobileNav
+              href="/results"
+              label="Results"
+            />
 
-            <MobileNav href="/settings" label="Settings" />
+            <MobileNav
+              href="/reports"
+              label="Reports"
+            />
+
+            <MobileNav
+              href="/settings"
+              label="Settings"
+            />
+
           </div>
 
-          {/* =================================================
+          {/* ====================================================
               CONTENT
-          ================================================= */}
+          ==================================================== */}
 
           <div className="p-4 md:p-6">
 
-            {/* Lab Heading */}
+            {/* Heading */}
             <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
 
               <div>
+
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-600">
                   Laboratory Dashboard
                 </p>
@@ -602,23 +698,24 @@ export default function DashboardPage() {
                 </h1>
 
                 <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                  Patients, billing, samples, test results aur laboratory
-                  reports ek jagah manage karein.
+                  Patients, billing, samples, test results aur laboratory reports ek jagah manage karein.
                 </p>
+
               </div>
 
               <Link
                 href="/patients"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-teal-700 active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-teal-700"
               >
                 <span>+</span>
                 New Patient
               </Link>
+
             </div>
 
-            {/* =================================================
-                SUBSCRIPTION CARD
-            ================================================= */}
+            {/* ==================================================
+                SUBSCRIPTION
+            ================================================== */}
 
             {subscription && (
               <div className="mb-5 rounded-xl border border-teal-100 bg-gradient-to-r from-teal-50 to-white p-4 shadow-sm">
@@ -626,7 +723,9 @@ export default function DashboardPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
                   <div>
+
                     <div className="flex items-center gap-2">
+
                       <span className="rounded-full bg-teal-600 px-2.5 py-1 text-[10px] font-bold text-white">
                         {subscription.plan || "TRIAL"}
                       </span>
@@ -634,6 +733,7 @@ export default function DashboardPage() {
                       <span className="text-xs font-semibold text-green-600">
                         ● {subscription.status || "ACTIVE"}
                       </span>
+
                     </div>
 
                     <p className="mt-2 text-sm font-bold text-slate-800">
@@ -641,12 +741,13 @@ export default function DashboardPage() {
                     </p>
 
                     <p className="text-xs text-slate-500">
-                      {subscription.notes ||
-                        "NIDAN Pathology Lab subscription active hai."}
+                      {subscription.notes || "Subscription active"}
                     </p>
+
                   </div>
 
                   <div className="text-left sm:text-right">
+
                     {daysRemaining !== null && (
                       <p className="text-xl font-extrabold text-teal-700">
                         {daysRemaining} Days
@@ -654,16 +755,21 @@ export default function DashboardPage() {
                     )}
 
                     <p className="text-[11px] text-slate-500">
-                      Expiry: {formatDate(subscription.expiry_date)}
+                      Expiry:{" "}
+                      {formatDate(
+                        subscription.expiry_date
+                      )}
                     </p>
+
                   </div>
+
                 </div>
               </div>
             )}
 
-            {/* =================================================
-                STAT CARDS
-            ================================================= */}
+            {/* ==================================================
+                STATS
+            ================================================== */}
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 
@@ -676,7 +782,9 @@ export default function DashboardPage() {
               <StatCard
                 icon="₹"
                 label="Today's Collection"
-                value={`₹${stats.collection.toLocaleString("en-IN")}`}
+                value={`₹${stats.collection.toLocaleString(
+                  "en-IN"
+                )}`}
               />
 
               <StatCard
@@ -690,11 +798,12 @@ export default function DashboardPage() {
                 label="Pending Reports"
                 value={stats.pendingReports}
               />
+
             </div>
 
-            {/* =================================================
-                MAIN GRID
-            ================================================= */}
+            {/* ==================================================
+                RECENT + QUICK ACTIONS
+            ================================================== */}
 
             <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_300px]">
 
@@ -702,6 +811,7 @@ export default function DashboardPage() {
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
 
                 <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+
                   <div>
                     <h2 className="font-bold text-slate-800">
                       Recent Patients
@@ -718,13 +828,17 @@ export default function DashboardPage() {
                   >
                     View All
                   </Link>
+
                 </div>
 
                 <div className="divide-y divide-slate-100">
 
                   {recentPatients.length === 0 ? (
                     <div className="px-5 py-10 text-center">
-                      <div className="text-3xl">♙</div>
+
+                      <div className="text-3xl">
+                        ♙
+                      </div>
 
                       <p className="mt-2 text-sm font-semibold text-slate-600">
                         No patients found
@@ -733,34 +847,56 @@ export default function DashboardPage() {
                       <p className="mt-1 text-xs text-slate-400">
                         New Patient add karne ke liye button use karein.
                       </p>
+
                     </div>
                   ) : (
-                    recentPatients.map((patient, index) => (
-                      <div
-                        key={patient.id || patient.patient_id || index}
-                        className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-slate-800">
-                            {getPatientName(patient)}
-                          </p>
+                    recentPatients.map(
+                      (patient, index) => (
+                        <div
+                          key={
+                            patient.id ||
+                            patient.patient_id ||
+                            index
+                          }
+                          className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50"
+                        >
 
-                          <p className="mt-0.5 text-xs font-medium text-slate-500">
-                            {getPatientId(patient)}
-                          </p>
+                          <div className="min-w-0">
 
-                          <p className="text-xs text-slate-400">
-                            {getPatientMobile(patient)} •{" "}
-                            {getPatientAge(patient)} Years
-                          </p>
+                            <p className="truncate text-sm font-bold text-slate-800">
+                              {getPatientName(
+                                patient
+                              )}
+                            </p>
+
+                            <p className="mt-0.5 text-xs font-medium text-slate-500">
+                              {getPatientId(
+                                patient
+                              )}
+                            </p>
+
+                            <p className="text-xs text-slate-400">
+                              {getPatientMobile(
+                                patient
+                              )}{" "}
+                              •{" "}
+                              {getPatientAge(
+                                patient
+                              )}{" "}
+                              Years
+                            </p>
+
+                          </div>
+
+                          <span className="hidden shrink-0 rounded-full bg-teal-50 px-2 py-1 text-[10px] font-bold text-teal-700 sm:inline-block">
+                            Patient
+                          </span>
+
                         </div>
-
-                        <span className="hidden shrink-0 rounded-full bg-teal-50 px-2 py-1 text-[10px] font-bold text-teal-700 sm:inline-block">
-                          Patient
-                        </span>
-                      </div>
-                    ))
+                      )
+                    )
                   )}
+
                 </div>
               </div>
 
@@ -768,6 +904,7 @@ export default function DashboardPage() {
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
 
                 <div className="border-b border-slate-100 px-5 py-4">
+
                   <h2 className="font-bold text-slate-800">
                     Quick Actions
                   </h2>
@@ -775,6 +912,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-slate-400">
                     Frequently used options
                   </p>
+
                 </div>
 
                 <div className="p-3">
@@ -809,38 +947,45 @@ export default function DashboardPage() {
 
                 </div>
               </div>
+
             </div>
 
-            {/* =================================================
-                BOTTOM ACTIONS
-            ================================================= */}
+            {/* ==================================================
+                BOTTOM BUTTONS
+            ================================================== */}
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
 
               <button
                 type="button"
-                onClick={() => loadDashboard()}
-                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                onClick={refreshDashboard}
+                disabled={refreshing}
+                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
               >
-                ↻ Refresh Dashboard
+                {refreshing
+                  ? "Refreshing..."
+                  : "↻ Refresh Dashboard"}
               </button>
 
-              {/* Extra visible logout */}
+              {/* SECOND LOGOUT BUTTON */}
+
               <button
                 type="button"
                 onClick={logout}
                 disabled={loggingOut}
                 className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
               >
-                🚪 {loggingOut ? "Logging out..." : "Logout"}
+                🚪{" "}
+                {loggingOut
+                  ? "Logging out..."
+                  : "Logout"}
               </button>
+
             </div>
 
-            {/* =================================================
-                FOOTER
-            ================================================= */}
-
+            {/* Footer */}
             <footer className="mt-8 border-t border-slate-200 py-5 text-center">
+
               <p className="text-xs font-semibold text-slate-400">
                 NIDAN PATHOLOGY LAB • Laboratory Management Software
               </p>
@@ -848,6 +993,7 @@ export default function DashboardPage() {
               <p className="mt-1 text-[10px] text-slate-400">
                 © {new Date().getFullYear()} NIDAN Pathology Lab
               </p>
+
             </footer>
 
           </div>
@@ -857,11 +1003,16 @@ export default function DashboardPage() {
   );
 }
 
-// =============================================================
+// ============================================================
 // NAV ITEM
-// =============================================================
+// ============================================================
 
-function NavItem({ href, icon, label, active = false }) {
+function NavItem({
+  href,
+  icon,
+  label,
+  active = false,
+}) {
   return (
     <Link
       href={href}
@@ -880,9 +1031,9 @@ function NavItem({ href, icon, label, active = false }) {
   );
 }
 
-// =============================================================
+// ============================================================
 // MOBILE NAV
-// =============================================================
+// ============================================================
 
 function MobileNav({ href, label }) {
   return (
@@ -895,13 +1046,17 @@ function MobileNav({ href, label }) {
   );
 }
 
-// =============================================================
+// ============================================================
 // STAT CARD
-// =============================================================
+// ============================================================
 
-function StatCard({ icon, label, value }) {
+function StatCard({
+  icon,
+  label,
+  value,
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
 
       <div className="flex items-center gap-3">
 
@@ -910,6 +1065,7 @@ function StatCard({ icon, label, value }) {
         </div>
 
         <div className="min-w-0">
+
           <p className="truncate text-[11px] font-medium text-slate-400">
             {label}
           </p>
@@ -917,28 +1073,35 @@ function StatCard({ icon, label, value }) {
           <p className="mt-0.5 text-xl font-extrabold text-slate-800">
             {value}
           </p>
-        </div>
 
+        </div>
       </div>
     </div>
   );
 }
 
-// =============================================================
+// ============================================================
 // QUICK ACTION
-// =============================================================
+// ============================================================
 
-function QuickAction({ href, icon, title, description }) {
+function QuickAction({
+  href,
+  icon,
+  title,
+  description,
+}) {
   return (
     <Link
       href={href}
       className="flex items-center gap-3 rounded-lg p-3 transition hover:bg-slate-50"
     >
+
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-lg font-bold text-teal-600">
         {icon}
       </div>
 
       <div className="min-w-0">
+
         <p className="text-sm font-bold text-slate-800">
           {title}
         </p>
@@ -946,7 +1109,9 @@ function QuickAction({ href, icon, title, description }) {
         <p className="truncate text-[11px] text-slate-400">
           {description}
         </p>
+
       </div>
+
     </Link>
   );
 }
