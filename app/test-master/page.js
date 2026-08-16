@@ -43,22 +43,14 @@ const EMPTY_PARAMETER = {
 };
 
 /* =========================================================
-   MAIN COMPONENT
+   MAIN
 ========================================================= */
 
 export default function TestMasterPage() {
   const router = useRouter();
 
-  /* ---------------- TESTS ---------------- */
-
   const [tests, setTests] = useState([]);
   const [prices, setPrices] = useState([]);
-
-  /* ---------------- PARAMETERS ---------------- */
-
-  const [parameters, setParameters] = useState([]);
-
-  /* ---------------- UI STATE ---------------- */
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,33 +59,42 @@ export default function TestMasterPage() {
   const [category, setCategory] = useState("All");
 
   const [selectedTest, setSelectedTest] = useState(null);
+  const [parameters, setParameters] = useState([]);
 
-  /* ---------------- TEST MODAL ---------------- */
+  /* =======================================================
+     EDIT TEST MODAL
+  ======================================================= */
 
-  const [showTestForm, setShowTestForm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+
   const [editingTestId, setEditingTestId] = useState(null);
-  const [testForm, setTestForm] = useState(EMPTY_TEST);
 
-  /* ---------------- PRICE MODAL ---------------- */
+  const [testForm, setTestForm] = useState({
+    ...EMPTY_TEST,
+  });
 
-  const [showPriceForm, setShowPriceForm] = useState(false);
+  /* =======================================================
+     PRICE MODAL
+  ======================================================= */
+
+  const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceTest, setPriceTest] = useState(null);
   const [priceValue, setPriceValue] = useState("");
 
-  /* ---------------- PARAMETER MODAL ---------------- */
+  /* =======================================================
+     PARAMETER ADD MODAL
+  ======================================================= */
 
-  const [showParameterForm, setShowParameterForm] =
+  const [showParameterModal, setShowParameterModal] =
     useState(false);
 
-  const [editingParameterId, setEditingParameterId] =
-    useState(null);
+  const [parameterForm, setParameterForm] = useState({
+    ...EMPTY_PARAMETER,
+  });
 
-  const [parameterForm, setParameterForm] =
-    useState(EMPTY_PARAMETER);
-
-  /* =========================================================
+  /* =======================================================
      LOAD TESTS
-  ========================================================= */
+  ======================================================= */
 
   async function loadTests() {
     try {
@@ -108,10 +109,10 @@ export default function TestMasterPage() {
 
       setTests(data || []);
     } catch (error) {
-      console.error("Test loading error:", error);
+      console.error(error);
 
       alert(
-        "Tests load nahi ho paaye: " +
+        "Tests load nahi ho paaye:\n" +
           error.message
       );
     } finally {
@@ -119,9 +120,9 @@ export default function TestMasterPage() {
     }
   }
 
-  /* =========================================================
+  /* =======================================================
      LOAD PRICES
-  ========================================================= */
+  ======================================================= */
 
   async function loadPrices() {
     try {
@@ -136,60 +137,23 @@ export default function TestMasterPage() {
 
       setPrices(data || []);
     } catch (error) {
-      console.error("Price loading error:", error);
-
-      /*
-        Agar test_prices table accessible nahi hai,
-        tests.price se application phir bhi chalegi.
-      */
+      console.warn(
+        "Price loading warning:",
+        error
+      );
 
       setPrices([]);
     }
   }
 
-  /* =========================================================
-     GET CURRENT PRICE
-  ========================================================= */
-
-  function getTestPrice(test) {
-    const matchingPrices = prices.filter(
-      (item) =>
-        String(item.test_id) === String(test.id) &&
-        item.is_active !== false
-    );
-
-    if (matchingPrices.length > 0) {
-      return Number(
-        matchingPrices[0].price || 0
-      );
-    }
-
-    return Number(test.price || 0);
-  }
-
-  /* =========================================================
-     INITIAL LOAD
-  ========================================================= */
-
-  useEffect(() => {
-    async function init() {
-      await Promise.all([
-        loadTests(),
-        loadPrices(),
-      ]);
-    }
-
-    init();
-  }, []);
-
-  /* =========================================================
+  /* =======================================================
      LOAD PARAMETERS
-  ========================================================= */
+  ======================================================= */
 
   async function loadParameters(testId) {
     if (!testId) {
       setParameters([]);
-      return;
+      return [];
     }
 
     try {
@@ -203,60 +167,96 @@ export default function TestMasterPage() {
 
       if (error) throw error;
 
-      setParameters(data || []);
+      const result = data || [];
+
+      setParameters(result);
+
+      return result;
     } catch (error) {
-      console.error(
-        "Parameter loading error:",
-        error
-      );
+      console.error(error);
 
       alert(
-        "Parameters load nahi ho paaye: " +
+        "Parameters load nahi ho paaye:\n" +
           error.message
       );
 
       setParameters([]);
+
+      return [];
     }
   }
 
-  /* =========================================================
-     REFRESH
-  ========================================================= */
+  /* =======================================================
+     INITIAL LOAD
+  ======================================================= */
 
-  async function refreshAll() {
-    await Promise.all([
-      loadTests(),
-      loadPrices(),
-    ]);
-
-    if (selectedTest?.id) {
-      await loadParameters(selectedTest.id);
+  useEffect(() => {
+    async function init() {
+      await Promise.all([
+        loadTests(),
+        loadPrices(),
+      ]);
     }
+
+    init();
+  }, []);
+
+  /* =======================================================
+     CURRENT PRICE
+  ======================================================= */
+
+  function getTestPrice(test) {
+    const priceRow = prices.find(
+      (item) =>
+        String(item.test_id) ===
+          String(test.id) &&
+        item.is_active !== false
+    );
+
+    if (priceRow) {
+      return Number(priceRow.price || 0);
+    }
+
+    return Number(test.price || 0);
   }
 
-  /* =========================================================
-     OPEN NEW TEST
-  ========================================================= */
+  /* =======================================================
+     NEW TEST
+  ======================================================= */
 
   function openNewTest() {
     setEditingTestId(null);
+
     setTestForm({
       ...EMPTY_TEST,
     });
 
-    setSelectedTest(null);
     setParameters([]);
 
-    setShowTestForm(true);
-    setShowParameterForm(false);
-    setShowPriceForm(false);
+    setShowEditModal(true);
+    setShowPriceModal(false);
+    setShowParameterModal(false);
   }
 
-  /* =========================================================
+  /* =======================================================
      EDIT TEST
-  ========================================================= */
+     
+     IMPORTANT:
+     YAHI MAIN CHANGE HAI.
+     
+     Edit click karte hi:
+     - Test information
+     - Parameters
+     - Min value
+     - Max value
+     - Normal/reference range
+     - Unit
+     - Options
+     
+     SAB EK HI MODAL ME AAYEGA.
+  ======================================================= */
 
-  async function editTest(test) {
+  async function openEditTest(test) {
     setEditingTestId(test.id);
 
     setTestForm({
@@ -282,65 +282,213 @@ export default function TestMasterPage() {
 
     setSelectedTest(test);
 
-    setShowTestForm(true);
-    setShowParameterForm(false);
-    setShowPriceForm(false);
+    /* Parameters पहले load होंगे */
+    await loadParameters(test.id);
+
+    setShowEditModal(true);
+    setShowPriceModal(false);
+    setShowParameterModal(false);
+  }
+
+  /* =======================================================
+     SELECT TEST
+  ======================================================= */
+
+  async function selectTest(test) {
+    setSelectedTest(test);
 
     await loadParameters(test.id);
   }
 
-  /* =========================================================
-     SAVE TEST
-  ========================================================= */
+  /* =======================================================
+     UPDATE TEST BASIC INFORMATION
+  ======================================================= */
 
-  async function saveTest(event) {
-    event.preventDefault();
-
-    if (!testForm.name.trim()) {
-      alert("Test name zaroori hai.");
+  async function updateTestBasic() {
+    if (!editingTestId) {
       return;
     }
 
-    try {
-      setSaving(true);
+    if (!testForm.name.trim()) {
+      throw new Error(
+        "Test name zaroori hai."
+      );
+    }
+
+    const payload = {
+      name: testForm.name.trim(),
+      short_name:
+        testForm.short_name.trim(),
+      category: testForm.category,
+      department:
+        testForm.department.trim(),
+      sample_type:
+        testForm.sample_type.trim(),
+      price:
+        testForm.price === ""
+          ? 0
+          : Number(testForm.price),
+      method:
+        testForm.method.trim(),
+      active: testForm.active,
+      updated_at:
+        new Date().toISOString(),
+    };
+
+    const { data, error } =
+      await supabase
+        .from("tests")
+        .update(payload)
+        .eq("id", editingTestId)
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    setSelectedTest(data);
+
+    return data;
+  }
+
+  /* =======================================================
+     UPDATE ALL PARAMETERS
+     
+     THIS SAVES:
+     - Parameter name
+     - Unit
+     - Min value
+     - Max value
+     - Reference range
+     - Options
+     - Sort order
+     - Active
+  ======================================================= */
+
+  async function updateAllParameters() {
+    for (const parameter of parameters) {
+      let parsedOptions = {};
+
+      if (
+        parameter.options !== null &&
+        parameter.options !== undefined &&
+        String(parameter.options).trim() !== ""
+      ) {
+        if (
+          typeof parameter.options ===
+          "object"
+        ) {
+          parsedOptions =
+            parameter.options;
+        } else {
+          try {
+            parsedOptions = JSON.parse(
+              parameter.options
+            );
+          } catch {
+            parsedOptions = {
+              text: String(
+                parameter.options
+              ),
+            };
+          }
+        }
+      }
 
       const payload = {
-        name: testForm.name.trim(),
-        short_name:
-          testForm.short_name.trim(),
-        category: testForm.category,
-        department:
-          testForm.department.trim(),
-        sample_type:
-          testForm.sample_type.trim(),
+        parameter_name:
+          parameter.parameter_name || "",
 
-        price:
-          testForm.price === ""
-            ? 0
-            : Number(testForm.price),
+        unit:
+          parameter.unit || "",
 
-        method: testForm.method.trim(),
-        active: testForm.active,
+        min_value:
+          parameter.min_value === "" ||
+          parameter.min_value === null ||
+          parameter.min_value === undefined
+            ? null
+            : Number(
+                parameter.min_value
+              ),
+
+        max_value:
+          parameter.max_value === "" ||
+          parameter.max_value === null ||
+          parameter.max_value === undefined
+            ? null
+            : Number(
+                parameter.max_value
+              ),
+
+        /* MAIN REFERENCE RANGE FIELD */
+
+        reference_range:
+          parameter.reference_range ||
+          "",
+
+        options: parsedOptions,
+
+        sort_order:
+          Number(
+            parameter.sort_order
+          ) || 1,
+
+        active:
+          parameter.active !== false,
 
         updated_at:
           new Date().toISOString(),
       };
 
-      if (editingTestId) {
-        const { data, error } =
-          await supabase
-            .from("tests")
-            .update(payload)
-            .eq("id", editingTestId)
-            .select()
-            .single();
+      const { error } =
+        await supabase
+          .from("test_parameters")
+          .update(payload)
+          .eq("id", parameter.id);
 
-        if (error) throw error;
+      if (error) throw error;
+    }
+  }
 
-        setSelectedTest(data);
+  /* =======================================================
+     SAVE TEST + ALL PARAMETERS
+     
+     ONE BUTTON:
+     "Update Test & Reference Ranges"
+  ======================================================= */
 
-        alert("Test successfully updated.");
-      } else {
+  async function saveEverything(event) {
+    event.preventDefault();
+
+    if (!editingTestId) {
+      /* New Test */
+
+      try {
+        setSaving(true);
+
+        const payload = {
+          name: testForm.name.trim(),
+          short_name:
+            testForm.short_name.trim(),
+          category:
+            testForm.category,
+          department:
+            testForm.department.trim(),
+          sample_type:
+            testForm.sample_type.trim(),
+          price:
+            testForm.price === ""
+              ? 0
+              : Number(testForm.price),
+          method:
+            testForm.method.trim(),
+          active:
+            testForm.active,
+          created_at:
+            new Date().toISOString(),
+          updated_at:
+            new Date().toISOString(),
+        };
+
         const { data, error } =
           await supabase
             .from("tests")
@@ -353,22 +501,54 @@ export default function TestMasterPage() {
         setSelectedTest(data);
         setEditingTestId(data.id);
 
+        await loadTests();
+
         alert(
           "New test successfully added."
         );
+
+        setShowEditModal(false);
+      } catch (error) {
+        console.error(error);
+
+        alert(
+          "Test save nahi hua:\n" +
+            error.message
+        );
+      } finally {
+        setSaving(false);
       }
 
-      await loadTests();
+      return;
+    }
 
-      setShowTestForm(false);
-    } catch (error) {
-      console.error(
-        "Test save error:",
-        error
-      );
+    /* Existing test */
+
+    try {
+      setSaving(true);
+
+      await updateTestBasic();
+
+      await updateAllParameters();
+
+      await Promise.all([
+        loadTests(),
+        loadPrices(),
+        loadParameters(
+          editingTestId
+        ),
+      ]);
 
       alert(
-        "Test save nahi hua: " +
+        "Test + Normal Value + Reference Range successfully updated."
+      );
+
+      setShowEditModal(false);
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "Update nahi hua:\n" +
           error.message
       );
     } finally {
@@ -376,13 +556,177 @@ export default function TestMasterPage() {
     }
   }
 
-  /* =========================================================
-     DELETE TEST
-  ========================================================= */
+  /* =======================================================
+     CHANGE PARAMETER FIELD IN MEMORY
+  ======================================================= */
 
-  async function deleteTest(test) {
+  function changeParameter(
+    parameterId,
+    field,
+    value
+  ) {
+    setParameters((old) =>
+      old.map((item) =>
+        item.id === parameterId
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item
+      )
+    );
+  }
+
+  /* =======================================================
+     ADD PARAMETER
+  ======================================================= */
+
+  function openAddParameter() {
+    if (!editingTestId) {
+      alert(
+        "Pehle test save karein."
+      );
+      return;
+    }
+
+    setParameterForm({
+      ...EMPTY_PARAMETER,
+      sort_order:
+        parameters.length + 1,
+    });
+
+    setShowParameterModal(true);
+  }
+
+  /* =======================================================
+     SAVE NEW PARAMETER
+  ======================================================= */
+
+  async function saveNewParameter(
+    event
+  ) {
+    event.preventDefault();
+
+    if (!editingTestId) {
+      alert(
+        "Test select nahi hai."
+      );
+      return;
+    }
+
+    if (
+      !parameterForm.parameter_name.trim()
+    ) {
+      alert(
+        "Parameter name zaroori hai."
+      );
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      let options = {};
+
+      if (
+        parameterForm.options.trim()
+      ) {
+        try {
+          options = JSON.parse(
+            parameterForm.options
+          );
+        } catch {
+          options = {
+            text:
+              parameterForm.options.trim(),
+          };
+        }
+      }
+
+      const payload = {
+        test_id: editingTestId,
+
+        parameter_name:
+          parameterForm.parameter_name.trim(),
+
+        unit:
+          parameterForm.unit.trim(),
+
+        min_value:
+          parameterForm.min_value === ""
+            ? null
+            : Number(
+                parameterForm.min_value
+              ),
+
+        max_value:
+          parameterForm.max_value === ""
+            ? null
+            : Number(
+                parameterForm.max_value
+              ),
+
+        reference_range:
+          parameterForm.reference_range.trim(),
+
+        options,
+
+        sort_order:
+          Number(
+            parameterForm.sort_order
+          ) || 1,
+
+        active:
+          parameterForm.active,
+
+        created_at:
+          new Date().toISOString(),
+
+        updated_at:
+          new Date().toISOString(),
+      };
+
+      const { error } =
+        await supabase
+          .from("test_parameters")
+          .insert([payload]);
+
+      if (error) throw error;
+
+      await loadParameters(
+        editingTestId
+      );
+
+      setShowParameterModal(false);
+
+      setParameterForm({
+        ...EMPTY_PARAMETER,
+      });
+
+      alert(
+        "Parameter successfully added."
+      );
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "Parameter add nahi hua:\n" +
+          error.message
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /* =======================================================
+     DELETE PARAMETER
+  ======================================================= */
+
+  async function deleteParameter(
+    parameter
+  ) {
     const ok = window.confirm(
-      `Kya "${test.name}" ko delete karna hai?\n\nIs test ke saare parameters aur price records bhi delete honge.`
+      `Kya "${parameter.parameter_name}" delete karna hai?`
     );
 
     if (!ok) return;
@@ -390,71 +734,28 @@ export default function TestMasterPage() {
     try {
       setSaving(true);
 
-      /* Delete parameters */
-
-      const {
-        error: parameterError,
-      } = await supabase
-        .from("test_parameters")
-        .delete()
-        .eq("test_id", test.id);
-
-      if (parameterError) {
-        throw parameterError;
-      }
-
-      /* Delete prices */
-
-      const {
-        error: priceError,
-      } = await supabase
-        .from("test_prices")
-        .delete()
-        .eq("test_id", String(test.id));
-
-      /*
-        Agar price delete policy issue ho,
-        test delete ko unnecessarily block
-        nahi karenge.
-      */
-
-      if (priceError) {
-        console.warn(
-          "Price delete warning:",
-          priceError
-        );
-      }
-
-      /* Delete test */
-
-      const { error } = await supabase
-        .from("tests")
-        .delete()
-        .eq("id", test.id);
+      const { error } =
+        await supabase
+          .from("test_parameters")
+          .delete()
+          .eq(
+            "id",
+            parameter.id
+          );
 
       if (error) throw error;
 
-      if (
-        selectedTest?.id === test.id
-      ) {
-        setSelectedTest(null);
-        setParameters([]);
-      }
-
-      await loadTests();
-      await loadPrices();
+      await loadParameters(
+        editingTestId ||
+          selectedTest?.id
+      );
 
       alert(
-        "Test deleted successfully."
+        "Parameter deleted."
       );
     } catch (error) {
-      console.error(
-        "Delete test error:",
-        error
-      );
-
       alert(
-        "Test delete nahi hua: " +
+        "Parameter delete nahi hua:\n" +
           error.message
       );
     } finally {
@@ -462,44 +763,9 @@ export default function TestMasterPage() {
     }
   }
 
-  /* =========================================================
-     TOGGLE TEST ACTIVE
-  ========================================================= */
-
-  async function toggleActive(test) {
-    try {
-      const { error } = await supabase
-        .from("tests")
-        .update({
-          active: !test.active,
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq("id", test.id);
-
-      if (error) throw error;
-
-      await loadTests();
-
-      if (
-        selectedTest?.id === test.id
-      ) {
-        setSelectedTest({
-          ...selectedTest,
-          active: !test.active,
-        });
-      }
-    } catch (error) {
-      alert(
-        "Status update nahi hua: " +
-          error.message
-      );
-    }
-  }
-
-  /* =========================================================
-     OPEN PRICE MODAL
-  ========================================================= */
+  /* =======================================================
+     PRICE EDIT
+  ======================================================= */
 
   function openPriceEditor(test) {
     setPriceTest(test);
@@ -508,22 +774,19 @@ export default function TestMasterPage() {
       String(getTestPrice(test))
     );
 
-    setShowPriceForm(true);
-    setShowTestForm(false);
-    setShowParameterForm(false);
+    setShowPriceModal(true);
+    setShowEditModal(false);
+    setShowParameterModal(false);
   }
 
-  /* =========================================================
+  /* =======================================================
      SAVE PRICE
-  ========================================================= */
+  ======================================================= */
 
   async function savePrice(event) {
     event.preventDefault();
 
-    if (!priceTest) {
-      alert("Test select karein.");
-      return;
-    }
+    if (!priceTest) return;
 
     const numericPrice =
       Number(priceValue);
@@ -544,399 +807,115 @@ export default function TestMasterPage() {
       const testId =
         String(priceTest.id);
 
-      /*
-        Existing active price find karein.
-      */
+      const { data: existing, error } =
+        await supabase
+          .from("test_prices")
+          .select("*")
+          .eq(
+            "test_id",
+            testId
+          )
+          .eq(
+            "is_active",
+            true
+          )
+          .order("created_at", {
+            ascending: false,
+          })
+          .limit(1);
 
-      const {
-        data: existing,
-        error: findError,
-      } = await supabase
-        .from("test_prices")
-        .select("*")
-        .eq("test_id", testId)
-        .eq("is_active", true)
-        .order("created_at", {
-          ascending: false,
-        })
-        .limit(1);
-
-      if (findError) {
-        throw findError;
-      }
+      if (error) throw error;
 
       if (
         existing &&
         existing.length > 0
       ) {
-        /*
-          Existing price update
-        */
-
-        const {
-          error: updateError,
-        } = await supabase
-          .from("test_prices")
-          .update({
-            price: numericPrice,
-            test_name:
-              priceTest.name,
-            category:
-              priceTest.category,
-            is_active: true,
-            updated_at:
-              new Date().toISOString(),
-          })
-          .eq("id", existing[0].id);
+        const { error: updateError } =
+          await supabase
+            .from("test_prices")
+            .update({
+              price:
+                numericPrice,
+              test_name:
+                priceTest.name,
+              category:
+                priceTest.category,
+              is_active: true,
+              updated_at:
+                new Date().toISOString(),
+            })
+            .eq(
+              "id",
+              existing[0].id
+            );
 
         if (updateError) {
           throw updateError;
         }
       } else {
-        /*
-          No price record:
-          New price insert
-        */
-
-        const {
-          error: insertError,
-        } = await supabase
-          .from("test_prices")
-          .insert([
-            {
-              test_id: testId,
-              test_name:
-                priceTest.name,
-              category:
-                priceTest.category,
-              price: numericPrice,
-              is_active: true,
-            },
-          ]);
+        const { error: insertError } =
+          await supabase
+            .from("test_prices")
+            .insert([
+              {
+                test_id: testId,
+                test_name:
+                  priceTest.name,
+                category:
+                  priceTest.category,
+                price:
+                  numericPrice,
+                is_active: true,
+                created_at:
+                  new Date().toISOString(),
+                updated_at:
+                  new Date().toISOString(),
+              },
+            ]);
 
         if (insertError) {
           throw insertError;
         }
       }
 
-      /*
-        tests table ka price bhi sync
-        kar dete hain.
-      */
+      /* Sync tests table */
 
-      const {
-        error: testUpdateError,
-      } = await supabase
-        .from("tests")
-        .update({
-          price: numericPrice,
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq("id", priceTest.id);
-
-      if (testUpdateError) {
-        console.warn(
-          "Tests price sync warning:",
-          testUpdateError
-        );
-      }
-
-      await loadTests();
-      await loadPrices();
-
-      setShowPriceForm(false);
-
-      alert(
-        "Test price successfully updated."
-      );
-    } catch (error) {
-      console.error(
-        "Price save error:",
-        error
-      );
-
-      alert(
-        "Price save nahi hua: " +
-          error.message
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  /* =========================================================
-     SELECT TEST
-  ========================================================= */
-
-  async function selectTest(test) {
-    setSelectedTest(test);
-
-    setShowTestForm(false);
-    setShowPriceForm(false);
-    setShowParameterForm(false);
-
-    await loadParameters(test.id);
-  }
-
-  /* =========================================================
-     NEW PARAMETER
-  ========================================================= */
-
-  function openNewParameter() {
-    if (!selectedTest) {
-      alert(
-        "Pehle ek test select karein."
-      );
-      return;
-    }
-
-    setEditingParameterId(null);
-
-    setParameterForm({
-      ...EMPTY_PARAMETER,
-      sort_order:
-        parameters.length + 1,
-    });
-
-    setShowParameterForm(true);
-    setShowTestForm(false);
-    setShowPriceForm(false);
-  }
-
-  /* =========================================================
-     EDIT PARAMETER
-  ========================================================= */
-
-  function editParameter(parameter) {
-    setEditingParameterId(
-      parameter.id
-    );
-
-    let optionText = "";
-
-    if (parameter.options) {
-      try {
-        optionText =
-          JSON.stringify(
-            parameter.options,
-            null,
-            2
-          );
-      } catch {
-        optionText = String(
-          parameter.options
-        );
-      }
-    }
-
-    setParameterForm({
-      parameter_name:
-        parameter.parameter_name ||
-        "",
-
-      unit:
-        parameter.unit || "",
-
-      min_value:
-        parameter.min_value ===
-          null ||
-        parameter.min_value ===
-          undefined
-          ? ""
-          : String(
-              parameter.min_value
-            ),
-
-      max_value:
-        parameter.max_value ===
-          null ||
-        parameter.max_value ===
-          undefined
-          ? ""
-          : String(
-              parameter.max_value
-            ),
-
-      /*
-        यही Normal / Reference Value
-        है जिसे अब आसानी से बदल सकते हैं.
-      */
-
-      reference_range:
-        parameter.reference_range ||
-        "",
-
-      options: optionText,
-
-      sort_order:
-        parameter.sort_order || 1,
-
-      active:
-        parameter.active ===
-          undefined
-          ? true
-          : parameter.active,
-    });
-
-    setShowParameterForm(true);
-    setShowTestForm(false);
-    setShowPriceForm(false);
-  }
-
-  /* =========================================================
-     SAVE PARAMETER
-  ========================================================= */
-
-  async function saveParameter(event) {
-    event.preventDefault();
-
-    if (!selectedTest) {
-      alert(
-        "Pehle test select karein."
-      );
-      return;
-    }
-
-    if (
-      !parameterForm.parameter_name.trim()
-    ) {
-      alert(
-        "Parameter name zaroori hai."
-      );
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      let options = {};
-
-      /*
-        Options JSON ya simple text
-      */
-
-      if (
-        parameterForm.options.trim()
-      ) {
-        try {
-          options = JSON.parse(
-            parameterForm.options
-          );
-        } catch {
-          options = {
-            text:
-              parameterForm.options.trim(),
-          };
-        }
-      }
-
-      const payload = {
-        test_id: selectedTest.id,
-
-        parameter_name:
-          parameterForm.parameter_name.trim(),
-
-        unit:
-          parameterForm.unit.trim(),
-
-        min_value:
-          parameterForm.min_value ===
-          ""
-            ? null
-            : Number(
-                parameterForm.min_value
-              ),
-
-        max_value:
-          parameterForm.max_value ===
-          ""
-            ? null
-            : Number(
-                parameterForm.max_value
-              ),
-
-        /*
-          NORMAL / REFERENCE VALUE
-          --------------------------------
-          Example:
-          Male: 13-17 g/dL
-          Female: 12-15 g/dL
-        */
-
-        reference_range:
-          parameterForm.reference_range.trim(),
-
-        options,
-
-        sort_order:
-          Number(
-            parameterForm.sort_order
-          ) || 1,
-
-        active:
-          parameterForm.active,
-
-        updated_at:
-          new Date().toISOString(),
-      };
-
-      if (editingParameterId) {
-        /*
-          UPDATE EXISTING PARAMETER
-        */
-
-        const {
-          error,
-        } = await supabase
-          .from("test_parameters")
-          .update(payload)
+      const { error: syncError } =
+        await supabase
+          .from("tests")
+          .update({
+            price:
+              numericPrice,
+            updated_at:
+              new Date().toISOString(),
+          })
           .eq(
             "id",
-            editingParameterId
+            priceTest.id
           );
 
-        if (error) throw error;
-
-        alert(
-          "Parameter successfully updated."
-        );
-      } else {
-        /*
-          ADD NEW PARAMETER
-        */
-
-        const {
-          error,
-        } = await supabase
-          .from("test_parameters")
-          .insert([payload]);
-
-        if (error) throw error;
-
-        alert(
-          "Parameter successfully added."
+      if (syncError) {
+        console.warn(
+          "Price sync warning:",
+          syncError
         );
       }
 
-      await loadParameters(
-        selectedTest.id
-      );
+      await Promise.all([
+        loadTests(),
+        loadPrices(),
+      ]);
 
-      setShowParameterForm(false);
-      setEditingParameterId(null);
-
-      setParameterForm({
-        ...EMPTY_PARAMETER,
-      });
-    } catch (error) {
-      console.error(
-        "Parameter save error:",
-        error
-      );
+      setShowPriceModal(false);
 
       alert(
-        "Parameter save nahi hua: " +
+        "Price successfully updated."
+      );
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "Price save nahi hua:\n" +
           error.message
       );
     } finally {
@@ -944,46 +923,101 @@ export default function TestMasterPage() {
     }
   }
 
-  /* =========================================================
-     DELETE PARAMETER
-  ========================================================= */
+  /* =======================================================
+     TOGGLE TEST
+  ======================================================= */
 
-  async function deleteParameter(
-    parameter
+  async function toggleTest(
+    test
   ) {
-    const ok = window.confirm(
-      `Kya "${parameter.parameter_name}" parameter delete karna hai?`
-    );
+    try {
+      const { error } =
+        await supabase
+          .from("tests")
+          .update({
+            active:
+              !test.active,
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            test.id
+          );
+
+      if (error) throw error;
+
+      await loadTests();
+    } catch (error) {
+      alert(
+        "Status update nahi hua:\n" +
+          error.message
+      );
+    }
+  }
+
+  /* =======================================================
+     DELETE TEST
+  ======================================================= */
+
+  async function deleteTest(
+    test
+  ) {
+    const ok =
+      window.confirm(
+        `Kya "${test.name}" ko delete karna hai?\n\nIske parameters bhi delete honge.`
+      );
 
     if (!ok) return;
 
     try {
       setSaving(true);
 
-      const {
-        error,
-      } = await supabase
-        .from("test_parameters")
-        .delete()
-        .eq("id", parameter.id);
+      const { error: pError } =
+        await supabase
+          .from(
+            "test_parameters"
+          )
+          .delete()
+          .eq(
+            "test_id",
+            test.id
+          );
 
-      if (error) throw error;
+      if (pError) {
+        throw pError;
+      }
 
-      await loadParameters(
-        selectedTest.id
-      );
+      const { error: tError } =
+        await supabase
+          .from("tests")
+          .delete()
+          .eq(
+            "id",
+            test.id
+          );
+
+      if (tError) {
+        throw tError;
+      }
+
+      if (
+        selectedTest?.id ===
+        test.id
+      ) {
+        setSelectedTest(null);
+        setParameters([]);
+      }
+
+      await loadTests();
+      await loadPrices();
 
       alert(
-        "Parameter deleted successfully."
+        "Test successfully deleted."
       );
     } catch (error) {
-      console.error(
-        "Parameter delete error:",
-        error
-      );
-
       alert(
-        "Parameter delete nahi hua: " +
+        "Delete nahi hua:\n" +
           error.message
       );
     } finally {
@@ -991,99 +1025,76 @@ export default function TestMasterPage() {
     }
   }
 
-  /* =========================================================
-     TOGGLE PARAMETER ACTIVE
-  ========================================================= */
+  /* =======================================================
+     FILTER
+  ======================================================= */
 
-  async function toggleParameterActive(
-    parameter
-  ) {
-    try {
-      const {
-        error,
-      } = await supabase
-        .from("test_parameters")
-        .update({
-          active:
-            !parameter.active,
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq(
-          "id",
-          parameter.id
-        );
+  const filteredTests =
+    useMemo(() => {
+      const q =
+        search
+          .toLowerCase()
+          .trim();
 
-      if (error) throw error;
+      return tests.filter(
+        (test) => {
+          const matchesSearch =
+            !q ||
+            (test.name || "")
+              .toLowerCase()
+              .includes(q) ||
+            (test.short_name || "")
+              .toLowerCase()
+              .includes(q) ||
+            (test.category || "")
+              .toLowerCase()
+              .includes(q) ||
+            (test.sample_type || "")
+              .toLowerCase()
+              .includes(q);
 
-      await loadParameters(
-        selectedTest.id
+          const matchesCategory =
+            category ===
+              "All" ||
+            test.category ===
+              category;
+
+          return (
+            matchesSearch &&
+            matchesCategory
+          );
+        }
       );
-    } catch (error) {
-      alert(
-        "Parameter status update nahi hua: " +
-          error.message
-      );
-    }
-  }
+    }, [
+      tests,
+      search,
+      category,
+    ]);
 
-  /* =========================================================
-     FILTER TESTS
-  ========================================================= */
-
-  const filteredTests = useMemo(() => {
-    const text =
-      search.toLowerCase().trim();
-
-    return tests.filter((test) => {
-      const matchesSearch =
-        !text ||
-        test.name
-          ?.toLowerCase()
-          .includes(text) ||
-        test.short_name
-          ?.toLowerCase()
-          .includes(text) ||
-        test.category
-          ?.toLowerCase()
-          .includes(text) ||
-        test.sample_type
-          ?.toLowerCase()
-          .includes(text);
-
-      const matchesCategory =
-        category === "All" ||
-        test.category === category;
-
-      return (
-        matchesSearch &&
-        matchesCategory
-      );
-    });
-  }, [
-    tests,
-    search,
-    category,
-  ]);
-
-  /* =========================================================
-     UI
-  ========================================================= */
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <div style={pageStyle}>
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      {/* HEADER */}
 
-      <header style={headerStyle}>
+      <header
+        style={
+          headerStyle
+        }
+      >
         <div>
           <div
             style={{
-              fontSize: "10px",
-              fontWeight: "900",
-              color: "#079b94",
-              letterSpacing: "1px",
+              fontSize:
+                "9px",
+              fontWeight:
+                "900",
+              color:
+                "#079b94",
+              letterSpacing:
+                "1px",
             }}
           >
             NIDAN PATHOLOGY LAB
@@ -1091,9 +1102,10 @@ export default function TestMasterPage() {
 
           <h1
             style={{
-              margin: "3px 0",
-              fontSize: "23px",
-              color: "#172536",
+              margin:
+                "2px 0",
+              fontSize:
+                "22px",
             }}
           >
             Test Master
@@ -1102,20 +1114,24 @@ export default function TestMasterPage() {
           <p
             style={{
               margin: 0,
-              color: "#718096",
-              fontSize: "11px",
+              fontSize:
+                "10px",
+              color:
+                "#718096",
             }}
           >
-            Tests, prices, parameters &
-            reference ranges manage karein
+            Tests, prices,
+            parameters &
+            reference ranges
+            manage karein
           </p>
         </div>
 
         <div
           style={{
-            display: "flex",
-            gap: "7px",
-            flexWrap: "wrap",
+            display:
+              "flex",
+            gap: "6px",
           }}
         >
           <button
@@ -1123,7 +1139,7 @@ export default function TestMasterPage() {
               router.push("/")
             }
             style={buttonStyle(
-              "#ffffff",
+              "#fff",
               "#334155"
             )}
           >
@@ -1131,10 +1147,12 @@ export default function TestMasterPage() {
           </button>
 
           <button
-            onClick={openNewTest}
+            onClick={
+              openNewTest
+            }
             style={buttonStyle(
               "#0e9f99",
-              "#ffffff"
+              "#fff"
             )}
           >
             + New Test
@@ -1142,41 +1160,50 @@ export default function TestMasterPage() {
         </div>
       </header>
 
-      {/* =====================================================
-          MAIN
-      ===================================================== */}
-
-      <main style={mainStyle}>
+      <main
+        style={
+          mainStyle
+        }
+      >
         {/* SEARCH */}
 
-        <section style={searchCardStyle}>
+        <div
+          style={
+            searchCardStyle
+          }
+        >
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "minmax(0, 1fr) 180px",
-              gap: "10px",
-            }}
+            style={
+              searchGrid
+            }
           >
             <input
-              value={search}
+              value={
+                search
+              }
               onChange={(e) =>
                 setSearch(
                   e.target.value
                 )
               }
               placeholder="🔎 Search investigation / test name..."
-              style={inputStyle}
+              style={
+                inputStyle
+              }
             />
 
             <select
-              value={category}
+              value={
+                category
+              }
               onChange={(e) =>
                 setCategory(
                   e.target.value
                 )
               }
-              style={inputStyle}
+              style={
+                inputStyle
+              }
             >
               <option value="All">
                 All Categories
@@ -1194,34 +1221,33 @@ export default function TestMasterPage() {
               )}
             </select>
           </div>
-        </section>
+        </div>
 
-        {/* ===================================================
-            CONTENT GRID
-        =================================================== */}
+        {/* CONTENT */}
 
-        <div style={contentGridStyle}>
-          {/* =================================================
-              TEST LIST
-          ================================================= */}
+        <div
+          style={
+            contentGrid
+          }
+        >
+          {/* TEST LIST */}
 
-          <section style={cardStyle}>
+          <section
+            style={
+              cardStyle
+            }
+          >
             <div
-              style={{
-                padding: "14px",
-                borderBottom:
-                  "1px solid #e8edf2",
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems: "center",
-              }}
+              style={
+                listHeader
+              }
             >
               <div>
                 <h2
                   style={{
                     margin: 0,
-                    fontSize: "17px",
+                    fontSize:
+                      "16px",
                   }}
                 >
                   Laboratory Tests
@@ -1230,9 +1256,11 @@ export default function TestMasterPage() {
                 <p
                   style={{
                     margin:
-                      "4px 0 0",
-                    color: "#7b8795",
-                    fontSize: "11px",
+                      "3px 0 0",
+                    color:
+                      "#718096",
+                    fontSize:
+                      "10px",
                   }}
                 >
                   {
@@ -1244,24 +1272,38 @@ export default function TestMasterPage() {
 
               <button
                 onClick={
-                  refreshAll
+                  async () => {
+                    await loadTests();
+                    await loadPrices();
+                  }
                 }
-                style={smallButton}
+                style={
+                  smallButton
+                }
               >
                 ↻ Refresh
               </button>
             </div>
 
             {loading ? (
-              <div style={emptyStyle}>
-                Loading tests...
+              <div
+                style={
+                  emptyStyle
+                }
+              >
+                Loading...
               </div>
             ) : filteredTests.length ===
               0 ? (
-              <div style={emptyStyle}>
+              <div
+                style={
+                  emptyStyle
+                }
+              >
                 <div
                   style={{
-                    fontSize: "35px",
+                    fontSize:
+                      "35px",
                   }}
                 >
                   🧪
@@ -1272,372 +1314,596 @@ export default function TestMasterPage() {
                 </strong>
 
                 <p>
-                  Search clear karein ya
-                  + New Test se test add
+                  Search clear karein
+                  ya New Test add
                   karein.
                 </p>
               </div>
             ) : (
-              <div>
-                {filteredTests.map(
-                  (test) => {
-                    const selected =
-                      selectedTest?.id ===
-                      test.id;
-
-                    const currentPrice =
-                      getTestPrice(
+              filteredTests.map(
+                (test) => (
+                  <div
+                    key={
+                      test.id
+                    }
+                    onClick={() =>
+                      selectTest(
                         test
-                      );
-
-                    return (
+                      )
+                    }
+                    style={{
+                      padding:
+                        "12px",
+                      borderBottom:
+                        "1px solid #edf1f5",
+                      background:
+                        selectedTest?.id ===
+                        test.id
+                          ? "#ecfbf9"
+                          : "#fff",
+                      cursor:
+                        "pointer",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display:
+                          "flex",
+                        justifyContent:
+                          "space-between",
+                        gap:
+                          "8px",
+                      }}
+                    >
                       <div
-                        key={test.id}
-                        onClick={() =>
-                          selectTest(
-                            test
-                          )
-                        }
                         style={{
-                          padding:
-                            "14px",
-                          borderBottom:
-                            "1px solid #edf1f5",
-                          cursor:
-                            "pointer",
-                          background:
-                            selected
-                              ? "#ecfbf9"
-                              : "#ffffff",
+                          flex: 1,
+                          minWidth:
+                            0,
                         }}
                       >
-                        <div
+                        <strong
                           style={{
-                            display:
-                              "flex",
-                            justifyContent:
-                              "space-between",
-                            gap: "10px",
+                            fontSize:
+                              "12px",
                           }}
                         >
-                          {/* TEST INFO */}
+                          {
+                            test.name
+                          }
+                        </strong>
 
-                          <div
-                            style={{
-                              minWidth: 0,
-                              flex: 1,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display:
-                                  "flex",
-                                alignItems:
-                                  "center",
-                                gap: "6px",
-                                flexWrap:
-                                  "wrap",
-                              }}
-                            >
-                              <strong
-                                style={{
-                                  fontSize:
-                                    "14px",
-                                  color:
-                                    "#172536",
-                                }}
-                              >
-                                {test.name}
-                              </strong>
+                        <span
+                          style={{
+                            marginLeft:
+                              "5px",
+                            fontSize:
+                              "8px",
+                            color:
+                              "#087f68",
+                            fontWeight:
+                              "900",
+                          }}
+                        >
+                          {test.active
+                            ? "ACTIVE"
+                            : "INACTIVE"}
+                        </span>
 
-                              {test.short_name && (
-                                <Badge>
-                                  {
-                                    test.short_name
-                                  }
-                                </Badge>
-                              )}
+                        <div
+                          style={{
+                            marginTop:
+                              "5px",
+                            display:
+                              "flex",
+                            gap:
+                              "5px",
+                            flexWrap:
+                              "wrap",
+                          }}
+                        >
+                          <Badge>
+                            {
+                              test.category
+                            }
+                          </Badge>
 
-                              <span
-                                style={{
-                                  fontSize:
-                                    "10px",
-                                  fontWeight:
-                                    "800",
-                                  color:
-                                    test.active
-                                      ? "#087f68"
-                                      : "#a04444",
-                                }}
-                              >
-                                {test.active
-                                  ? "ACTIVE"
-                                  : "INACTIVE"}
-                              </span>
-                            </div>
+                          <Badge>
+                            ₹
+                            {
+                              getTestPrice(
+                                test
+                              )
+                            }
+                          </Badge>
 
-                            <div
-                              style={{
-                                marginTop:
-                                  "6px",
-                                display:
-                                  "flex",
-                                gap: "6px",
-                                flexWrap:
-                                  "wrap",
-                              }}
-                            >
-                              <Badge>
-                                {
-                                  test.category
-                                }
-                              </Badge>
-
-                              <Badge>
-                                ₹
-                                {currentPrice}
-                              </Badge>
-
-                              <Badge>
-                                {test.sample_type ||
-                                  "Sample not set"}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          {/* ACTIONS */}
-
-                          <div
-                            style={{
-                              display:
-                                "flex",
-                              gap: "5px",
-                              alignItems:
-                                "center",
-                              flexWrap:
-                                "wrap",
-                              justifyContent:
-                                "flex-end",
-                            }}
-                          >
-                            <button
-                              onClick={(
-                                e
-                              ) => {
-                                e.stopPropagation();
-
-                                openPriceEditor(
-                                  test
-                                );
-                              }}
-                              style={{
-                                ...smallButton,
-                                color:
-                                  "#9a6b00",
-                              }}
-                            >
-                              💰 Edit Price
-                            </button>
-
-                            <button
-                              onClick={(
-                                e
-                              ) => {
-                                e.stopPropagation();
-
-                                editTest(
-                                  test
-                                );
-                              }}
-                              style={
-                                smallButton
-                              }
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              onClick={(
-                                e
-                              ) => {
-                                e.stopPropagation();
-
-                                toggleActive(
-                                  test
-                                );
-                              }}
-                              style={
-                                smallButton
-                              }
-                            >
-                              {test.active
-                                ? "Disable"
-                                : "Enable"}
-                            </button>
-
-                            <button
-                              onClick={(
-                                e
-                              ) => {
-                                e.stopPropagation();
-
-                                deleteTest(
-                                  test
-                                );
-                              }}
-                              style={{
-                                ...smallButton,
-                                color:
-                                  "#b42323",
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
+                          <Badge>
+                            {test.sample_type ||
+                              "Sample"}
+                          </Badge>
                         </div>
                       </div>
-                    );
-                  }
-                )}
-              </div>
+
+                      <div
+                        style={{
+                          display:
+                            "flex",
+                          alignItems:
+                            "center",
+                          gap:
+                            "4px",
+                          flexWrap:
+                            "wrap",
+                          justifyContent:
+                            "flex-end",
+                        }}
+                      >
+                        <button
+                          onClick={(
+                            e
+                          ) => {
+                            e.stopPropagation();
+
+                            openPriceEditor(
+                              test
+                            );
+                          }}
+                          style={
+                            smallButton
+                          }
+                        >
+                          💰 Edit Price
+                        </button>
+
+                        {/* MAIN EDIT BUTTON */}
+
+                        <button
+                          onClick={(
+                            e
+                          ) => {
+                            e.stopPropagation();
+
+                            openEditTest(
+                              test
+                            );
+                          }}
+                          style={{
+                            ...smallButton,
+                            background:
+                              "#eefcfb",
+                            color:
+                              "#087f68",
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+
+                        <button
+                          onClick={(
+                            e
+                          ) => {
+                            e.stopPropagation();
+
+                            toggleTest(
+                              test
+                            );
+                          }}
+                          style={
+                            smallButton
+                          }
+                        >
+                          {test.active
+                            ? "Disable"
+                            : "Enable"}
+                        </button>
+
+                        <button
+                          onClick={(
+                            e
+                          ) => {
+                            e.stopPropagation();
+
+                            deleteTest(
+                              test
+                            );
+                          }}
+                          style={{
+                            ...smallButton,
+                            color:
+                              "#b42323",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              )
             )}
           </section>
 
-          {/* =================================================
-              RIGHT PANEL
-          ================================================= */}
+          {/* RIGHT SIDE */}
 
           <section
-            style={{
-              ...cardStyle,
-              alignSelf:
-                "start",
-            }}
+            style={
+              cardStyle
+            }
           >
             {!selectedTest ? (
-              <div style={emptyStyle}>
+              <div
+                style={
+                  emptyStyle
+                }
+              >
                 <div
                   style={{
-                    fontSize: "40px",
+                    fontSize:
+                      "40px",
                   }}
                 >
-                  🧪
+                  📋
                 </div>
 
-                <h3
-                  style={{
-                    color:
-                      "#334155",
-                  }}
-                >
+                <h3>
                   Select a Test
                 </h3>
 
                 <p>
-                  Parameters manage करने
-                  के लिए left side से test
-                  select करें।
+                  Test select karne par
+                  parameters yahan
+                  dikhenge.
                 </p>
-
-                <button
-                  onClick={
-                    openNewTest
-                  }
-                  style={buttonStyle(
-                    "#0e9f99",
-                    "#ffffff"
-                  )}
-                >
-                  + New Test
-                </button>
               </div>
             ) : (
-              <>
-                {/* TEST DETAILS */}
-
+              <div
+                style={{
+                  padding:
+                    "15px",
+                }}
+              >
                 <div
                   style={{
-                    padding: "15px",
-                    borderBottom:
-                      "1px solid #e8edf2",
+                    display:
+                      "flex",
+                    justifyContent:
+                      "space-between",
+                    gap:
+                      "10px",
                   }}
                 >
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      gap: "10px",
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontSize:
-                            "10px",
-                          fontWeight:
-                            "900",
-                          color:
-                            "#079b94",
-                        }}
-                      >
-                        SELECTED TEST
-                      </div>
-
-                      <h2
-                        style={{
-                          margin:
-                            "4px 0",
-                          fontSize:
-                            "19px",
-                        }}
-                      >
-                        {
-                          selectedTest.name
-                        }
-                      </h2>
-
-                      <p
-                        style={{
-                          margin: 0,
-                          color:
-                            "#687789",
-                          fontSize:
-                            "11px",
-                        }}
-                      >
-                        {
-                          selectedTest.category
-                        }{" "}
-                        • ₹
-                        {getTestPrice(
-                          selectedTest
-                        )}
-                      </p>
+                  <div>
+                    <div
+                      style={{
+                        fontSize:
+                          "9px",
+                        fontWeight:
+                          "900",
+                        color:
+                          "#079b94",
+                      }}
+                    >
+                      SELECTED TEST
                     </div>
 
-                    <button
-                      onClick={() =>
-                        editTest(
-                          selectedTest
-                        )
-                      }
-                      style={
-                        smallButton
-                      }
+                    <h2
+                      style={{
+                        margin:
+                          "4px 0",
+                        fontSize:
+                          "18px",
+                      }}
                     >
-                      ✏️ Edit Test
-                    </button>
+                      {
+                        selectedTest.name
+                      }
+                    </h2>
                   </div>
+
+                  <button
+                    onClick={() =>
+                      openEditTest(
+                        selectedTest
+                      )
+                    }
+                    style={
+                      smallButton
+                    }
+                  >
+                    ✏️ Edit
+                  </button>
                 </div>
 
-                {/* PARAMETERS */}
+                <hr
+                  style={{
+                    border:
+                      "none",
+                    borderTop:
+                      "1px solid #e8edf2",
+                    margin:
+                      "12px 0",
+                  }}
+                />
 
+                <h3
+                  style={{
+                    margin:
+                      "0 0 8px",
+                    fontSize:
+                      "14px",
+                  }}
+                >
+                  Parameters
+                </h3>
+
+                {parameters.length ===
+                0 ? (
+                  <div
+                    style={
+                      emptyStyle
+                    }
+                  >
+                    No parameters
+                  </div>
+                ) : (
+                  parameters.map(
+                    (
+                      p
+                    ) => (
+                      <ParameterPreview
+                        key={
+                          p.id
+                        }
+                        parameter={
+                          p
+                        }
+                      />
+                    )
+                  )
+                )}
+              </div>
+            )}
+          </section>
+        </div>
+      </main>
+
+      {/* =====================================================
+          EDIT TEST + PARAMETERS MODAL
+      ===================================================== */}
+
+      {showEditModal && (
+        <div
+          style={
+            overlayStyle
+          }
+        >
+          <div
+            style={
+              largeModalStyle
+            }
+          >
+            {/* MODAL HEADER */}
+
+            <div
+              style={
+                modalHeader
+              }
+            >
+              <div>
                 <div
                   style={{
-                    padding: "15px",
+                    fontSize:
+                      "9px",
+                    fontWeight:
+                      "900",
+                    color:
+                      "#079b94",
+                    letterSpacing:
+                      "1px",
                   }}
+                >
+                  TEST MASTER
+                </div>
+
+                <h2
+                  style={{
+                    margin:
+                      "3px 0",
+                    fontSize:
+                      "20px",
+                  }}
+                >
+                  {editingTestId
+                    ? "Edit Test & Reference Ranges"
+                    : "Add New Test"}
+                </h2>
+
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize:
+                      "10px",
+                    color:
+                      "#718096",
+                  }}
+                >
+                  Test details aur normal/reference
+                  values yahin se manage karein.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowEditModal(
+                    false
+                  )
+                }
+                style={
+                  closeButton
+                }
+              >
+                ×
+              </button>
+            </div>
+
+            <form
+              onSubmit={
+                saveEverything
+              }
+            >
+              {/* =================================================
+                  BASIC TEST INFORMATION
+              ================================================= */}
+
+              <div
+                style={
+                  sectionBox
+                }
+              >
+                <div
+                  style={
+                    sectionTitle
+                  }
+                >
+                  1. Test Information
+                </div>
+
+                <div
+                  style={
+                    formGrid
+                  }
+                >
+                  <Field
+                    label="Test Name *"
+                    value={
+                      testForm.name
+                    }
+                    onChange={(v) =>
+                      setTestForm({
+                        ...testForm,
+                        name: v,
+                      })
+                    }
+                    placeholder="Complete Blood Count (CBC)"
+                  />
+
+                  <Field
+                    label="Short Name"
+                    value={
+                      testForm.short_name
+                    }
+                    onChange={(v) =>
+                      setTestForm({
+                        ...testForm,
+                        short_name:
+                          v,
+                      })
+                    }
+                    placeholder="CBC"
+                  />
+
+                  <SelectField
+                    label="Category"
+                    value={
+                      testForm.category
+                    }
+                    onChange={(v) =>
+                      setTestForm({
+                        ...testForm,
+                        category:
+                          v,
+                      })
+                    }
+                    options={
+                      CATEGORIES
+                    }
+                  />
+
+                  <Field
+                    label="Department"
+                    value={
+                      testForm.department
+                    }
+                    onChange={(v) =>
+                      setTestForm({
+                        ...testForm,
+                        department:
+                          v,
+                      })
+                    }
+                    placeholder="Laboratory"
+                  />
+
+                  <Field
+                    label="Sample Type"
+                    value={
+                      testForm.sample_type
+                    }
+                    onChange={(v) =>
+                      setTestForm({
+                        ...testForm,
+                        sample_type:
+                          v,
+                      })
+                    }
+                    placeholder="EDTA Blood / Serum"
+                  />
+
+                  <Field
+                    label="Price ₹"
+                    type="number"
+                    value={
+                      testForm.price
+                    }
+                    onChange={(v) =>
+                      setTestForm({
+                        ...testForm,
+                        price: v,
+                      })
+                    }
+                    placeholder="250"
+                  />
+
+                  <Field
+                    label="Method"
+                    value={
+                      testForm.method
+                    }
+                    onChange={(v) =>
+                      setTestForm({
+                        ...testForm,
+                        method: v,
+                      })
+                    }
+                    placeholder="Automated / Manual"
+                  />
+                </div>
+
+                <Checkbox
+                  label="Active Test"
+                  checked={
+                    testForm.active
+                  }
+                  onChange={(v) =>
+                    setTestForm({
+                      ...testForm,
+                      active:
+                        v,
+                    })
+                  }
+                />
+              </div>
+
+              {/* =================================================
+                  PARAMETERS
+              ================================================= */}
+
+              {editingTestId && (
+                <div
+                  style={
+                    sectionBox
+                  }
                 >
                   <div
                     style={{
@@ -1647,44 +1913,47 @@ export default function TestMasterPage() {
                         "space-between",
                       alignItems:
                         "center",
-                      gap: "10px",
+                      gap:
+                        "10px",
                       marginBottom:
                         "12px",
                     }}
                   >
                     <div>
-                      <h3
-                        style={{
-                          margin: 0,
-                          fontSize:
-                            "16px",
-                        }}
+                      <div
+                        style={
+                          sectionTitle
+                        }
                       >
-                        Test Parameters
-                      </h3>
+                        2. Parameters &
+                        Normal / Reference
+                        Values
+                      </div>
 
-                      <p
+                      <div
                         style={{
-                          margin:
-                            "4px 0 0",
-                          color:
-                            "#7b8795",
                           fontSize:
-                            "11px",
+                            "10px",
+                          color:
+                            "#718096",
+                          marginTop:
+                            "3px",
                         }}
                       >
-                        {parameters.length}{" "}
-                        parameters
-                      </p>
+                        Yahin se Normal Min,
+                        Max aur Reference
+                        Range change karein.
+                      </div>
                     </div>
 
                     <button
+                      type="button"
                       onClick={
-                        openNewParameter
+                        openAddParameter
                       }
                       style={buttonStyle(
                         "#0e9f99",
-                        "#ffffff"
+                        "#fff"
                       )}
                     >
                       + Add Parameter
@@ -1695,23 +1964,25 @@ export default function TestMasterPage() {
                   0 ? (
                     <div
                       style={{
-                        padding:
-                          "25px 10px",
-                        textAlign:
-                          "center",
                         border:
-                          "1px dashed #cbd5df",
+                          "1px dashed #cbd5e1",
                         borderRadius:
                           "8px",
+                        padding:
+                          "25px",
+                        textAlign:
+                          "center",
+                        color:
+                          "#718096",
                       }}
                     >
                       <div
                         style={{
                           fontSize:
-                            "28px",
+                            "30px",
                         }}
                       >
-                        📋
+                        🧪
                       </div>
 
                       <strong>
@@ -1721,13 +1992,11 @@ export default function TestMasterPage() {
                       <p
                         style={{
                           fontSize:
-                            "11px",
-                          color:
-                            "#7b8795",
+                            "10px",
                         }}
                       >
-                        + Add Parameter पर
-                        tap करें।
+                        + Add Parameter
+                        पर click करें।
                       </p>
                     </div>
                   ) : (
@@ -1737,32 +2006,30 @@ export default function TestMasterPage() {
                           "flex",
                         flexDirection:
                           "column",
-                        gap: "8px",
+                        gap:
+                          "12px",
                       }}
                     >
                       {parameters.map(
                         (
-                          parameter
+                          parameter,
+                          index
                         ) => (
-                          <ParameterCard
+                          <ParameterEditor
                             key={
                               parameter.id
                             }
                             parameter={
                               parameter
                             }
-                            onEdit={() =>
-                              editParameter(
-                                parameter
-                              )
+                            index={
+                              index
+                            }
+                            onChange={
+                              changeParameter
                             }
                             onDelete={() =>
                               deleteParameter(
-                                parameter
-                              )
-                            }
-                            onToggle={() =>
-                              toggleParameterActive(
                                 parameter
                               )
                             }
@@ -1772,171 +2039,49 @@ export default function TestMasterPage() {
                     </div>
                   )}
                 </div>
-              </>
-            )}
-          </section>
-        </div>
-      </main>
+              )}
 
-      {/* =====================================================
-          TEST MODAL
-      ===================================================== */}
+              {/* =================================================
+                  FOOTER BUTTONS
+              ================================================= */}
 
-      {showTestForm && (
-        <div style={overlayStyle}>
-          <div style={modalStyle}>
-            <ModalHeader
-              title={
-                editingTestId
-                  ? "Edit Test"
-                  : "Add New Test"
-              }
-              subtitle="Test ki basic information"
-              onClose={() =>
-                setShowTestForm(
-                  false
-                )
-              }
-            />
+              <div
+                style={
+                  modalActions
+                }
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowEditModal(
+                      false
+                    )
+                  }
+                  style={buttonStyle(
+                    "#fff",
+                    "#475569"
+                  )}
+                >
+                  Cancel
+                </button>
 
-            <form
-              onSubmit={saveTest}
-            >
-              <div style={formGrid}>
-                <Field
-                  label="Test Name *"
-                  value={
-                    testForm.name
+                <button
+                  type="submit"
+                  disabled={
+                    saving
                   }
-                  onChange={(value) =>
-                    setTestForm({
-                      ...testForm,
-                      name: value,
-                    })
-                  }
-                  placeholder="Complete Blood Count"
-                />
-
-                <Field
-                  label="Short Name"
-                  value={
-                    testForm.short_name
-                  }
-                  onChange={(value) =>
-                    setTestForm({
-                      ...testForm,
-                      short_name:
-                        value,
-                    })
-                  }
-                  placeholder="CBC"
-                />
-
-                <SelectField
-                  label="Category"
-                  value={
-                    testForm.category
-                  }
-                  onChange={(value) =>
-                    setTestForm({
-                      ...testForm,
-                      category:
-                        value,
-                    })
-                  }
-                  options={
-                    CATEGORIES
-                  }
-                />
-
-                <Field
-                  label="Department"
-                  value={
-                    testForm.department
-                  }
-                  onChange={(value) =>
-                    setTestForm({
-                      ...testForm,
-                      department:
-                        value,
-                    })
-                  }
-                  placeholder="Laboratory"
-                />
-
-                <Field
-                  label="Sample Type"
-                  value={
-                    testForm.sample_type
-                  }
-                  onChange={(value) =>
-                    setTestForm({
-                      ...testForm,
-                      sample_type:
-                        value,
-                    })
-                  }
-                  placeholder="EDTA Blood / Serum / Urine"
-                />
-
-                <Field
-                  label="Price ₹"
-                  type="number"
-                  value={
-                    testForm.price
-                  }
-                  onChange={(value) =>
-                    setTestForm({
-                      ...testForm,
-                      price: value,
-                    })
-                  }
-                  placeholder="250"
-                />
-
-                <Field
-                  label="Method"
-                  value={
-                    testForm.method
-                  }
-                  onChange={(value) =>
-                    setTestForm({
-                      ...testForm,
-                      method:
-                        value,
-                    })
-                  }
-                  placeholder="Automated / Manual"
-                />
+                  style={buttonStyle(
+                    "#0e9f99",
+                    "#fff"
+                  )}
+                >
+                  {saving
+                    ? "Saving..."
+                    : editingTestId
+                    ? "✓ Update Test & Reference Ranges"
+                    : "✓ Save Test"}
+                </button>
               </div>
-
-              <Checkbox
-                label="Active Test"
-                checked={
-                  testForm.active
-                }
-                onChange={(value) =>
-                  setTestForm({
-                    ...testForm,
-                    active:
-                      value,
-                  })
-                }
-              />
-
-              <ModalActions
-                saving={saving}
-                onCancel={() =>
-                  setShowTestForm(
-                    false
-                  )
-                }
-                submitText={
-                  editingTestId
-                    ? "Update Test"
-                    : "Save Test"
-                }
-              />
             </form>
           </div>
         </div>
@@ -1946,13 +2091,17 @@ export default function TestMasterPage() {
           PRICE MODAL
       ===================================================== */}
 
-      {showPriceForm &&
+      {showPriceModal &&
         priceTest && (
           <div
-            style={overlayStyle}
+            style={
+              overlayStyle
+            }
           >
             <div
-              style={modalStyle}
+              style={
+                modalStyle
+              }
             >
               <ModalHeader
                 title="Edit Test Price"
@@ -1960,7 +2109,7 @@ export default function TestMasterPage() {
                   priceTest.name
                 }
                 onClose={() =>
-                  setShowPriceForm(
+                  setShowPriceModal(
                     false
                   )
                 }
@@ -1969,7 +2118,7 @@ export default function TestMasterPage() {
               <div
                 style={{
                   padding:
-                    "10px 12px",
+                    "10px",
                   background:
                     "#f0fdfa",
                   border:
@@ -1977,28 +2126,11 @@ export default function TestMasterPage() {
                   borderRadius:
                     "8px",
                   marginBottom:
-                    "15px",
+                    "12px",
                 }}
               >
-                <div
-                  style={{
-                    fontSize:
-                      "11px",
-                    color:
-                      "#64748b",
-                  }}
-                >
-                  Current Price
-                </div>
-
-                <strong
-                  style={{
-                    fontSize:
-                      "20px",
-                    color:
-                      "#087f68",
-                  }}
-                >
+                Current Price:{" "}
+                <strong>
                   ₹
                   {getTestPrice(
                     priceTest
@@ -2023,43 +2155,68 @@ export default function TestMasterPage() {
                   placeholder="250"
                 />
 
-                <ModalActions
-                  saving={saving}
-                  onCancel={() =>
-                    setShowPriceForm(
-                      false
-                    )
+                <div
+                  style={
+                    modalActions
                   }
-                  submitText="Save Price"
-                />
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPriceModal(
+                        false
+                      )
+                    }
+                    style={buttonStyle(
+                      "#fff",
+                      "#475569"
+                    )}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={
+                      saving
+                    }
+                    style={buttonStyle(
+                      "#0e9f99",
+                      "#fff"
+                    )}
+                  >
+                    {saving
+                      ? "Saving..."
+                      : "Save Price"}
+                  </button>
+                </div>
               </form>
             </div>
           </div>
         )}
 
       {/* =====================================================
-          PARAMETER MODAL
+          ADD PARAMETER MODAL
       ===================================================== */}
 
-      {showParameterForm && (
+      {showParameterModal && (
         <div
-          style={overlayStyle}
+          style={
+            overlayStyle
+          }
         >
           <div
-            style={modalStyle}
+            style={
+              modalStyle
+            }
           >
             <ModalHeader
-              title={
-                editingParameterId
-                  ? "Edit Parameter"
-                  : "Add Parameter"
-              }
+              title="Add Parameter"
               subtitle={
-                selectedTest?.name ||
-                ""
+                testForm.name
               }
               onClose={() =>
-                setShowParameterForm(
+                setShowParameterModal(
                   false
                 )
               }
@@ -2067,7 +2224,7 @@ export default function TestMasterPage() {
 
             <form
               onSubmit={
-                saveParameter
+                saveNewParameter
               }
             >
               <Field
@@ -2075,60 +2232,62 @@ export default function TestMasterPage() {
                 value={
                   parameterForm.parameter_name
                 }
-                onChange={(value) =>
+                onChange={(v) =>
                   setParameterForm({
                     ...parameterForm,
                     parameter_name:
-                      value,
+                      v,
                   })
                 }
                 placeholder="Haemoglobin"
               />
 
               <div
-                style={formGrid}
+                style={
+                  formGrid
+                }
               >
                 <Field
                   label="Unit"
                   value={
                     parameterForm.unit
                   }
-                  onChange={(value) =>
+                  onChange={(v) =>
                     setParameterForm({
                       ...parameterForm,
-                      unit: value,
+                      unit: v,
                     })
                   }
                   placeholder="g/dL"
                 />
 
                 <Field
-                  label="Minimum Normal Value"
+                  label="Normal Min"
                   type="number"
                   value={
                     parameterForm.min_value
                   }
-                  onChange={(value) =>
+                  onChange={(v) =>
                     setParameterForm({
                       ...parameterForm,
                       min_value:
-                        value,
+                        v,
                     })
                   }
                   placeholder="13"
                 />
 
                 <Field
-                  label="Maximum Normal Value"
+                  label="Normal Max"
                   type="number"
                   value={
                     parameterForm.max_value
                   }
-                  onChange={(value) =>
+                  onChange={(v) =>
                     setParameterForm({
                       ...parameterForm,
                       max_value:
-                        value,
+                        v,
                     })
                   }
                   placeholder="17"
@@ -2140,32 +2299,21 @@ export default function TestMasterPage() {
                   value={
                     parameterForm.sort_order
                   }
-                  onChange={(value) =>
+                  onChange={(v) =>
                     setParameterForm({
                       ...parameterForm,
                       sort_order:
-                        value,
+                        v,
                     })
                   }
                   placeholder="1"
                 />
               </div>
 
-              {/* =================================================
-                  NORMAL / REFERENCE RANGE
-              ================================================= */}
-
               <div
                 style={{
-                  marginTop: "13px",
-                  padding:
+                  marginTop:
                     "12px",
-                  border:
-                    "1px solid #cce9e6",
-                  background:
-                    "#f3fffd",
-                  borderRadius:
-                    "8px",
                 }}
               >
                 <label
@@ -2174,7 +2322,7 @@ export default function TestMasterPage() {
                   }
                 >
                   Normal Value /
-                  Reference Range *
+                  Reference Range
                 </label>
 
                 <textarea
@@ -2189,43 +2337,26 @@ export default function TestMasterPage() {
                     })
                   }
                   placeholder="Male: 13-17 g/dL | Female: 12-15 g/dL"
-                  style={{
-                    ...inputStyle,
-                    minHeight:
-                      "75px",
-                    resize:
-                      "vertical",
-                  }}
+                  style={
+                    textareaStyle
+                  }
                 />
 
                 <div
-                  style={{
-                    marginTop:
-                      "6px",
-                    fontSize:
-                      "10px",
-                    color:
-                      "#64748b",
-                    lineHeight:
-                      "1.5",
-                  }}
+                  style={
+                    helpStyle
+                  }
                 >
-                  Example:
-                  <br />
-                  Male: 13-17 g/dL
-                  <br />
-                  Female: 12-15 g/dL
-                  <br />
-                  Child: Age specific
+                  Example: Male: 13-17
+                  g/dL | Female: 12-15
+                  g/dL
                 </div>
               </div>
-
-              {/* OPTIONS */}
 
               <div
                 style={{
                   marginTop:
-                    "13px",
+                    "12px",
                 }}
               >
                 <label
@@ -2233,7 +2364,7 @@ export default function TestMasterPage() {
                     labelStyle
                   }
                 >
-                  Options / Text
+                  Options
                 </label>
 
                 <textarea
@@ -2247,32 +2378,11 @@ export default function TestMasterPage() {
                         e.target.value,
                     })
                   }
-                  placeholder='Example: {"choices":["Positive","Negative"]}'
-                  style={{
-                    ...inputStyle,
-                    minHeight:
-                      "75px",
-                    resize:
-                      "vertical",
-                    fontFamily:
-                      "monospace",
-                  }}
+                  placeholder='{"choices":["Positive","Negative"]}'
+                  style={
+                    textareaStyle
+                  }
                 />
-
-                <div
-                  style={{
-                    marginTop:
-                      "5px",
-                    fontSize:
-                      "10px",
-                    color:
-                      "#64748b",
-                  }}
-                >
-                  Positive / Negative,
-                  Blood Group आदि के लिए
-                  options use कर सकते हैं।
-                </div>
               </div>
 
               <Checkbox
@@ -2280,28 +2390,50 @@ export default function TestMasterPage() {
                 checked={
                   parameterForm.active
                 }
-                onChange={(value) =>
+                onChange={(v) =>
                   setParameterForm({
                     ...parameterForm,
                     active:
-                      value,
+                      v,
                   })
                 }
               />
 
-              <ModalActions
-                saving={saving}
-                onCancel={() =>
-                  setShowParameterForm(
-                    false
-                  )
+              <div
+                style={
+                  modalActions
                 }
-                submitText={
-                  editingParameterId
-                    ? "Update Parameter"
-                    : "Save Parameter"
-                }
-              />
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowParameterModal(
+                      false
+                    )
+                  }
+                  style={buttonStyle(
+                    "#fff",
+                    "#475569"
+                  )}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    saving
+                  }
+                  style={buttonStyle(
+                    "#0e9f99",
+                    "#fff"
+                  )}
+                >
+                  {saving
+                    ? "Saving..."
+                    : "Save Parameter"}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -2311,217 +2443,428 @@ export default function TestMasterPage() {
 }
 
 /* =========================================================
-   PARAMETER CARD
+   PARAMETER EDITOR
 ========================================================= */
 
-function ParameterCard({
+function ParameterEditor({
   parameter,
-  onEdit,
+  index,
+  onChange,
   onDelete,
-  onToggle,
 }) {
   return (
     <div
       style={{
         border:
-          "1px solid #e1e7ed",
+          "1px solid #dce6eb",
         borderRadius:
-          "9px",
-        padding: "11px",
+          "10px",
+        padding:
+          "12px",
         background:
-          parameter.active
-            ? "#ffffff"
-            : "#f8fafc",
+          "#fbfefe",
       }}
     >
       <div
         style={{
-          display: "flex",
+          display:
+            "flex",
           justifyContent:
             "space-between",
-          gap: "10px",
+          alignItems:
+            "center",
+          marginBottom:
+            "10px",
         }}
       >
-        <div
-          style={{
-            minWidth: 0,
-            flex: 1,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems:
-                "center",
-              gap: "6px",
-              flexWrap:
-                "wrap",
-            }}
-          >
-            <strong
-              style={{
-                fontSize:
-                  "13px",
-              }}
-            >
-              {
-                parameter.parameter_name
-              }
-            </strong>
-
-            <span
-              style={{
-                fontSize:
-                  "9px",
-                fontWeight:
-                  "800",
-                color:
-                  parameter.active
-                    ? "#087f68"
-                    : "#a04444",
-              }}
-            >
-              {parameter.active
-                ? "ACTIVE"
-                : "INACTIVE"}
-            </span>
-          </div>
-
-          {/* UNIT */}
-
-          <div
+        <div>
+          <strong
             style={{
               fontSize:
-                "10px",
-              color:
-                "#64748b",
-              marginTop:
-                "5px",
+                "13px",
             }}
           >
-            <strong>
-              Unit:
-            </strong>{" "}
-            {parameter.unit ||
-              "—"}
-          </div>
+            Parameter #{index + 1}
+          </strong>
 
-          {/* MIN MAX */}
-
-          <div
+          <span
             style={{
+              marginLeft:
+                "8px",
               fontSize:
-                "10px",
+                "9px",
               color:
-                "#64748b",
-              marginTop:
-                "3px",
+                parameter.active
+                  ? "#087f68"
+                  : "#b42323",
+              fontWeight:
+                "900",
             }}
-          >
-            <strong>
-              Normal Min:
-            </strong>{" "}
-            {parameter.min_value ??
-              "—"}{" "}
-            •{" "}
-            <strong>
-              Max:
-            </strong>{" "}
-            {parameter.max_value ??
-              "—"}
-          </div>
-
-          {/* REFERENCE RANGE */}
-
-          <div
-            style={{
-              marginTop:
-                "7px",
-              padding:
-                "7px 8px",
-              background:
-                "#f0fdfa",
-              border:
-                "1px solid #ccfbf1",
-              borderRadius:
-                "6px",
-              fontSize:
-                "10px",
-              color:
-                "#334155",
-              lineHeight:
-                "1.5",
-            }}
-          >
-            <strong
-              style={{
-                color:
-                  "#087f68",
-              }}
-            >
-              Normal /
-              Reference:
-            </strong>
-
-            <div
-              style={{
-                marginTop:
-                  "2px",
-                whiteSpace:
-                  "pre-wrap",
-                wordBreak:
-                  "break-word",
-              }}
-            >
-              {parameter.reference_range ||
-                "Not set"}
-            </div>
-          </div>
-        </div>
-
-        {/* ACTIONS */}
-
-        <div
-          style={{
-            display:
-              "flex",
-            flexDirection:
-              "column",
-            gap: "5px",
-          }}
-        >
-          <button
-            onClick={onEdit}
-            style={
-              smallButton
-            }
-          >
-            ✏️ Edit
-          </button>
-
-          <button
-            onClick={onToggle}
-            style={
-              smallButton
-            }
           >
             {parameter.active
-              ? "Disable"
-              : "Enable"}
-          </button>
+              ? "ACTIVE"
+              : "INACTIVE"}
+          </span>
+        </div>
 
-          <button
-            onClick={onDelete}
+        <button
+          type="button"
+          onClick={
+            onDelete
+          }
+          style={{
+            ...smallButton,
+            color:
+              "#b42323",
+          }}
+        >
+          🗑 Delete
+        </button>
+      </div>
+
+      <div
+        style={
+          formGrid
+        }
+      >
+        <InlineInput
+          label="Parameter Name"
+          value={
+            parameter.parameter_name ||
+            ""
+          }
+          onChange={(v) =>
+            onChange(
+              parameter.id,
+              "parameter_name",
+              v
+            )
+          }
+          placeholder="Haemoglobin"
+        />
+
+        <InlineInput
+          label="Unit"
+          value={
+            parameter.unit ||
+            ""
+          }
+          onChange={(v) =>
+            onChange(
+              parameter.id,
+              "unit",
+              v
+            )
+          }
+          placeholder="g/dL"
+        />
+
+        <InlineInput
+          label="Normal Minimum Value"
+          type="number"
+          value={
+            parameter.min_value ??
+            ""
+          }
+          onChange={(v) =>
+            onChange(
+              parameter.id,
+              "min_value",
+              v
+            )
+          }
+          placeholder="13"
+        />
+
+        <InlineInput
+          label="Normal Maximum Value"
+          type="number"
+          value={
+            parameter.max_value ??
+            ""
+          }
+          onChange={(v) =>
+            onChange(
+              parameter.id,
+              "max_value",
+              v
+            )
+          }
+          placeholder="17"
+        />
+
+        <InlineInput
+          label="Sort Order"
+          type="number"
+          value={
+            parameter.sort_order ??
+            1
+          }
+          onChange={(v) =>
+            onChange(
+              parameter.id,
+              "sort_order",
+              v
+            )
+          }
+          placeholder="1"
+        />
+
+        <div>
+          <label
+            style={
+              labelStyle
+            }
+          >
+            Parameter Active
+          </label>
+
+          <label
             style={{
-              ...smallButton,
-              color:
-                "#b42323",
+              display:
+                "flex",
+              alignItems:
+                "center",
+              gap:
+                "7px",
+              fontSize:
+                "11px",
+              padding:
+                "10px",
+              border:
+                "1px solid #d7e0e8",
+              borderRadius:
+                "7px",
+              background:
+                "#fff",
             }}
           >
-            Delete
-          </button>
+            <input
+              type="checkbox"
+              checked={
+                parameter.active !==
+                false
+              }
+              onChange={(e) =>
+                onChange(
+                  parameter.id,
+                  "active",
+                  e.target.checked
+                )
+              }
+            />
+
+            Active
+          </label>
         </div>
       </div>
+
+      {/* =====================================================
+          MAIN REFERENCE RANGE FIELD
+      ===================================================== */}
+
+      <div
+        style={{
+          marginTop:
+            "11px",
+          padding:
+            "10px",
+          border:
+            "1px solid #bfe8e3",
+          background:
+            "#f0fdfa",
+          borderRadius:
+            "8px",
+        }}
+      >
+        <label
+          style={{
+            ...labelStyle,
+            color:
+              "#087f68",
+          }}
+        >
+          ⭐ Normal Value /
+          Reference Range
+        </label>
+
+        <textarea
+          value={
+            parameter.reference_range ||
+            ""
+          }
+          onChange={(e) =>
+            onChange(
+              parameter.id,
+              "reference_range",
+              e.target.value
+            )
+          }
+          placeholder="Male: 13-17 g/dL | Female: 12-15 g/dL"
+          style={
+            textareaStyle
+          }
+        />
+
+        <div
+          style={
+            helpStyle
+          }
+        >
+          यही value report में normal/reference
+          range के रूप में use की जा सकती है।
+          Example: Male: 13-17 g/dL | Female:
+          12-15 g/dL
+        </div>
+      </div>
+
+      {/* OPTIONS */}
+
+      <div
+        style={{
+          marginTop:
+            "10px",
+        }}
+      >
+        <label
+          style={
+            labelStyle
+          }
+        >
+          Options / Choices
+        </label>
+
+        <textarea
+          value={
+            formatOptions(
+              parameter.options
+            )
+          }
+          onChange={(e) =>
+            onChange(
+              parameter.id,
+              "options",
+              e.target.value
+            )
+          }
+          placeholder='{"choices":["Positive","Negative"]}'
+          style={{
+            ...textareaStyle,
+            fontFamily:
+              "monospace",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   PARAMETER PREVIEW
+========================================================= */
+
+function ParameterPreview({
+  parameter,
+}) {
+  return (
+    <div
+      style={{
+        border:
+          "1px solid #e3eaf0",
+        borderRadius:
+          "8px",
+        padding:
+          "10px",
+        marginBottom:
+          "7px",
+      }}
+    >
+      <strong
+        style={{
+          fontSize:
+            "12px",
+        }}
+      >
+        {
+          parameter.parameter_name
+        }
+      </strong>
+
+      <div
+        style={{
+          fontSize:
+            "10px",
+          color:
+            "#667085",
+          marginTop:
+            "4px",
+        }}
+      >
+        Unit:{" "}
+        {parameter.unit ||
+          "—"}
+      </div>
+
+      <div
+        style={{
+          marginTop:
+            "6px",
+          background:
+            "#f0fdfa",
+          borderRadius:
+            "6px",
+          padding:
+            "7px",
+          fontSize:
+            "10px",
+        }}
+      >
+        <strong>
+          Normal / Reference:
+        </strong>{" "}
+        {parameter.reference_range ||
+          "Not set"}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   INLINE INPUT
+========================================================= */
+
+function InlineInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}) {
+  return (
+    <div>
+      <label
+        style={
+          labelStyle
+        }
+      >
+        {label}
+      </label>
+
+      <input
+        type={type}
+        value={value}
+        onChange={(e) =>
+          onChange(
+            e.target.value
+          )
+        }
+        placeholder={
+          placeholder
+        }
+        style={
+          inputStyle
+        }
+      />
     </div>
   );
 }
@@ -2567,7 +2910,7 @@ function Field({
 }
 
 /* =========================================================
-   SELECT FIELD
+   SELECT
 ========================================================= */
 
 function SelectField({
@@ -2626,13 +2969,14 @@ function Checkbox({
       style={{
         display:
           "flex",
-        gap: "8px",
         alignItems:
           "center",
+        gap:
+          "7px",
         marginTop:
-          "14px",
+          "11px",
         fontSize:
-          "12px",
+          "11px",
         fontWeight:
           "800",
       }}
@@ -2669,15 +3013,13 @@ function Badge({
         color:
           "#536674",
         borderRadius:
-          "15px",
+          "12px",
         padding:
-          "3px 7px",
+          "3px 6px",
         fontSize:
-          "9px",
+          "8px",
         fontWeight:
           "700",
-        whiteSpace:
-          "nowrap",
       }}
     >
       {children}
@@ -2705,9 +3047,7 @@ function ModalHeader({
           style={{
             margin: 0,
             fontSize:
-              "20px",
-            color:
-              "#172536",
+              "19px",
           }}
         >
           {title}
@@ -2716,11 +3056,11 @@ function ModalHeader({
         <p
           style={{
             margin:
-              "4px 0 0",
+              "3px 0 0",
+            fontSize:
+              "10px",
             color:
               "#718096",
-            fontSize:
-              "11px",
           }}
         >
           {subtitle}
@@ -2743,53 +3083,37 @@ function ModalHeader({
 }
 
 /* =========================================================
-   MODAL ACTIONS
+   FORMAT OPTIONS
 ========================================================= */
 
-function ModalActions({
-  saving,
-  onCancel,
-  submitText,
-}) {
-  return (
-    <div
-      style={{
-        display:
-          "flex",
-        justifyContent:
-          "flex-end",
-        gap: "8px",
-        marginTop:
-          "20px",
-      }}
-    >
-      <button
-        type="button"
-        onClick={
-          onCancel
-        }
-        style={buttonStyle(
-          "#ffffff",
-          "#475569"
-        )}
-      >
-        Cancel
-      </button>
+function formatOptions(
+  options
+) {
+  if (
+    options === null ||
+    options === undefined
+  ) {
+    return "";
+  }
 
-      <button
-        type="submit"
-        disabled={saving}
-        style={buttonStyle(
-          "#0e9f99",
-          "#ffffff"
-        )}
-      >
-        {saving
-          ? "Saving..."
-          : submitText}
-      </button>
-    </div>
-  );
+  if (
+    typeof options ===
+    "string"
+  ) {
+    return options;
+  }
+
+  try {
+    return JSON.stringify(
+      options,
+      null,
+      2
+    );
+  } catch {
+    return String(
+      options
+    );
+  }
 }
 
 /* =========================================================
@@ -2807,27 +3131,29 @@ const pageStyle = {
 
 const headerStyle = {
   background:
-    "#ffffff",
+    "#fff",
   borderBottom:
     "1px solid #e2e8ef",
   padding:
-    "12px 16px",
+    "10px 12px",
   display:
     "flex",
-  alignItems:
-    "center",
   justifyContent:
     "space-between",
-  gap: "12px",
+  alignItems:
+    "center",
+  gap:
+    "10px",
   position:
     "sticky",
   top: 0,
-  zIndex: 20,
+  zIndex:
+    20,
 };
 
 const mainStyle = {
   padding:
-    "14px",
+    "12px",
   maxWidth:
     "1500px",
   margin:
@@ -2836,34 +3162,57 @@ const mainStyle = {
 
 const searchCardStyle = {
   background:
-    "#ffffff",
+    "#fff",
   border:
     "1px solid #e2e8ef",
   borderRadius:
-    "10px",
+    "9px",
   padding:
-    "12px",
+    "10px",
   marginBottom:
-    "14px",
+    "12px",
 };
 
-const contentGridStyle = {
+const searchGrid = {
   display:
     "grid",
   gridTemplateColumns:
-    "minmax(0, 1.25fr) minmax(350px, 0.75fr)",
-  gap: "14px",
+    "minmax(0, 1fr) 180px",
+  gap:
+    "8px",
+};
+
+const contentGrid = {
+  display:
+    "grid",
+  gridTemplateColumns:
+    "minmax(0, 1.3fr) minmax(320px, 0.7fr)",
+  gap:
+    "12px",
 };
 
 const cardStyle = {
   background:
-    "#ffffff",
+    "#fff",
   border:
     "1px solid #e2e8ef",
   borderRadius:
-    "10px",
+    "9px",
   overflow:
     "hidden",
+};
+
+const listHeader = {
+  padding:
+    "12px",
+  borderBottom:
+    "1px solid #e8edf2",
+  display:
+    "flex",
+  justifyContent:
+    "space-between",
+  alignItems:
+    "center",
 };
 
 const inputStyle = {
@@ -2872,7 +3221,7 @@ const inputStyle = {
   boxSizing:
     "border-box",
   padding:
-    "10px 11px",
+    "9px 10px",
   border:
     "1px solid #d7e0e8",
   borderRadius:
@@ -2880,9 +3229,32 @@ const inputStyle = {
   outline:
     "none",
   fontSize:
-    "12px",
+    "11px",
   background:
-    "#ffffff",
+    "#fff",
+};
+
+const textareaStyle = {
+  width:
+    "100%",
+  boxSizing:
+    "border-box",
+  minHeight:
+    "65px",
+  padding:
+    "9px 10px",
+  border:
+    "1px solid #d7e0e8",
+  borderRadius:
+    "7px",
+  outline:
+    "none",
+  fontSize:
+    "11px",
+  resize:
+    "vertical",
+  background:
+    "#fff",
 };
 
 const labelStyle = {
@@ -2891,7 +3263,7 @@ const labelStyle = {
   marginBottom:
     "5px",
   fontSize:
-    "11px",
+    "10px",
   fontWeight:
     "800",
   color:
@@ -2903,7 +3275,8 @@ const formGrid = {
     "grid",
   gridTemplateColumns:
     "repeat(2, minmax(0, 1fr))",
-  gap: "11px",
+  gap:
+    "9px",
 };
 
 const buttonStyle = (
@@ -2915,22 +3288,22 @@ const buttonStyle = (
   background,
   color,
   padding:
-    "8px 11px",
+    "7px 10px",
   borderRadius:
-    "7px",
+    "6px",
   cursor:
     "pointer",
   fontWeight:
     "800",
   fontSize:
-    "11px",
+    "10px",
 });
 
 const smallButton = {
   border:
     "1px solid #d6dee6",
   background:
-    "#ffffff",
+    "#fff",
   color:
     "#176b67",
   padding:
@@ -2942,26 +3315,29 @@ const smallButton = {
   fontWeight:
     "700",
   fontSize:
-    "9px",
+    "8px",
   whiteSpace:
     "nowrap",
 };
 
 const emptyStyle = {
   padding:
-    "45px 20px",
+    "40px 15px",
   textAlign:
     "center",
   color:
     "#718096",
+  fontSize:
+    "11px",
 };
 
 const overlayStyle = {
   position:
     "fixed",
-  inset: 0,
+  inset:
+    0,
   background:
-    "rgba(15, 23, 42, 0.55)",
+    "rgba(15,23,42,0.60)",
   display:
     "flex",
   justifyContent:
@@ -2969,28 +3345,34 @@ const overlayStyle = {
   alignItems:
     "center",
   padding:
-    "15px",
+    "10px",
   zIndex:
     100,
 };
 
 const modalStyle = {
   background:
-    "#ffffff",
+    "#fff",
   width:
     "100%",
   maxWidth:
-    "650px",
+    "600px",
   maxHeight:
     "92vh",
   overflowY:
     "auto",
   borderRadius:
-    "12px",
+    "11px",
   padding:
-    "18px",
+    "15px",
   boxShadow:
     "0 20px 60px rgba(0,0,0,0.25)",
+};
+
+const largeModalStyle = {
+  ...modalStyle,
+  maxWidth:
+    "900px",
 };
 
 const modalHeader = {
@@ -2998,11 +3380,12 @@ const modalHeader = {
     "flex",
   justifyContent:
     "space-between",
-  gap: "15px",
   alignItems:
     "flex-start",
+  gap:
+    "10px",
   marginBottom:
-    "17px",
+    "12px",
 };
 
 const closeButton = {
@@ -3011,15 +3394,63 @@ const closeButton = {
   background:
     "#f1f5f9",
   width:
-    "32px",
+    "30px",
   height:
-    "32px",
+    "30px",
   borderRadius:
     "50%",
   cursor:
     "pointer",
   fontSize:
-    "22px",
+    "20px",
   lineHeight:
-    "30px",
+    "25px",
+};
+
+const sectionBox = {
+  border:
+    "1px solid #e2e8ef",
+  borderRadius:
+    "9px",
+  padding:
+    "12px",
+  marginBottom:
+    "11px",
+  background:
+    "#fff",
+};
+
+const sectionTitle = {
+  fontSize:
+    "13px",
+  fontWeight:
+    "900",
+  color:
+    "#172536",
+};
+
+const modalActions = {
+  display:
+    "flex",
+  justifyContent:
+    "flex-end",
+  gap:
+    "7px",
+  marginTop:
+    "12px",
+  paddingTop:
+    "10px",
+  borderTop:
+    "1px solid #e8edf2",
+};
+
+const helpStyle = {
+  marginTop:
+    "4px",
+  fontSize:
+    "9px",
+  color:
+    "#64748b",
+  lineHeight:
+    "1.4",
 };
