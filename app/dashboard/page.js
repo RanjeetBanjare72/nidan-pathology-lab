@@ -31,6 +31,8 @@ export default function DashboardPage() {
   useEffect(() => {
     let mounted = true;
 
+    let authSubscription = null;
+
     async function initializeDashboard() {
       try {
         setLoading(true);
@@ -42,12 +44,19 @@ export default function DashboardPage() {
 
         if (error) {
           console.error("Session error:", error);
-          router.replace("/login");
+
+          if (mounted) {
+            router.replace("/login");
+          }
+
           return;
         }
 
         if (!session?.user) {
-          router.replace("/login");
+          if (mounted) {
+            router.replace("/login");
+          }
+
           return;
         }
 
@@ -57,22 +66,38 @@ export default function DashboardPage() {
 
         await loadDashboardData(session.user);
 
-        // Listen for login/logout changes
-        const {
-          data: { subscription: authListener },
-        } = supabase.auth.onAuthStateChange((_event, sessionData) => {
-          if (!sessionData?.user) {
-            router.replace("/login");
-          } else {
-            setUser(sessionData.user);
-          }
-        });
+        // ======================================================
+        // AUTH STATE LISTENER
+        // ======================================================
 
-        return () => {
-          authListener?.unsubscribe();
-        };
+        const {
+          data: { subscription: listener },
+        } = supabase.auth.onAuthStateChange(
+          (_event, sessionData) => {
+            if (!mounted) return;
+
+            if (!sessionData?.user) {
+              setUser(null);
+              setSubscription(null);
+
+              router.replace("/login");
+              router.refresh();
+            } else {
+              setUser(sessionData.user);
+            }
+          }
+        );
+
+        authSubscription = listener;
       } catch (error) {
-        console.error("Dashboard initialization error:", error);
+        console.error(
+          "Dashboard initialization error:",
+          error
+        );
+
+        if (mounted) {
+          router.replace("/login");
+        }
       } finally {
         if (mounted) {
           setLoading(false);
@@ -84,6 +109,10 @@ export default function DashboardPage() {
 
     return () => {
       mounted = false;
+
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
   }, [router]);
 
@@ -95,9 +124,9 @@ export default function DashboardPage() {
     if (!currentUser?.id) return;
 
     try {
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // SUBSCRIPTION
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       const {
         data: subscriptionData,
@@ -106,7 +135,9 @@ export default function DashboardPage() {
         .from("subscriptions")
         .select("*")
         .eq("user_id", currentUser.id)
-        .order("start_date", { ascending: false })
+        .order("start_date", {
+          ascending: false,
+        })
         .limit(1)
         .maybeSingle();
 
@@ -121,9 +152,9 @@ export default function DashboardPage() {
         setSubscription(subscriptionData);
       }
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // PATIENTS
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       const {
         data: patientData,
@@ -133,38 +164,43 @@ export default function DashboardPage() {
         .select("*");
 
       if (patientError) {
-        console.error("Patients error:", patientError);
+        console.error(
+          "Patients error:",
+          patientError
+        );
       }
 
       const patients = patientData || [];
 
-      setRecentPatients(
-        [...patients]
-          .sort((a, b) => {
-            const dateA = new Date(
-              a.created_at ||
-                a.createdAt ||
-                a.registration_date ||
-                a.date ||
-                0
-            ).getTime();
+      const sortedPatients = [...patients].sort(
+        (a, b) => {
+          const dateA = new Date(
+            a.created_at ||
+              a.createdAt ||
+              a.registration_date ||
+              a.date ||
+              0
+          ).getTime();
 
-            const dateB = new Date(
-              b.created_at ||
-                b.createdAt ||
-                b.registration_date ||
-                b.date ||
-                0
-            ).getTime();
+          const dateB = new Date(
+            b.created_at ||
+              b.createdAt ||
+              b.registration_date ||
+              b.date ||
+              0
+          ).getTime();
 
-            return dateB - dateA;
-          })
-          .slice(0, 5)
+          return dateB - dateA;
+        }
       );
 
-      // ----------------------------------------------------------
+      setRecentPatients(
+        sortedPatients.slice(0, 5)
+      );
+
+      // --------------------------------------------------------
       // BILLS
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       const {
         data: billData,
@@ -174,14 +210,17 @@ export default function DashboardPage() {
         .select("*");
 
       if (billError) {
-        console.error("Bills error:", billError);
+        console.error(
+          "Bills error:",
+          billError
+        );
       }
 
       const bills = billData || [];
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // REPORTS
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       const {
         data: reportData,
@@ -191,14 +230,17 @@ export default function DashboardPage() {
         .select("*");
 
       if (reportError) {
-        console.error("Reports error:", reportError);
+        console.error(
+          "Reports error:",
+          reportError
+        );
       }
 
       const reports = reportData || [];
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // TODAY
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       const today = new Date();
 
@@ -212,65 +254,80 @@ export default function DashboardPage() {
         }
 
         return (
-          date.getFullYear() === today.getFullYear() &&
-          date.getMonth() === today.getMonth() &&
-          date.getDate() === today.getDate()
+          date.getFullYear() ===
+            today.getFullYear() &&
+          date.getMonth() ===
+            today.getMonth() &&
+          date.getDate() ===
+            today.getDate()
         );
       }
 
-      const todayBills = bills.filter((bill) =>
-        isToday(
-          bill.created_at ||
-            bill.createdAt ||
-            bill.bill_date ||
-            bill.date
-        )
+      const todayBills = bills.filter(
+        (bill) =>
+          isToday(
+            bill.created_at ||
+              bill.createdAt ||
+              bill.bill_date ||
+              bill.date
+          )
       );
 
-      const todayCollection = todayBills.reduce(
-        (total, bill) => {
-          const amount = Number(
-            bill.amount ||
-              bill.total ||
-              bill.total_amount ||
-              bill.paid_amount ||
-              bill.net_amount ||
-              0
-          );
+      const todayCollection =
+        todayBills.reduce(
+          (total, bill) => {
+            const amount = Number(
+              bill.amount ||
+                bill.total ||
+                bill.total_amount ||
+                bill.paid_amount ||
+                bill.net_amount ||
+                0
+            );
 
-          return total + (Number.isFinite(amount) ? amount : 0);
-        },
-        0
-      );
-
-      // ----------------------------------------------------------
-      // PENDING REPORTS
-      // ----------------------------------------------------------
-
-      const pendingReports = reports.filter((report) => {
-        const status = String(
-          report.status ||
-            report.report_status ||
-            report.result_status ||
-            ""
-        ).toLowerCase();
-
-        return (
-          status === "pending" ||
-          status === "incomplete" ||
-          status === "processing" ||
-          status === "draft"
+            return (
+              total +
+              (Number.isFinite(amount)
+                ? amount
+                : 0)
+            );
+          },
+          0
         );
-      });
+
+      // --------------------------------------------------------
+      // PENDING REPORTS
+      // --------------------------------------------------------
+
+      const pendingReports =
+        reports.filter((report) => {
+          const status = String(
+            report.status ||
+              report.report_status ||
+              report.result_status ||
+              ""
+          ).toLowerCase();
+
+          return (
+            status === "pending" ||
+            status === "incomplete" ||
+            status === "processing" ||
+            status === "draft"
+          );
+        });
 
       setStats({
         patients: patients.length,
         collection: todayCollection,
         bills: todayBills.length,
-        pendingReports: pendingReports.length,
+        pendingReports:
+          pendingReports.length,
       });
     } catch (error) {
-      console.error("Dashboard data error:", error);
+      console.error(
+        "Dashboard data error:",
+        error
+      );
     }
   }
 
@@ -283,9 +340,13 @@ export default function DashboardPage() {
 
     try {
       setRefreshing(true);
+
       await loadDashboardData(user);
     } catch (error) {
-      console.error("Refresh error:", error);
+      console.error(
+        "Refresh error:",
+        error
+      );
     } finally {
       setRefreshing(false);
     }
@@ -298,13 +359,28 @@ export default function DashboardPage() {
   async function logout() {
     if (loggingOut) return;
 
+    const confirmed = window.confirm(
+      "Kya aap NIDAN Pathology Lab se Logout karna chahte hain?"
+    );
+
+    if (!confirmed) return;
+
     try {
       setLoggingOut(true);
 
-      const { error } = await supabase.auth.signOut();
+      // Clear application state first
+      setUser(null);
+      setSubscription(null);
+
+      // Supabase logout
+      const { error } =
+        await supabase.auth.signOut();
 
       if (error) {
-        console.error("Logout error:", error);
+        console.error(
+          "Supabase logout error:",
+          error
+        );
 
         alert(
           "Logout failed. Please try again."
@@ -314,22 +390,40 @@ export default function DashboardPage() {
         return;
       }
 
-      // Remove local storage items if available
+      // --------------------------------------------------------
+      // CLEAR LOCAL STORAGE
+      // --------------------------------------------------------
+
       try {
         localStorage.clear();
-        sessionStorage.clear();
-      } catch (storageError) {
+      } catch (error) {
         console.log(
-          "Storage clear skipped:",
-          storageError
+          "localStorage clear skipped"
         );
       }
 
-      // Redirect to login
-      router.replace("/login");
-      router.refresh();
+      // --------------------------------------------------------
+      // CLEAR SESSION STORAGE
+      // --------------------------------------------------------
+
+      try {
+        sessionStorage.clear();
+      } catch (error) {
+        console.log(
+          "sessionStorage clear skipped"
+        );
+      }
+
+      // --------------------------------------------------------
+      // REDIRECT LOGIN
+      // --------------------------------------------------------
+
+      window.location.href = "/login";
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error(
+        "Logout error:",
+        error
+      );
 
       alert(
         "Logout failed. Please try again."
@@ -393,11 +487,14 @@ export default function DashboardPage() {
       return "N/A";
     }
 
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return date.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
   }
 
   function getDaysRemaining() {
@@ -412,7 +509,8 @@ export default function DashboardPage() {
     const now = new Date();
 
     const difference =
-      expiry.getTime() - now.getTime();
+      expiry.getTime() -
+      now.getTime();
 
     return Math.max(
       0,
@@ -423,10 +521,11 @@ export default function DashboardPage() {
     );
   }
 
-  const daysRemaining = getDaysRemaining();
+  const daysRemaining =
+    getDaysRemaining();
 
   // ============================================================
-  // LOADING SCREEN
+  // LOADING
   // ============================================================
 
   if (loading) {
@@ -453,6 +552,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-800">
+
       <div className="flex min-h-screen">
 
         {/* ======================================================
@@ -461,9 +561,11 @@ export default function DashboardPage() {
 
         <aside className="hidden w-56 shrink-0 bg-[#082638] text-white md:flex md:flex-col">
 
-          {/* Logo */}
+          {/* LOGO */}
+
           <div className="border-b border-white/10 p-5">
             <div className="flex items-center gap-3">
+
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500 text-xl font-bold">
                 N+
               </div>
@@ -477,10 +579,12 @@ export default function DashboardPage() {
                   PATHOLOGY LAB
                 </p>
               </div>
+
             </div>
           </div>
 
-          {/* Menu */}
+          {/* MENU */}
+
           <div className="flex-1 px-3 py-5">
 
             <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
@@ -559,10 +663,11 @@ export default function DashboardPage() {
               />
 
             </nav>
+
           </div>
 
           {/* ====================================================
-              SIDEBAR LOGOUT
+              DESKTOP LOGOUT
           ==================================================== */}
 
           <div className="border-t border-white/10 p-3">
@@ -571,9 +676,10 @@ export default function DashboardPage() {
               type="button"
               onClick={logout}
               disabled={loggingOut}
-              className="flex w-full items-center gap-3 rounded-lg bg-red-600/10 px-4 py-3 text-left text-sm font-bold text-red-300 transition hover:bg-red-600 hover:text-white disabled:opacity-50"
+              className="flex w-full items-center gap-3 rounded-xl border border-red-400/30 bg-red-600/15 px-4 py-3 text-left text-sm font-bold text-red-200 shadow-sm transition hover:bg-red-600 hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="text-lg">
+
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600/20 text-lg">
                 🚪
               </span>
 
@@ -582,13 +688,15 @@ export default function DashboardPage() {
                   ? "Logging out..."
                   : "Logout"}
               </span>
+
             </button>
 
           </div>
+
         </aside>
 
         {/* ======================================================
-            MAIN CONTENT
+            MAIN
         ====================================================== */}
 
         <section className="min-w-0 flex-1">
@@ -597,9 +705,10 @@ export default function DashboardPage() {
               HEADER
           ==================================================== */}
 
-          <header className="sticky top-0 z-40 flex min-h-[68px] items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm md:px-6">
+          <header className="sticky top-0 z-40 flex min-h-[68px] items-center justify-between border-b border-slate-200 bg-white px-3 shadow-sm sm:px-5 md:px-6">
 
             <div>
+
               <h2 className="text-lg font-bold text-slate-800">
                 Dashboard
               </h2>
@@ -607,27 +716,28 @@ export default function DashboardPage() {
               <p className="hidden text-[10px] text-slate-400 sm:block">
                 NIDAN Pathology Laboratory Management System
               </p>
+
             </div>
 
             <div className="flex items-center gap-2">
 
-              {/* Online */}
+              {/* ONLINE */}
+
               <div className="hidden items-center gap-2 rounded-full bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 sm:flex">
                 <span className="h-2 w-2 rounded-full bg-green-500" />
                 Lab Online
               </div>
 
-              {/* =================================================
-                  TOP LOGOUT BUTTON
-              ================================================= */}
+              {/* HEADER LOGOUT */}
 
               <button
                 type="button"
                 onClick={logout}
                 disabled={loggingOut}
                 aria-label="Logout"
-                className="flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-sm"
+                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-sm"
               >
+
                 <span>🚪</span>
 
                 <span>
@@ -635,16 +745,18 @@ export default function DashboardPage() {
                     ? "Logout..."
                     : "Logout"}
                 </span>
+
               </button>
 
             </div>
+
           </header>
 
           {/* ====================================================
-              MOBILE MENU
+              MOBILE NAV + LOGOUT
           ==================================================== */}
 
-          <div className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:hidden">
+          <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:hidden">
 
             <MobileNav
               href="/dashboard"
@@ -676,6 +788,17 @@ export default function DashboardPage() {
               label="Settings"
             />
 
+            {/* MOBILE LOGOUT */}
+
+            <button
+              type="button"
+              onClick={logout}
+              disabled={loggingOut}
+              className="ml-auto shrink-0 whitespace-nowrap rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm active:scale-95 disabled:opacity-60"
+            >
+              🚪 Logout
+            </button>
+
           </div>
 
           {/* ====================================================
@@ -684,7 +807,8 @@ export default function DashboardPage() {
 
           <div className="p-4 md:p-6">
 
-            {/* Heading */}
+            {/* HEADING */}
+
             <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
 
               <div>
@@ -727,11 +851,14 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2">
 
                       <span className="rounded-full bg-teal-600 px-2.5 py-1 text-[10px] font-bold text-white">
-                        {subscription.plan || "TRIAL"}
+                        {subscription.plan ||
+                          "TRIAL"}
                       </span>
 
                       <span className="text-xs font-semibold text-green-600">
-                        ● {subscription.status || "ACTIVE"}
+                        ●{" "}
+                        {subscription.status ||
+                          "ACTIVE"}
                       </span>
 
                     </div>
@@ -741,7 +868,8 @@ export default function DashboardPage() {
                     </p>
 
                     <p className="text-xs text-slate-500">
-                      {subscription.notes || "Subscription active"}
+                      {subscription.notes ||
+                        "Subscription active"}
                     </p>
 
                   </div>
@@ -764,6 +892,7 @@ export default function DashboardPage() {
                   </div>
 
                 </div>
+
               </div>
             )}
 
@@ -796,7 +925,9 @@ export default function DashboardPage() {
               <StatCard
                 icon="▤"
                 label="Pending Reports"
-                value={stats.pendingReports}
+                value={
+                  stats.pendingReports
+                }
               />
 
             </div>
@@ -807,12 +938,14 @@ export default function DashboardPage() {
 
             <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_300px]">
 
-              {/* Recent Patients */}
+              {/* RECENT PATIENTS */}
+
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
 
                 <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
 
                   <div>
+
                     <h2 className="font-bold text-slate-800">
                       Recent Patients
                     </h2>
@@ -820,6 +953,7 @@ export default function DashboardPage() {
                     <p className="text-xs text-slate-400">
                       Latest registered patients
                     </p>
+
                   </div>
 
                   <Link
@@ -833,7 +967,8 @@ export default function DashboardPage() {
 
                 <div className="divide-y divide-slate-100">
 
-                  {recentPatients.length === 0 ? (
+                  {recentPatients.length ===
+                  0 ? (
                     <div className="px-5 py-10 text-center">
 
                       <div className="text-3xl">
@@ -851,7 +986,10 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     recentPatients.map(
-                      (patient, index) => (
+                      (
+                        patient,
+                        index
+                      ) => (
                         <div
                           key={
                             patient.id ||
@@ -898,9 +1036,11 @@ export default function DashboardPage() {
                   )}
 
                 </div>
+
               </div>
 
-              {/* Quick Actions */}
+              {/* QUICK ACTIONS */}
+
               <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
 
                 <div className="border-b border-slate-100 px-5 py-4">
@@ -946,12 +1086,13 @@ export default function DashboardPage() {
                   />
 
                 </div>
+
               </div>
 
             </div>
 
             {/* ==================================================
-                BOTTOM BUTTONS
+                BOTTOM ACTIONS
             ================================================== */}
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -967,13 +1108,11 @@ export default function DashboardPage() {
                   : "↻ Refresh Dashboard"}
               </button>
 
-              {/* SECOND LOGOUT BUTTON */}
-
               <button
                 type="button"
                 onClick={logout}
                 disabled={loggingOut}
-                className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+                className="rounded-lg bg-red-600 px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 🚪{" "}
                 {loggingOut
@@ -983,7 +1122,10 @@ export default function DashboardPage() {
 
             </div>
 
-            {/* Footer */}
+            {/* ==================================================
+                FOOTER
+            ================================================== */}
+
             <footer className="mt-8 border-t border-slate-200 py-5 text-center">
 
               <p className="text-xs font-semibold text-slate-400">
@@ -991,14 +1133,19 @@ export default function DashboardPage() {
               </p>
 
               <p className="mt-1 text-[10px] text-slate-400">
-                © {new Date().getFullYear()} NIDAN Pathology Lab
+                ©{" "}
+                {new Date().getFullYear()}{" "}
+                NIDAN Pathology Lab
               </p>
 
             </footer>
 
           </div>
+
         </section>
+
       </div>
+
     </main>
   );
 }
@@ -1035,7 +1182,10 @@ function NavItem({
 // MOBILE NAV
 // ============================================================
 
-function MobileNav({ href, label }) {
+function MobileNav({
+  href,
+  label,
+}) {
   return (
     <Link
       href={href}
@@ -1075,7 +1225,9 @@ function StatCard({
           </p>
 
         </div>
+
       </div>
+
     </div>
   );
 }
