@@ -21,19 +21,17 @@ export default function DashboardPage() {
   const [recentPatients, setRecentPatients] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // ============================================================
-  // AUTH + INITIAL DASHBOARD LOAD
+  // INITIALIZE
   // ============================================================
 
   useEffect(() => {
     let mounted = true;
 
-    let authSubscription = null;
-
-    async function initializeDashboard() {
+    const initialize = async () => {
       try {
         setLoading(true);
 
@@ -66,34 +64,8 @@ export default function DashboardPage() {
 
         await loadDashboardData(session.user);
 
-        // ======================================================
-        // AUTH STATE LISTENER
-        // ======================================================
-
-        const {
-          data: { subscription: listener },
-        } = supabase.auth.onAuthStateChange(
-          (_event, sessionData) => {
-            if (!mounted) return;
-
-            if (!sessionData?.user) {
-              setUser(null);
-              setSubscription(null);
-
-              router.replace("/login");
-              router.refresh();
-            } else {
-              setUser(sessionData.user);
-            }
-          }
-        );
-
-        authSubscription = listener;
       } catch (error) {
-        console.error(
-          "Dashboard initialization error:",
-          error
-        );
+        console.error("Dashboard initialization error:", error);
 
         if (mounted) {
           router.replace("/login");
@@ -103,24 +75,41 @@ export default function DashboardPage() {
           setLoading(false);
         }
       }
-    }
+    };
 
-    initializeDashboard();
+    initialize();
+
+    // ==========================================================
+    // AUTH LISTENER
+    // ==========================================================
+
+    const {
+      data: { subscription: authListener },
+    } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!mounted) return;
+
+        if (!session?.user) {
+          setUser(null);
+          setSubscription(null);
+          router.replace("/login");
+        } else {
+          setUser(session.user);
+        }
+      }
+    );
 
     return () => {
       mounted = false;
-
-      if (authSubscription) {
-        authSubscription.unsubscribe();
-      }
+      authListener?.unsubscribe();
     };
   }, [router]);
 
   // ============================================================
-  // LOAD DASHBOARD DATA
+  // LOAD DASHBOARD
   // ============================================================
 
-  async function loadDashboardData(currentUser = user) {
+  async function loadDashboardData(currentUser) {
     if (!currentUser?.id) return;
 
     try {
@@ -148,9 +137,7 @@ export default function DashboardPage() {
         );
       }
 
-      if (subscriptionData) {
-        setSubscription(subscriptionData);
-      }
+      setSubscription(subscriptionData || null);
 
       // --------------------------------------------------------
       // PATIENTS
@@ -176,18 +163,18 @@ export default function DashboardPage() {
         (a, b) => {
           const dateA = new Date(
             a.created_at ||
-              a.createdAt ||
-              a.registration_date ||
-              a.date ||
-              0
+            a.createdAt ||
+            a.registration_date ||
+            a.date ||
+            0
           ).getTime();
 
           const dateB = new Date(
             b.created_at ||
-              b.createdAt ||
-              b.registration_date ||
-              b.date ||
-              0
+            b.createdAt ||
+            b.registration_date ||
+            b.date ||
+            0
           ).getTime();
 
           return dateB - dateA;
@@ -254,75 +241,72 @@ export default function DashboardPage() {
         }
 
         return (
-          date.getFullYear() ===
-            today.getFullYear() &&
-          date.getMonth() ===
-            today.getMonth() &&
-          date.getDate() ===
-            today.getDate()
+          date.getFullYear() === today.getFullYear() &&
+          date.getMonth() === today.getMonth() &&
+          date.getDate() === today.getDate()
         );
       }
 
-      const todayBills = bills.filter(
-        (bill) =>
-          isToday(
-            bill.created_at ||
-              bill.createdAt ||
-              bill.bill_date ||
-              bill.date
-          )
+      const todayBills = bills.filter((bill) =>
+        isToday(
+          bill.created_at ||
+          bill.createdAt ||
+          bill.bill_date ||
+          bill.date
+        )
       );
 
-      const todayCollection =
-        todayBills.reduce(
-          (total, bill) => {
-            const amount = Number(
-              bill.amount ||
-                bill.total ||
-                bill.total_amount ||
-                bill.paid_amount ||
-                bill.net_amount ||
-                0
-            );
+      // --------------------------------------------------------
+      // COLLECTION
+      // --------------------------------------------------------
 
-            return (
-              total +
-              (Number.isFinite(amount)
-                ? amount
-                : 0)
-            );
-          },
-          0
-        );
+      const todayCollection =
+        todayBills.reduce((total, bill) => {
+          const amount = Number(
+            bill.amount ??
+            bill.total ??
+            bill.total_amount ??
+            bill.paid_amount ??
+            bill.net_amount ??
+            0
+          );
+
+          return total + (
+            Number.isFinite(amount)
+              ? amount
+              : 0
+          );
+        }, 0);
 
       // --------------------------------------------------------
       // PENDING REPORTS
       // --------------------------------------------------------
 
-      const pendingReports =
-        reports.filter((report) => {
+      const pendingReports = reports.filter(
+        (report) => {
           const status = String(
-            report.status ||
-              report.report_status ||
-              report.result_status ||
-              ""
+            report.status ??
+            report.report_status ??
+            report.result_status ??
+            ""
           ).toLowerCase();
 
-          return (
-            status === "pending" ||
-            status === "incomplete" ||
-            status === "processing" ||
-            status === "draft"
-          );
-        });
+          return [
+            "pending",
+            "incomplete",
+            "processing",
+            "draft",
+          ].includes(status);
+        }
+      );
 
       setStats({
         patients: patients.length,
         collection: todayCollection,
         bills: todayBills.length,
-        pendingReports:
-          pendingReports.length,
+        pendingReports: pendingReports.length,
       });
+
     } catch (error) {
       console.error(
         "Dashboard data error:",
@@ -332,16 +316,17 @@ export default function DashboardPage() {
   }
 
   // ============================================================
-  // REFRESH DASHBOARD
+  // REFRESH
   // ============================================================
 
   async function refreshDashboard() {
-    if (!user) return;
+    if (!user || refreshing) return;
 
     try {
       setRefreshing(true);
 
       await loadDashboardData(user);
+
     } catch (error) {
       console.error(
         "Refresh error:",
@@ -368,7 +353,7 @@ export default function DashboardPage() {
     try {
       setLoggingOut(true);
 
-      // Clear application state first
+      // Clear React state
       setUser(null);
       setSubscription(null);
 
@@ -390,35 +375,26 @@ export default function DashboardPage() {
         return;
       }
 
-      // --------------------------------------------------------
-      // CLEAR LOCAL STORAGE
-      // --------------------------------------------------------
-
+      // Clear browser storage
       try {
         localStorage.clear();
-      } catch (error) {
+      } catch (e) {
         console.log(
           "localStorage clear skipped"
         );
       }
 
-      // --------------------------------------------------------
-      // CLEAR SESSION STORAGE
-      // --------------------------------------------------------
-
       try {
         sessionStorage.clear();
-      } catch (error) {
+      } catch (e) {
         console.log(
           "sessionStorage clear skipped"
         );
       }
 
-      // --------------------------------------------------------
-      // REDIRECT LOGIN
-      // --------------------------------------------------------
+      // Force login page
+      window.location.replace("/login");
 
-      window.location.href = "/login";
     } catch (error) {
       console.error(
         "Logout error:",
@@ -516,7 +492,7 @@ export default function DashboardPage() {
       0,
       Math.ceil(
         difference /
-          (1000 * 60 * 60 * 24)
+        (1000 * 60 * 60 * 24)
       )
     );
   }
@@ -530,8 +506,10 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-slate-50">
+
         <div className="text-center">
+
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-teal-600" />
 
           <h2 className="text-lg font-bold text-slate-800">
@@ -541,13 +519,15 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-slate-500">
             NIDAN Pathology Lab
           </p>
+
         </div>
+
       </main>
     );
   }
 
   // ============================================================
-  // DASHBOARD
+  // DASHBOARD UI
   // ============================================================
 
   return (
@@ -556,7 +536,7 @@ export default function DashboardPage() {
       <div className="flex min-h-screen">
 
         {/* ======================================================
-            DESKTOP SIDEBAR
+            SIDEBAR
         ====================================================== */}
 
         <aside className="hidden w-56 shrink-0 bg-[#082638] text-white md:flex md:flex-col">
@@ -564,6 +544,7 @@ export default function DashboardPage() {
           {/* LOGO */}
 
           <div className="border-b border-white/10 p-5">
+
             <div className="flex items-center gap-3">
 
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500 text-xl font-bold">
@@ -581,6 +562,7 @@ export default function DashboardPage() {
               </div>
 
             </div>
+
           </div>
 
           {/* MENU */}
@@ -666,9 +648,7 @@ export default function DashboardPage() {
 
           </div>
 
-          {/* ====================================================
-              DESKTOP LOGOUT
-          ==================================================== */}
+          {/* SIDEBAR LOGOUT */}
 
           <div className="border-t border-white/10 p-3">
 
@@ -676,10 +656,10 @@ export default function DashboardPage() {
               type="button"
               onClick={logout}
               disabled={loggingOut}
-              className="flex w-full items-center gap-3 rounded-xl border border-red-400/30 bg-red-600/15 px-4 py-3 text-left text-sm font-bold text-red-200 shadow-sm transition hover:bg-red-600 hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full items-center gap-3 rounded-xl bg-red-600 px-4 py-3 text-left text-sm font-bold text-white shadow-md hover:bg-red-700 disabled:opacity-60"
             >
 
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600/20 text-lg">
+              <span className="text-lg">
                 🚪
               </span>
 
@@ -696,20 +676,18 @@ export default function DashboardPage() {
         </aside>
 
         {/* ======================================================
-            MAIN
+            MAIN SECTION
         ====================================================== */}
 
         <section className="min-w-0 flex-1">
 
-          {/* ====================================================
-              HEADER
-          ==================================================== */}
+          {/* HEADER */}
 
           <header className="sticky top-0 z-40 flex min-h-[68px] items-center justify-between border-b border-slate-200 bg-white px-3 shadow-sm sm:px-5 md:px-6">
 
             <div>
 
-              <h2 className="text-lg font-bold text-slate-800">
+              <h2 className="text-lg font-bold">
                 Dashboard
               </h2>
 
@@ -721,11 +699,12 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-2">
 
-              {/* ONLINE */}
-
               <div className="hidden items-center gap-2 rounded-full bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 sm:flex">
+
                 <span className="h-2 w-2 rounded-full bg-green-500" />
+
                 Lab Online
+
               </div>
 
               {/* HEADER LOGOUT */}
@@ -734,29 +713,21 @@ export default function DashboardPage() {
                 type="button"
                 onClick={logout}
                 disabled={loggingOut}
-                aria-label="Logout"
-                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-sm"
+                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700 disabled:opacity-60 sm:text-sm"
               >
-
-                <span>🚪</span>
-
-                <span>
-                  {loggingOut
-                    ? "Logout..."
-                    : "Logout"}
-                </span>
-
+                🚪{" "}
+                {loggingOut
+                  ? "Logout..."
+                  : "Logout"}
               </button>
 
             </div>
 
           </header>
 
-          {/* ====================================================
-              MOBILE NAV + LOGOUT
-          ==================================================== */}
+          {/* MOBILE NAV */}
 
-          <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:hidden">
+          <div className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:hidden">
 
             <MobileNav
               href="/dashboard"
@@ -788,26 +759,22 @@ export default function DashboardPage() {
               label="Settings"
             />
 
-            {/* MOBILE LOGOUT */}
-
             <button
               type="button"
               onClick={logout}
               disabled={loggingOut}
-              className="ml-auto shrink-0 whitespace-nowrap rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm active:scale-95 disabled:opacity-60"
+              className="shrink-0 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white"
             >
               🚪 Logout
             </button>
 
           </div>
 
-          {/* ====================================================
-              CONTENT
-          ==================================================== */}
+          {/* CONTENT */}
 
           <div className="p-4 md:p-6">
 
-            {/* HEADING */}
+            {/* TITLE */}
 
             <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
 
@@ -817,7 +784,7 @@ export default function DashboardPage() {
                   Laboratory Dashboard
                 </p>
 
-                <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-800 md:text-3xl">
+                <h1 className="mt-1 text-2xl font-extrabold tracking-tight md:text-3xl">
                   Welcome to NIDAN Pathology Lab
                 </h1>
 
@@ -829,20 +796,17 @@ export default function DashboardPage() {
 
               <Link
                 href="/patients"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-teal-700"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-teal-700"
               >
-                <span>+</span>
-                New Patient
+                + New Patient
               </Link>
 
             </div>
 
-            {/* ==================================================
-                SUBSCRIPTION
-            ================================================== */}
+            {/* SUBSCRIPTION */}
 
             {subscription && (
-              <div className="mb-5 rounded-xl border border-teal-100 bg-gradient-to-r from-teal-50 to-white p-4 shadow-sm">
+              <div className="mb-5 rounded-xl border border-teal-100 bg-white p-4 shadow-sm">
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
@@ -850,20 +814,18 @@ export default function DashboardPage() {
 
                     <div className="flex items-center gap-2">
 
-                      <span className="rounded-full bg-teal-600 px-2.5 py-1 text-[10px] font-bold text-white">
-                        {subscription.plan ||
-                          "TRIAL"}
+                      <span className="rounded-full bg-teal-600 px-3 py-1 text-[10px] font-bold text-white">
+                        {subscription.plan || "TRIAL"}
                       </span>
 
                       <span className="text-xs font-semibold text-green-600">
                         ●{" "}
-                        {subscription.status ||
-                          "ACTIVE"}
+                        {subscription.status || "ACTIVE"}
                       </span>
 
                     </div>
 
-                    <p className="mt-2 text-sm font-bold text-slate-800">
+                    <p className="mt-2 text-sm font-bold">
                       Laboratory Subscription
                     </p>
 
@@ -874,7 +836,7 @@ export default function DashboardPage() {
 
                   </div>
 
-                  <div className="text-left sm:text-right">
+                  <div className="sm:text-right">
 
                     {daysRemaining !== null && (
                       <p className="text-xl font-extrabold text-teal-700">
@@ -896,9 +858,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* ==================================================
-                STATS
-            ================================================== */}
+            {/* STATS */}
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 
@@ -925,16 +885,12 @@ export default function DashboardPage() {
               <StatCard
                 icon="▤"
                 label="Pending Reports"
-                value={
-                  stats.pendingReports
-                }
+                value={stats.pendingReports}
               />
 
             </div>
 
-            {/* ==================================================
-                RECENT + QUICK ACTIONS
-            ================================================== */}
+            {/* RECENT + QUICK */}
 
             <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_300px]">
 
@@ -946,7 +902,7 @@ export default function DashboardPage() {
 
                   <div>
 
-                    <h2 className="font-bold text-slate-800">
+                    <h2 className="font-bold">
                       Recent Patients
                     </h2>
 
@@ -958,7 +914,7 @@ export default function DashboardPage() {
 
                   <Link
                     href="/patients"
-                    className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700 hover:bg-teal-100"
+                    className="rounded-lg bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700"
                   >
                     View All
                   </Link>
@@ -967,47 +923,43 @@ export default function DashboardPage() {
 
                 <div className="divide-y divide-slate-100">
 
-                  {recentPatients.length ===
-                  0 ? (
+                  {recentPatients.length === 0 ? (
+
                     <div className="px-5 py-10 text-center">
 
                       <div className="text-3xl">
                         ♙
                       </div>
 
-                      <p className="mt-2 text-sm font-semibold text-slate-600">
+                      <p className="mt-2 text-sm font-semibold">
                         No patients found
                       </p>
 
-                      <p className="mt-1 text-xs text-slate-400">
-                        New Patient add karne ke liye button use karein.
-                      </p>
-
                     </div>
+
                   ) : (
+
                     recentPatients.map(
-                      (
-                        patient,
-                        index
-                      ) => (
+                      (patient, index) => (
+
                         <div
                           key={
                             patient.id ||
                             patient.patient_id ||
                             index
                           }
-                          className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50"
+                          className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50"
                         >
 
                           <div className="min-w-0">
 
-                            <p className="truncate text-sm font-bold text-slate-800">
+                            <p className="truncate text-sm font-bold">
                               {getPatientName(
                                 patient
                               )}
                             </p>
 
-                            <p className="mt-0.5 text-xs font-medium text-slate-500">
+                            <p className="text-xs text-slate-500">
                               {getPatientId(
                                 patient
                               )}
@@ -1016,23 +968,25 @@ export default function DashboardPage() {
                             <p className="text-xs text-slate-400">
                               {getPatientMobile(
                                 patient
-                              )}{" "}
-                              •{" "}
+                              )}
+                              {" • "}
                               {getPatientAge(
                                 patient
-                              )}{" "}
-                              Years
+                              )}
+                              {" Years"}
                             </p>
 
                           </div>
 
-                          <span className="hidden shrink-0 rounded-full bg-teal-50 px-2 py-1 text-[10px] font-bold text-teal-700 sm:inline-block">
+                          <span className="hidden rounded-full bg-teal-50 px-2 py-1 text-[10px] font-bold text-teal-700 sm:block">
                             Patient
                           </span>
 
                         </div>
+
                       )
                     )
+
                   )}
 
                 </div>
@@ -1045,7 +999,7 @@ export default function DashboardPage() {
 
                 <div className="border-b border-slate-100 px-5 py-4">
 
-                  <h2 className="font-bold text-slate-800">
+                  <h2 className="font-bold">
                     Quick Actions
                   </h2>
 
@@ -1091,9 +1045,7 @@ export default function DashboardPage() {
 
             </div>
 
-            {/* ==================================================
-                BOTTOM ACTIONS
-            ================================================== */}
+            {/* BOTTOM BUTTONS */}
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
 
@@ -1101,7 +1053,7 @@ export default function DashboardPage() {
                 type="button"
                 onClick={refreshDashboard}
                 disabled={refreshing}
-                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold shadow-sm disabled:opacity-60"
               >
                 {refreshing
                   ? "Refreshing..."
@@ -1112,7 +1064,7 @@ export default function DashboardPage() {
                 type="button"
                 onClick={logout}
                 disabled={loggingOut}
-                className="rounded-lg bg-red-600 px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg bg-red-600 px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-red-700 disabled:opacity-60"
               >
                 🚪{" "}
                 {loggingOut
@@ -1122,9 +1074,7 @@ export default function DashboardPage() {
 
             </div>
 
-            {/* ==================================================
-                FOOTER
-            ================================================== */}
+            {/* FOOTER */}
 
             <footer className="mt-8 border-t border-slate-200 py-5 text-center">
 
@@ -1133,9 +1083,7 @@ export default function DashboardPage() {
               </p>
 
               <p className="mt-1 text-[10px] text-slate-400">
-                ©{" "}
-                {new Date().getFullYear()}{" "}
-                NIDAN Pathology Lab
+                © {new Date().getFullYear()} NIDAN Pathology Lab
               </p>
 
             </footer>
@@ -1163,13 +1111,13 @@ function NavItem({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold transition ${
+      className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold ${
         active
           ? "bg-teal-600/30 text-white ring-1 ring-teal-400/30"
           : "text-slate-300 hover:bg-white/5 hover:text-white"
       }`}
     >
-      <span className="w-5 text-center text-base">
+      <span className="w-5 text-center">
         {icon}
       </span>
 
@@ -1189,7 +1137,7 @@ function MobileNav({
   return (
     <Link
       href={href}
-      className="whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-teal-50 hover:text-teal-700"
+      className="shrink-0 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600"
     >
       {label}
     </Link>
@@ -1206,7 +1154,7 @@ function StatCard({
   value,
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
 
       <div className="flex items-center gap-3">
 
@@ -1220,7 +1168,7 @@ function StatCard({
             {label}
           </p>
 
-          <p className="mt-0.5 text-xl font-extrabold text-slate-800">
+          <p className="mt-0.5 text-xl font-extrabold">
             {value}
           </p>
 
@@ -1245,7 +1193,7 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-lg p-3 transition hover:bg-slate-50"
+      className="flex items-center gap-3 rounded-lg p-3 hover:bg-slate-50"
     >
 
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-lg font-bold text-teal-600">
@@ -1254,7 +1202,7 @@ function QuickAction({
 
       <div className="min-w-0">
 
-        <p className="text-sm font-bold text-slate-800">
+        <p className="text-sm font-bold">
           {title}
         </p>
 
