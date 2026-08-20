@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
+import { logoutAndRedirect } from "../../lib/auth";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -381,53 +382,7 @@ export default function DashboardPage() {
       setUser(null);
       setSubscription(null);
 
-      // Supabase logout
-      const { error } =
-        await supabase.auth.signOut();
-
-      if (error) {
-        console.error(
-          "Supabase logout error:",
-          error
-        );
-
-        alert(
-          "Logout failed. Please try again."
-        );
-
-        setLoggingOut(false);
-        return;
-      }
-
-      // --------------------------------------------------------
-      // CLEAR LOCAL STORAGE
-      // --------------------------------------------------------
-
-      try {
-        localStorage.clear();
-      } catch (error) {
-        console.log(
-          "localStorage clear skipped"
-        );
-      }
-
-      // --------------------------------------------------------
-      // CLEAR SESSION STORAGE
-      // --------------------------------------------------------
-
-      try {
-        sessionStorage.clear();
-      } catch (error) {
-        console.log(
-          "sessionStorage clear skipped"
-        );
-      }
-
-      // --------------------------------------------------------
-      // REDIRECT
-      // --------------------------------------------------------
-
-      window.location.replace("/login");
+      await logoutAndRedirect("/login");
     } catch (error) {
       console.error(
         "Logout error:",

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import { logoutAndRedirect } from "../lib/auth";
 
 export default function Home() {
   const router = useRouter();
@@ -670,6 +671,22 @@ export default function Home() {
     );
   }
 
+
+  async function logout() {
+    const confirmed = window.confirm(
+      "Kya aap NIDAN Pathology Lab se Logout karna chahte hain?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await logoutAndRedirect("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Logout failed. Please try again.");
+    }
+  }
+
   // =========================================================
   // RENDER
   // =========================================================
@@ -842,6 +859,18 @@ export default function Home() {
           Settings
         </button>
 
+        <div className="menuLabel second">
+          SESSION
+        </div>
+
+        <button
+          className="menu logoutMenu"
+          onClick={logout}
+        >
+          <span>🚪</span>
+          Logout
+        </button>
+
       </aside>
 
       {/* =====================================================
@@ -872,12 +901,22 @@ export default function Home() {
 
           </div>
 
-          <div className="topRight">
+          <div className="topbarActions">
+            <div className="topRight">
 
-            <span className="statusDot"></span>
+              <span className="statusDot"></span>
 
-            Lab Online
+              Lab Online
 
+            </div>
+
+            <button
+              type="button"
+              className="headerLogoutBtn"
+              onClick={logout}
+            >
+              🚪 Logout
+            </button>
           </div>
 
         </header>
