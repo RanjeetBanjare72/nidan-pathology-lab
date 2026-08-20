@@ -1,4 +1,5 @@
 import LogoutButton from "../components/LogoutButton";
+import PrintLetterheadBridge from "../components/PrintLetterheadBridge";
 import "./tailwind.css";
 import "./globals.css";
 import "./print-fixes.css";
@@ -14,6 +15,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         {children}
+        <PrintLetterheadBridge />
         <LogoutButton />
       </body>
     </html>
