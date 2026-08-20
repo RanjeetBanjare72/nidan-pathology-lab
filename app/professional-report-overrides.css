@@ -8,15 +8,16 @@
    completely removed so the report never shows two headers.
    ========================================================= */
 
+/* The uploaded letterhead used by NIDAN has a usable report zone
+   of approximately 40mm from the top to 18mm before the bottom. */
+
 /* =========================================================
    FINAL REPORT  /report
    ========================================================= */
-
-/* With uploaded full-A4 letterhead: reserve the printed header
-   area, but NEVER render the generated header/footer on top of it. */
 .a4Page:has(.uploadedLogo) {
   box-sizing: border-box !important;
-  padding-top: 35mm !important;
+  padding-top: 40mm !important;
+  padding-bottom: 18mm !important;
   background: #fff !important;
   overflow: hidden !important;
 }
@@ -54,11 +55,10 @@
 /* =========================================================
    SAVED REPORT  /reports/[id]
    ========================================================= */
-
-/* Letterhead exists inside the actual A4 report page. */
 .reportPage:has(#nidan-print-letterhead) {
   box-sizing: border-box !important;
-  padding-top: 35mm !important;
+  padding-top: 40mm !important;
+  padding-bottom: 18mm !important;
   background: #fff !important;
   overflow: hidden !important;
 }
@@ -123,7 +123,8 @@
   body .a4Page:has(.uploadedLogo),
   body .reportPage:has(#nidan-print-letterhead) {
     box-sizing: border-box !important;
-    padding-top: 35mm !important;
+    padding-top: 40mm !important;
+    padding-bottom: 18mm !important;
     background: #fff !important;
     overflow: hidden !important;
   }
