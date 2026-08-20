@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase";
 
 /* =====================================================
    NIDAN PATHOLOGY LAB
@@ -8,6 +9,15 @@ import { useEffect, useState } from "react";
    ===================================================== */
 
 export const SETTINGS_KEY = "nidanLabSettings";
+
+const ASSETS_BUCKET = "nidan-assets";
+const MAX_LETTERHEAD_SIZE = 2 * 1024 * 1024;
+const ALLOWED_LETTERHEAD_TYPES = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+};
 
 const DEFAULT_SETTINGS = {
   labName: "NIDAN PATHOLOGY LAB",
@@ -53,6 +63,12 @@ export default function SettingsPage() {
 
   const [saving, setSaving] =
     useState(false);
+
+  const [uploadingLetterhead, setUploadingLetterhead] =
+    useState(false);
+
+  const [letterheadMessage, setLetterheadMessage] =
+    useState("");
 
   /* ===================================================
      LOAD SETTINGS
@@ -118,41 +134,7 @@ export default function SettingsPage() {
     try {
       setSaving(true);
 
-      const finalSettings = {
-        ...DEFAULT_SETTINGS,
-        ...settings,
-      };
-
-      localStorage.setItem(
-        SETTINGS_KEY,
-        JSON.stringify(
-          finalSettings
-        )
-      );
-
-      /*
-       * Notify other pages/components
-       * in the same browser.
-       */
-
-      window.dispatchEvent(
-        new CustomEvent(
-          "nidan-settings-updated",
-          {
-            detail:
-              finalSettings,
-          }
-        )
-      );
-
-      /*
-       * Also trigger normal storage
-       * event compatibility.
-       */
-
-      window.dispatchEvent(
-        new Event("storage")
-      );
+      persistSettings(settings);
 
       alert(
         "✓ Settings saved successfully.\n\nFinal Report aur Saved Reports me ye settings use hongi."
@@ -239,7 +221,98 @@ export default function SettingsPage() {
      LETTERHEAD / LOGO UPLOAD
      =================================================== */
 
-  function handleLetterheadUpload(
+  function getLetterheadPathFromUrl(
+    letterheadUrl
+  ) {
+    if (
+      !letterheadUrl ||
+      letterheadUrl.startsWith(
+        "data:"
+      )
+    ) {
+      return "";
+    }
+
+    try {
+      const url = new URL(
+        letterheadUrl
+      );
+      const marker =
+        `/storage/v1/object/public/${ASSETS_BUCKET}/`;
+      const markerIndex =
+        url.pathname.indexOf(
+          marker
+        );
+
+      if (markerIndex === -1) {
+        return "";
+      }
+
+      return decodeURIComponent(
+        url.pathname.slice(
+          markerIndex +
+            marker.length
+        )
+      );
+    } catch {
+      return "";
+    }
+  }
+
+  async function removeUploadedLetterhead(
+    letterheadUrl
+  ) {
+    const previousPath =
+      getLetterheadPathFromUrl(
+        letterheadUrl
+      );
+
+    if (!previousPath) {
+      return;
+    }
+
+    const { error } =
+      await supabase.storage
+        .from(ASSETS_BUCKET)
+        .remove([previousPath]);
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  function persistSettings(
+    nextSettings
+  ) {
+    const finalSettings = {
+      ...DEFAULT_SETTINGS,
+      ...nextSettings,
+    };
+
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify(
+        finalSettings
+      )
+    );
+
+    window.dispatchEvent(
+      new CustomEvent(
+        "nidan-settings-updated",
+        {
+          detail: finalSettings,
+        }
+      )
+    );
+
+    window.dispatchEvent(
+      new Event("storage")
+    );
+
+    return finalSettings;
+  }
+
+  async function handleLetterheadUpload(
     event
   ) {
     const file =
@@ -249,18 +322,14 @@ export default function SettingsPage() {
       return;
     }
 
-    const allowedTypes = [
-      "image/png",
-      "image/jpeg",
-      "image/jpg",
-      "image/webp",
-    ];
+    setLetterheadMessage("");
 
-    if (
-      !allowedTypes.includes(
+    const extension =
+      ALLOWED_LETTERHEAD_TYPES[
         file.type
-      )
-    ) {
+      ];
+
+    if (!extension) {
       alert(
         "Sirf PNG, JPG, JPEG ya WEBP image upload karein."
       );
@@ -270,13 +339,9 @@ export default function SettingsPage() {
       return;
     }
 
-    /*
-     * Maximum 2 MB
-     */
-
     if (
       file.size >
-      2 * 1024 * 1024
+      MAX_LETTERHEAD_SIZE
     ) {
       alert(
         "Letterhead / Logo image 2 MB se kam honi chahiye."
@@ -287,30 +352,95 @@ export default function SettingsPage() {
       return;
     }
 
-    const reader =
-      new FileReader();
+    setUploadingLetterhead(true);
+    setLetterheadMessage(
+      "Uploading..."
+    );
 
-    reader.onload = () => {
+    try {
+      const { data: authData } =
+        await supabase.auth.getUser();
+      const ownerId =
+        authData?.user?.id ||
+        "default-lab";
+      const objectPath =
+        `letterhead/${ownerId}/letterhead.${extension}`;
+
+      const previousPath =
+        getLetterheadPathFromUrl(
+          settings.letterhead
+        );
+
+      if (
+        previousPath &&
+        previousPath !== objectPath
+      ) {
+        await removeUploadedLetterhead(
+          settings.letterhead
+        );
+      }
+
+      const { error: uploadError } =
+        await supabase.storage
+          .from(ASSETS_BUCKET)
+          .upload(
+            objectPath,
+            file,
+            {
+              cacheControl: "3600",
+              contentType: file.type,
+              upsert: true,
+            }
+          );
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: publicData } =
+        supabase.storage
+          .from(ASSETS_BUCKET)
+          .getPublicUrl(
+            objectPath
+          );
+
+      if (
+        !publicData?.publicUrl
+      ) {
+        throw new Error(
+          "Public URL could not be created."
+        );
+      }
+
       updateSetting(
         "letterhead",
-        reader.result
+        publicData.publicUrl
       );
-    };
-
-    reader.onerror = () => {
+      setLetterheadMessage(
+        "✓ Letterhead uploaded successfully. Save Settings dabakar changes confirm karein."
+      );
+    } catch (error) {
+      console.error(
+        "Letterhead upload error:",
+        error
+      );
+      setLetterheadMessage(
+        "Letterhead upload nahi ho paya. Storage policy aur login status check karein."
+      );
       alert(
-        "Letterhead upload nahi ho paya."
+        "Letterhead upload nahi ho paya. Kripya dobara try karein."
       );
-    };
-
-    reader.readAsDataURL(file);
+    } finally {
+      setUploadingLetterhead(false);
+      event.target.value = "";
+    }
   }
 
   /* ===================================================
      REMOVE LETTERHEAD
      =================================================== */
 
-  function removeLetterhead() {
+  async function removeLetterhead() {
     const confirmed =
       window.confirm(
         "Kya aap uploaded logo / letterhead remove karna chahte hain?"
@@ -320,10 +450,40 @@ export default function SettingsPage() {
       return;
     }
 
-    updateSetting(
-      "letterhead",
-      ""
+    setUploadingLetterhead(true);
+    setLetterheadMessage(
+      "Removing..."
     );
+
+    try {
+      await removeUploadedLetterhead(
+        settings.letterhead
+      );
+
+      const nextSettings = {
+        ...settings,
+        letterhead: "",
+      };
+
+      setSettings(nextSettings);
+      persistSettings(nextSettings);
+      setLetterheadMessage(
+        "✓ Letterhead removed successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Letterhead remove error:",
+        error
+      );
+      setLetterheadMessage(
+        "Letterhead remove nahi ho paya. Storage policy check karein."
+      );
+      alert(
+        "Letterhead remove nahi ho paya."
+      );
+    } finally {
+      setUploadingLetterhead(false);
+    }
   }
 
   /* ===================================================
@@ -610,12 +770,21 @@ export default function SettingsPage() {
                 onChange={
                   handleLetterheadUpload
                 }
+                disabled={
+                  uploadingLetterhead
+                }
               />
 
               <small>
                 PNG, JPG, JPEG ya WEBP.
                 Maximum size 2 MB.
               </small>
+
+              {letterheadMessage ? (
+                <small className="letterheadMessage">
+                  {letterheadMessage}
+                </small>
+              ) : null}
 
             </div>
 
@@ -636,6 +805,9 @@ export default function SettingsPage() {
                     className="removeLetterhead"
                     onClick={
                       removeLetterhead
+                    }
+                    disabled={
+                      uploadingLetterhead
                     }
                   >
                     Remove
@@ -863,7 +1035,7 @@ export default function SettingsPage() {
           onClick={
             resetSettings
           }
-          disabled={saving}
+          disabled={saving || uploadingLetterhead}
         >
           Reset Settings
         </button>
@@ -874,7 +1046,7 @@ export default function SettingsPage() {
           onClick={
             saveSettings
           }
-          disabled={saving}
+          disabled={saving || uploadingLetterhead}
         >
           {saving
             ? "Saving..."
@@ -1071,6 +1243,11 @@ export default function SettingsPage() {
           line-height: 1.5;
         }
 
+        .letterheadMessage {
+          color: #0f766e !important;
+          font-weight: 700;
+        }
+
         .letterheadPreview {
           margin-top: 15px;
           padding: 14px;
@@ -1105,6 +1282,11 @@ export default function SettingsPage() {
 
         .removeLetterhead:hover {
           background: #fff1f2;
+        }
+
+        .removeLetterhead:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
         }
 
         .previewImageBox {
