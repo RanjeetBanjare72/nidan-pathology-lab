@@ -3,17 +3,24 @@
    PROFESSIONAL A4 LETTERHEAD REPORT MODE
    ========================================================= */
 
-/* Uploaded A4 letterhead is the single stationery layer. */
+/*
+   Letterhead content-zone calibration:
+   The uploaded A4 stationery has its usable white report area
+   starting at about 40mm from the top and ending about 18mm
+   before the bottom. Keep the report data inside that zone so
+   the test table aligns naturally with the uploaded letterhead.
+*/
 .a4Page.has-nidan-letterhead,
 .reportPage.has-nidan-letterhead {
   position: relative !important;
+  box-sizing: border-box !important;
   width: 210mm !important;
   min-height: 297mm !important;
   height: 297mm !important;
   overflow: hidden !important;
   background: #fff !important;
-  padding-top: 35mm !important;
-  padding-bottom: 25mm !important;
+  padding-top: 40mm !important;
+  padding-bottom: 18mm !important;
 }
 
 /* Full-page uploaded A4 image. */
@@ -119,8 +126,8 @@
     min-height: 297mm !important;
     max-height: 297mm !important;
     margin: 0 !important;
-    padding-top: 35mm !important;
-    padding-bottom: 25mm !important;
+    padding-top: 40mm !important;
+    padding-bottom: 18mm !important;
     overflow: hidden !important;
     background: #fff !important;
     position: relative !important;
