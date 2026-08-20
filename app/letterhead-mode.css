@@ -1,0 +1,43 @@
+/* =========================================================
+   NIDAN PATHOLOGY LAB
+   LETTERHEAD-ONLY REPORT MODE
+   ========================================================= */
+
+/*
+   No uploaded letterhead = no generated lab header/footer.
+   This is intentional so reports can be printed on pre-printed
+   laboratory letterhead paper.
+*/
+.a4Page:not(:has(.uploadedLogo)) .labHeader,
+.a4Page:not(:has(.uploadedLogo)) .accentBar,
+.a4Page:not(:has(.uploadedLogo)) .footer {
+  display: none !important;
+}
+
+/* Keep the report content itself visible and independent of the
+   generated branding when no letterhead has been uploaded. */
+.a4Page:not(:has(.uploadedLogo)) > *:not(.labHeader) {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* Print/PDF: blank top and bottom branding areas when no
+   letterhead is configured. */
+@media print {
+  body .preview .a4Page:not(:has(.uploadedLogo)) .labHeader,
+  body .preview .a4Page:not(:has(.uploadedLogo)) .accentBar,
+  body .preview .a4Page:not(:has(.uploadedLogo)) .footer {
+    display: none !important;
+  }
+
+  body .preview .a4Page:not(:has(.uploadedLogo)) {
+    background: #fff !important;
+  }
+}
+
+/* Settings page: obsolete header/logo toggles are hidden by the
+   LetterheadModeGuard. Keep this as a CSS safety net. */
+.settingsPage .settingOptions .toggleItem:nth-child(1),
+.settingsPage .settingOptions .toggleItem:nth-child(2) {
+  display: none !important;
+}
