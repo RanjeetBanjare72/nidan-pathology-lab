@@ -1,0 +1,50 @@
+/* NIDAN print fixes: keep compact reports on a single A4 sheet when they fit. */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 210mm !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  body .preview {
+    width: 210mm !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    background: #fff !important;
+  }
+
+  /* 296mm avoids a fractional A4 rounding overflow that can create a blank page. */
+  body .preview .a4Page {
+    width: 210mm !important;
+    min-height: 0 !important;
+    height: 296mm !important;
+    max-height: 296mm !important;
+    margin: 0 !important;
+    padding: 0 11mm 12mm !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  body .preview .a4Page .labHeader,
+  body .preview .a4Page .patientCard,
+  body .preview .a4Page .testSection,
+  body .preview .a4Page .signatures,
+  body .preview .a4Page .note,
+  body .preview .a4Page .footer {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
