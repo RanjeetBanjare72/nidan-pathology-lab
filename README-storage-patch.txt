@@ -1,0 +1,1 @@
+Settings letterhead storage patch is implemented on patch-letterhead-3.
