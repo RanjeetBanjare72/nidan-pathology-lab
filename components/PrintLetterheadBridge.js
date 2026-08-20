@@ -8,7 +8,13 @@ const PRINT_ID = "nidan-print-letterhead";
 export default function PrintLetterheadBridge() {
   useEffect(() => {
     function installLetterhead() {
-      const pages = document.querySelectorAll(".page");
+      // The final report route uses .a4Page; the saved-report route
+      // uses .reportPage. The letterhead must live INSIDE the actual
+      // A4 report surface so its background cannot be hidden behind
+      // the white report container.
+      const pages = document.querySelectorAll(
+        ".a4Page, .reportPage"
+      );
 
       if (!pages.length) {
         return;
@@ -33,8 +39,11 @@ export default function PrintLetterheadBridge() {
 
         if (!letterhead) {
           holder?.remove();
+          page.classList.remove("has-nidan-letterhead");
           return;
         }
+
+        page.classList.add("has-nidan-letterhead");
 
         if (!holder) {
           holder = document.createElement("div");
