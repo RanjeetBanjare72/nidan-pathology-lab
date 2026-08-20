@@ -1,243 +1,324 @@
 /* =========================================================
    NIDAN PATHOLOGY LAB
-   SINGLE-SURFACE PROFESSIONAL REPORT MODE
-
-   IMPORTANT:
-   When a full A4 uploaded letterhead exists, it is the ONLY
-   branding layer. The generated report header/footer must be
-   completely removed so the report never shows two headers.
+   PROFESSIONAL REPORT STYLE — V2
+   Uploaded A4 letterhead + automatic content-zone alignment
    ========================================================= */
 
-/* =========================================================
-   FINAL REPORT  /report
-   ========================================================= */
-
-.a4Page:has(.uploadedLogo) {
-  box-sizing: border-box !important;
-  padding-top: 35mm !important;
-  background: #fff !important;
-  overflow: hidden !important;
+:root {
+  --nidan-letterhead-content-top: 57mm;
+  --nidan-letterhead-content-bottom: 270mm;
+  --nidan-report-text: #1d2939;
+  --nidan-report-muted: #667085;
+  --nidan-report-border: #d7e0e5;
+  --nidan-report-teal: #0b7285;
+  --nidan-report-teal-dark: #075b6a;
 }
 
-.a4Page:has(.uploadedLogo) .labHeader,
-.a4Page:has(.uploadedLogo) .accentBar,
-.a4Page:has(.uploadedLogo) .footer {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.a4Page:has(.uploadedLogo) .uploadedLogo {
-  display: none !important;
-}
-
-.a4Page:has(.uploadedLogo) > *:not(#nidan-print-letterhead) {
+/* ===================== A4 SURFACE ===================== */
+.a4Page.has-nidan-letterhead,
+.reportPage.has-nidan-letterhead,
+.a4Page:has(.uploadedLogo),
+.reportPage:has(#nidan-print-letterhead),
+.page:has(#nidan-print-letterhead) {
   position: relative !important;
-  z-index: 2 !important;
-}
-
-.a4Page:not(:has(.uploadedLogo)) .labHeader,
-.a4Page:not(:has(.uploadedLogo)) .accentBar,
-.a4Page:not(:has(.uploadedLogo)) .footer {
-  display: revert !important;
-  visibility: visible !important;
-}
-
-/* =========================================================
-   SAVED REPORT  /reports/[id]
-   ========================================================= */
-
-.reportPage:has(#nidan-print-letterhead) {
-  box-sizing: border-box !important;
-  padding-top: 35mm !important;
-  background: #fff !important;
-  overflow: hidden !important;
-}
-
-.reportPage:has(#nidan-print-letterhead) .labHeader,
-.reportPage:has(#nidan-print-letterhead) .accent,
-.reportPage:has(#nidan-print-letterhead) .footer {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  min-height: 0 !important;
+  width: 210mm !important;
+  height: 297mm !important;
+  min-height: 297mm !important;
+  max-height: 297mm !important;
   margin: 0 !important;
-  padding: 0 !important;
+  padding-top: var(--nidan-letterhead-content-top) !important;
+  padding-bottom: calc(297mm - var(--nidan-letterhead-content-bottom)) !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  background: #fff !important;
+  color: var(--nidan-report-text) !important;
 }
 
-.reportPage:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead) {
-  position: relative !important;
-  z-index: 2 !important;
-}
-
-.reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead {
-  display: block !important;
+.a4Page.has-nidan-letterhead #nidan-print-letterhead,
+.reportPage.has-nidan-letterhead #nidan-print-letterhead,
+.a4Page:has(.uploadedLogo) #nidan-print-letterhead,
+.reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead,
+.page #nidan-print-letterhead {
   position: absolute !important;
   inset: 0 !important;
   width: 210mm !important;
   height: 297mm !important;
+  min-width: 210mm !important;
+  min-height: 297mm !important;
   margin: 0 !important;
   padding: 0 !important;
+  border: 0 !important;
   z-index: 0 !important;
   pointer-events: none !important;
   overflow: hidden !important;
   background: #fff !important;
 }
 
-.reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead img {
-  display: block !important;
-  width: 210mm !important;
-  height: 297mm !important;
-  max-width: none !important;
-  max-height: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  object-fit: fill !important;
-}
-
-.reportPage:not(:has(#nidan-print-letterhead)) .labHeader,
-.reportPage:not(:has(#nidan-print-letterhead)) .accent,
-.reportPage:not(:has(#nidan-print-letterhead)) .footer {
-  display: revert !important;
-  visibility: visible !important;
-}
-
-/* =========================================================
-   PRINT / SAVE PDF
-   ========================================================= */
-@media print {
-  body .a4Page:has(.uploadedLogo),
-  body .reportPage:has(#nidan-print-letterhead) {
-    box-sizing: border-box !important;
-    padding-top: 35mm !important;
-    background: #fff !important;
-    overflow: hidden !important;
-  }
-
-  body .a4Page:has(.uploadedLogo) .labHeader,
-  body .a4Page:has(.uploadedLogo) .accentBar,
-  body .a4Page:has(.uploadedLogo) .footer,
-  body .reportPage:has(#nidan-print-letterhead) .labHeader,
-  body .reportPage:has(#nidan-print-letterhead) .accent,
-  body .reportPage:has(#nidan-print-letterhead) .footer {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  body .a4Page:has(.uploadedLogo) .uploadedLogo {
-    display: none !important;
-  }
-
-  body .reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead {
-    display: block !important;
-    position: absolute !important;
-    inset: 0 !important;
-    width: 210mm !important;
-    height: 297mm !important;
-    z-index: 0 !important;
-  }
-
-  body .reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead img {
-    display: block !important;
-    width: 210mm !important;
-    height: 297mm !important;
-    object-fit: fill !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-}
-
-/* =========================================================
-   FINAL PIXEL-ALIGNMENT PASS
-   The uploaded stationery and generated report must share one
-   coordinate system. The previous 35mm top reservation left a
-   visible white gap above the patient block on the final view.
-   ========================================================= */
-
-.a4Page.has-nidan-letterhead,
-.reportPage.has-nidan-letterhead,
-.a4Page:has(.uploadedLogo),
-.reportPage:has(#nidan-print-letterhead) {
-  width: 210mm !important;
-  height: 297mm !important;
-  min-height: 297mm !important;
-  max-height: 297mm !important;
-  margin: 0 !important;
-  box-sizing: border-box !important;
-  padding-top: 30.5mm !important;
-  padding-bottom: 24mm !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  position: relative !important;
-  overflow: hidden !important;
-  background: #fff !important;
-}
-
-/* The report content must occupy exactly the same horizontal
-   surface as the uploaded A4 stationery. */
-.a4Page.has-nidan-letterhead > *:not(#nidan-print-letterhead),
-.reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead),
-.a4Page:has(.uploadedLogo) > *:not(#nidan-print-letterhead),
-.reportPage:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead) {
-  max-width: none !important;
-}
-
-/* Remove hidden layout margins that create a second coordinate system. */
-.a4Page.has-nidan-letterhead .patientCard,
-.reportPage.has-nidan-letterhead .patientCard,
-.a4Page:has(.uploadedLogo) .patientCard,
-.reportPage:has(#nidan-print-letterhead) .patientCard {
-  width: 100% !important;
-  max-width: none !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-  margin-top: 0 !important;
-}
-
-/* Tables and report sections must not be narrower than the stationery. */
-.a4Page.has-nidan-letterhead table,
-.reportPage.has-nidan-letterhead table,
-.a4Page:has(.uploadedLogo) table,
-.reportPage:has(#nidan-print-letterhead) table {
-  width: 100% !important;
-  max-width: none !important;
-}
-
-/* Keep the letterhead image fixed to the physical A4 page. */
-.a4Page.has-nidan-letterhead #nidan-print-letterhead,
-.reportPage.has-nidan-letterhead #nidan-print-letterhead,
-.a4Page:has(.uploadedLogo) #nidan-print-letterhead,
-.reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead {
+.a4Page.has-nidan-letterhead #nidan-print-letterhead img,
+.reportPage.has-nidan-letterhead #nidan-print-letterhead img,
+.a4Page:has(.uploadedLogo) #nidan-print-letterhead img,
+.reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead img,
+.page #nidan-print-letterhead img,
+.a4Page:has(.uploadedLogo) .uploadedLogo {
   position: absolute !important;
   inset: 0 !important;
   width: 210mm !important;
   height: 297mm !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  z-index: 0 !important;
-}
-
-.a4Page.has-nidan-letterhead #nidan-print-letterhead img,
-.reportPage.has-nidan-letterhead #nidan-print-letterhead img,
-.a4Page:has(.uploadedLogo) #nidan-print-letterhead img,
-.reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead img {
-  width: 210mm !important;
-  height: 297mm !important;
   max-width: none !important;
   max-height: none !important;
-  object-fit: fill !important;
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
+  object-fit: fill !important;
+  display: block !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
 }
 
+/* Uploaded stationery supplies branding. */
+.a4Page.has-nidan-letterhead .labHeader,
+.a4Page.has-nidan-letterhead .accentBar,
+.a4Page.has-nidan-letterhead .footer,
+.a4Page:has(.uploadedLogo) .labHeader,
+.a4Page:has(.uploadedLogo) .accentBar,
+.a4Page:has(.uploadedLogo) .footer,
+.reportPage.has-nidan-letterhead .accent,
+.reportPage.has-nidan-letterhead .labHeader,
+.reportPage.has-nidan-letterhead .footer,
+.reportPage:has(#nidan-print-letterhead) .accent,
+.reportPage:has(#nidan-print-letterhead) .labHeader,
+.reportPage:has(#nidan-print-letterhead) .footer,
+.page .labHeader,
+.page .accentBar,
+.page .footer {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.a4Page.has-nidan-letterhead > *:not(#nidan-print-letterhead),
+.a4Page:has(.uploadedLogo) > *:not(#nidan-print-letterhead),
+.reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead),
+.reportPage:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead),
+.page > *:not(#nidan-print-letterhead) {
+  position: relative !important;
+  z-index: 2 !important;
+  max-width: none !important;
+}
+
+/* ===================== PATIENT BLOCK ===================== */
+.a4Page.has-nidan-letterhead .patientCard,
+.a4Page:has(.uploadedLogo) .patientCard,
+.reportPage.has-nidan-letterhead .patientCard,
+.reportPage:has(#nidan-print-letterhead) .patientCard,
+.page:has(#nidan-print-letterhead) .patientCard {
+  width: 100% !important;
+  max-width: none !important;
+  height: 15mm !important;
+  min-height: 15mm !important;
+  margin: 0 !important;
+  padding: 2.3mm 8mm !important;
+  box-sizing: border-box !important;
+  background: rgba(255,255,255,.96) !important;
+  border: 1px solid var(--nidan-report-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+}
+
+.a4Page.has-nidan-letterhead .patientCard label,
+.a4Page:has(.uploadedLogo) .patientCard label,
+.reportPage.has-nidan-letterhead .patientCard label,
+.reportPage:has(#nidan-print-letterhead) .patientCard label,
+.page:has(#nidan-print-letterhead) .patientCard label {
+  font-size: 6.2pt !important;
+  font-weight: 800 !important;
+  letter-spacing: .07em !important;
+  text-transform: uppercase !important;
+  color: var(--nidan-report-muted) !important;
+}
+
+.a4Page.has-nidan-letterhead .patientCard strong,
+.a4Page.has-nidan-letterhead .patientCard b,
+.a4Page:has(.uploadedLogo) .patientCard strong,
+.a4Page:has(.uploadedLogo) .patientCard b,
+.reportPage.has-nidan-letterhead .patientCard strong,
+.reportPage.has-nidan-letterhead .patientCard b,
+.reportPage:has(#nidan-print-letterhead) .patientCard strong,
+.reportPage:has(#nidan-print-letterhead) .patientCard b,
+.page:has(#nidan-print-letterhead) .patientCard strong,
+.page:has(#nidan-print-letterhead) .patientCard b {
+  font-size: 8.8pt !important;
+  line-height: 1.12 !important;
+  font-weight: 650 !important;
+  color: #263746 !important;
+}
+
+/* ===================== SECTION TITLES ===================== */
+.a4Page.has-nidan-letterhead h2,
+.a4Page.has-nidan-letterhead h3,
+.a4Page:has(.uploadedLogo) h2,
+.a4Page:has(.uploadedLogo) h3,
+.reportPage.has-nidan-letterhead h2,
+.reportPage.has-nidan-letterhead h3,
+.reportPage:has(#nidan-print-letterhead) h2,
+.reportPage:has(#nidan-print-letterhead) h3,
+.page:has(#nidan-print-letterhead) h2,
+.page:has(#nidan-print-letterhead) h3 {
+  color: var(--nidan-report-teal-dark) !important;
+  font-weight: 850 !important;
+  letter-spacing: .01em !important;
+}
+
+/* ===================== INVESTIGATION TABLE ===================== */
+.a4Page.has-nidan-letterhead table,
+.a4Page:has(.uploadedLogo) table,
+.reportPage.has-nidan-letterhead table,
+.reportPage:has(#nidan-print-letterhead) table,
+.page:has(#nidan-print-letterhead) table {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 2.5mm 0 0 !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  table-layout: fixed !important;
+  background: rgba(255,255,255,.97) !important;
+  border: 1px solid var(--nidan-report-border) !important;
+  border-radius: 1.5mm !important;
+  overflow: hidden !important;
+  color: var(--nidan-report-text) !important;
+  font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+}
+
+.a4Page.has-nidan-letterhead thead th,
+.a4Page:has(.uploadedLogo) thead th,
+.reportPage.has-nidan-letterhead thead th,
+.reportPage:has(#nidan-print-letterhead) thead th,
+.page:has(#nidan-print-letterhead) thead th {
+  height: 7mm !important;
+  padding: 1.3mm 2.2mm !important;
+  background: linear-gradient(180deg, #eef8f9, #e5f2f4) !important;
+  color: #24424d !important;
+  border-bottom: 1.2px solid #b9d1d7 !important;
+  font-size: 7.6pt !important;
+  font-weight: 850 !important;
+  letter-spacing: .045em !important;
+  line-height: 1.05 !important;
+  text-transform: uppercase !important;
+  vertical-align: middle !important;
+}
+
+.a4Page.has-nidan-letterhead tbody tr,
+.a4Page:has(.uploadedLogo) tbody tr,
+.reportPage.has-nidan-letterhead tbody tr,
+.reportPage:has(#nidan-print-letterhead) tbody tr,
+.page:has(#nidan-print-letterhead) tbody tr {
+  height: 5.8mm !important;
+}
+
+.a4Page.has-nidan-letterhead tbody td,
+.a4Page:has(.uploadedLogo) tbody td,
+.reportPage.has-nidan-letterhead tbody td,
+.reportPage:has(#nidan-print-letterhead) tbody td,
+.page:has(#nidan-print-letterhead) tbody td {
+  min-height: 5.8mm !important;
+  padding: 1.15mm 2.2mm !important;
+  border-right: 1px solid #e0e7eb !important;
+  border-bottom: 1px solid #e3e9ec !important;
+  font-size: 8.4pt !important;
+  font-weight: 520 !important;
+  line-height: 1.08 !important;
+  vertical-align: middle !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+.a4Page.has-nidan-letterhead tbody tr:nth-child(even) td,
+.a4Page:has(.uploadedLogo) tbody tr:nth-child(even) td,
+.reportPage.has-nidan-letterhead tbody tr:nth-child(even) td,
+.reportPage:has(#nidan-print-letterhead) tbody tr:nth-child(even) td,
+.page:has(#nidan-print-letterhead) tbody tr:nth-child(even) td {
+  background: #fbfdfe !important;
+}
+
+.a4Page.has-nidan-letterhead tbody td:first-child,
+.a4Page:has(.uploadedLogo) tbody td:first-child,
+.reportPage.has-nidan-letterhead tbody td:first-child,
+.reportPage:has(#nidan-print-letterhead) tbody td:first-child,
+.page:has(#nidan-print-letterhead) tbody td:first-child {
+  font-weight: 700 !important;
+  color: #263a46 !important;
+}
+
+/* Make investigation/result text clearly readable on mobile previews and PDF. */
+.a4Page.has-nidan-letterhead tbody td .resultValue,
+.a4Page.has-nidan-letterhead tbody td .value,
+.a4Page:has(.uploadedLogo) tbody td .resultValue,
+.a4Page:has(.uploadedLogo) tbody td .value,
+.reportPage.has-nidan-letterhead tbody td .resultValue,
+.reportPage.has-nidan-letterhead tbody td .value,
+.reportPage:has(#nidan-print-letterhead) tbody td .resultValue,
+.reportPage:has(#nidan-print-letterhead) tbody td .value,
+.page:has(#nidan-print-letterhead) tbody td .resultValue,
+.page:has(#nidan-print-letterhead) tbody td .value {
+  font-size: 9pt !important;
+  font-weight: 850 !important;
+  color: #173b48 !important;
+}
+
+/* Common generated result boxes. */
+.a4Page.has-nidan-letterhead tbody td input,
+.a4Page:has(.uploadedLogo) tbody td input {
+  font-size: 9pt !important;
+  font-weight: 800 !important;
+  min-height: 6mm !important;
+  padding: 1mm 1.5mm !important;
+  text-align: center !important;
+}
+
+.a4Page.has-nidan-letterhead tbody td .flag,
+.a4Page:has(.uploadedLogo) tbody td .flag,
+.reportPage.has-nidan-letterhead tbody td .flag,
+.reportPage:has(#nidan-print-letterhead) tbody td .flag,
+.page:has(#nidan-print-letterhead) tbody td .flag {
+  font-size: 7pt !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+}
+
+/* ===================== SIGNATURE / NOTES ===================== */
+.a4Page.has-nidan-letterhead .signatures,
+.a4Page:has(.uploadedLogo) .signatures,
+.reportPage.has-nidan-letterhead .signatures,
+.reportPage:has(#nidan-print-letterhead) .signatures,
+.page:has(#nidan-print-letterhead) .signatures {
+  margin-top: 5mm !important;
+  font-size: 7.4pt !important;
+}
+
+.a4Page.has-nidan-letterhead .note,
+.a4Page:has(.uploadedLogo) .note,
+.reportPage.has-nidan-letterhead .note,
+.reportPage:has(#nidan-print-letterhead) .note,
+.page:has(#nidan-print-letterhead) .note {
+  font-size: 6.5pt !important;
+  color: #6b7780 !important;
+}
+
+/* ===================== NORMAL REPORT WITHOUT LETTERHEAD ===================== */
+.a4Page:not(.has-nidan-letterhead):not(:has(.uploadedLogo)),
+.reportPage:not(.has-nidan-letterhead):not(:has(#nidan-print-letterhead)) {
+  padding-top: initial !important;
+  padding-bottom: initial !important;
+}
+
+/* ===================== PRINT / PDF ===================== */
 @media print {
   @page {
     size: A4 portrait;
@@ -256,69 +337,38 @@
   body .a4Page.has-nidan-letterhead,
   body .reportPage.has-nidan-letterhead,
   body .a4Page:has(.uploadedLogo),
-  body .reportPage:has(#nidan-print-letterhead) {
+  body .reportPage:has(#nidan-print-letterhead),
+  body .page:has(#nidan-print-letterhead) {
     width: 210mm !important;
     height: 297mm !important;
     min-height: 297mm !important;
     max-height: 297mm !important;
     margin: 0 !important;
-    padding-top: 30.5mm !important;
-    padding-bottom: 24mm !important;
+    padding-top: var(--nidan-letterhead-content-top) !important;
+    padding-bottom: calc(297mm - var(--nidan-letterhead-content-bottom)) !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
+    box-sizing: border-box !important;
     overflow: hidden !important;
     page-break-after: avoid !important;
     break-after: avoid-page !important;
-  }
-
-  body .a4Page.has-nidan-letterhead > *:not(#nidan-print-letterhead),
-  body .reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead),
-  body .a4Page:has(.uploadedLogo) > *:not(#nidan-print-letterhead),
-  body .reportPage:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead) {
-    position: relative !important;
-    z-index: 2 !important;
-    max-width: none !important;
-  }
-
-  body .a4Page.has-nidan-letterhead .patientCard,
-  body .reportPage.has-nidan-letterhead .patientCard,
-  body .a4Page:has(.uploadedLogo) .patientCard,
-  body .reportPage:has(#nidan-print-letterhead) .patientCard {
-    width: 100% !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    margin-top: 0 !important;
+    box-shadow: none !important;
   }
 
   body .a4Page.has-nidan-letterhead table,
-  body .reportPage.has-nidan-letterhead table,
   body .a4Page:has(.uploadedLogo) table,
-  body .reportPage:has(#nidan-print-letterhead) table {
+  body .reportPage.has-nidan-letterhead table,
+  body .reportPage:has(#nidan-print-letterhead) table,
+  body .page:has(#nidan-print-letterhead) table {
     width: 100% !important;
     max-width: none !important;
   }
 
-  body .a4Page.has-nidan-letterhead #nidan-print-letterhead,
-  body .reportPage.has-nidan-letterhead #nidan-print-letterhead,
-  body .a4Page:has(.uploadedLogo) #nidan-print-letterhead,
-  body .reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead {
-    display: block !important;
-    position: absolute !important;
-    inset: 0 !important;
-    width: 210mm !important;
-    height: 297mm !important;
-    z-index: 0 !important;
-  }
-
-  body .a4Page.has-nidan-letterhead #nidan-print-letterhead img,
-  body .reportPage.has-nidan-letterhead #nidan-print-letterhead img,
-  body .a4Page:has(.uploadedLogo) #nidan-print-letterhead img,
-  body .reportPage:has(#nidan-print-letterhead) #nidan-print-letterhead img {
-    display: block !important;
-    width: 210mm !important;
-    height: 297mm !important;
-    object-fit: fill !important;
+  body .a4Page.has-nidan-letterhead tbody td,
+  body .a4Page:has(.uploadedLogo) tbody td,
+  body .reportPage.has-nidan-letterhead tbody td,
+  body .reportPage:has(#nidan-print-letterhead) tbody td,
+  body .page:has(#nidan-print-letterhead) tbody td {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
