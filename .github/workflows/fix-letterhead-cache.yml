@@ -1,0 +1,42 @@
+name: Fix letterhead cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-letterhead-cache.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch letterhead URL cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/settings/page.js')
+          s = p.read_text()
+          old = '''              cacheControl: "3600",'''
+          s = s.replace(old, '''              cacheControl: "0",''')
+          old = '''      updateSetting(\n        "letterhead",\n        publicData.publicUrl\n      );'''
+          new = '''      const cacheBustedLetterheadUrl =\n        `${publicData.publicUrl}?v=${Date.now()}`;\n\n      updateSetting(\n        "letterhead",\n        cacheBustedLetterheadUrl\n      );'''
+          if old not in s:
+              raise SystemExit('Expected letterhead upload block not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/settings/page.js
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix letterhead browser cache'
+          git push
