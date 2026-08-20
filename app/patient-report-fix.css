@@ -1,0 +1,149 @@
+/* NIDAN PATIENT REPORT VISIBILITY FIX
+   Fixes clipped patient name/details caused by the previous fixed 15mm card height. */
+
+.a4Page:has(.uploadedLogo) .patientCard,
+.reportPage:has(#nidan-print-letterhead) .patientCard,
+.page:has(#nidan-print-letterhead) .patientCard {
+  height: auto !important;
+  min-height: 24.5mm !important;
+  margin: 0 0 3mm 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  position: relative !important;
+  z-index: 5 !important;
+  box-sizing: border-box !important;
+}
+
+.a4Page:has(.uploadedLogo) .patientCard .sectionBar,
+.reportPage:has(#nidan-print-letterhead) .patientCard .sectionBar,
+.page:has(#nidan-print-letterhead) .patientCard .sectionBar {
+  height: 7mm !important;
+  min-height: 7mm !important;
+  padding: 0 3mm !important;
+  display: flex !important;
+  align-items: center !important;
+  font-size: 7pt !important;
+  font-weight: 900 !important;
+}
+
+.a4Page:has(.uploadedLogo) .patientCard .patientGrid,
+.reportPage:has(#nidan-print-letterhead) .patientCard .patientGrid,
+.page:has(#nidan-print-letterhead) .patientCard .patientGrid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  width: 100% !important;
+  min-height: 17.5mm !important;
+}
+
+.a4Page:has(.uploadedLogo) .patientCard .infoCell,
+.reportPage:has(#nidan-print-letterhead) .patientCard .infoCell,
+.page:has(#nidan-print-letterhead) .patientCard .infoCell {
+  min-height: 8.75mm !important;
+  height: auto !important;
+  padding: 1.7mm 2.5mm !important;
+  overflow: visible !important;
+  background: #fff !important;
+  box-sizing: border-box !important;
+}
+
+.a4Page:has(.uploadedLogo) .patientCard .infoLabel,
+.reportPage:has(#nidan-print-letterhead) .patientCard .infoLabel,
+.page:has(#nidan-print-letterhead) .patientCard .infoLabel {
+  display: block !important;
+  margin: 0 0 .8mm 0 !important;
+  font-size: 5.7pt !important;
+  line-height: 1 !important;
+  font-weight: 800 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+  color: #667085 !important;
+}
+
+.a4Page:has(.uploadedLogo) .patientCard .infoValue,
+.reportPage:has(#nidan-print-letterhead) .patientCard .infoValue,
+.page:has(#nidan-print-letterhead) .patientCard .infoValue {
+  display: block !important;
+  font-size: 8.2pt !important;
+  line-height: 1.15 !important;
+  font-weight: 650 !important;
+  color: #172033 !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+.a4Page:has(.uploadedLogo) .patientCard .infoValue.strong,
+.reportPage:has(#nidan-print-letterhead) .patientCard .infoValue.strong,
+.page:has(#nidan-print-letterhead) .patientCard .infoValue.strong {
+  font-size: 9pt !important;
+  font-weight: 850 !important;
+  color: #123b47 !important;
+}
+
+.a4Page:has(.uploadedLogo) .tests,
+.reportPage:has(#nidan-print-letterhead) .tests,
+.page:has(#nidan-print-letterhead) .tests {
+  position: relative !important;
+  z-index: 4 !important;
+  margin-top: 2mm !important;
+  clear: both !important;
+}
+
+@media (max-width: 700px) {
+  .a4Page:has(.uploadedLogo) .patientCard,
+  .reportPage:has(#nidan-print-letterhead) .patientCard,
+  .page:has(#nidan-print-letterhead) .patientCard {
+    height: auto !important;
+    min-height: 37mm !important;
+    margin-bottom: 3mm !important;
+  }
+
+  .a4Page:has(.uploadedLogo) .patientCard .patientGrid,
+  .reportPage:has(#nidan-print-letterhead) .patientCard .patientGrid,
+  .page:has(#nidan-print-letterhead) .patientCard .patientGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    min-height: 31.5mm !important;
+  }
+
+  .a4Page:has(.uploadedLogo) .patientCard .infoCell,
+  .reportPage:has(#nidan-print-letterhead) .patientCard .infoCell,
+  .page:has(#nidan-print-letterhead) .patientCard .infoCell {
+    min-height: 7.8mm !important;
+    padding: 1.3mm 2mm !important;
+  }
+
+  .a4Page:has(.uploadedLogo) .patientCard .infoLabel,
+  .reportPage:has(#nidan-print-letterhead) .patientCard .infoLabel,
+  .page:has(#nidan-print-letterhead) .patientCard .infoLabel {
+    font-size: 4.4pt !important;
+  }
+
+  .a4Page:has(.uploadedLogo) .patientCard .infoValue,
+  .reportPage:has(#nidan-print-letterhead) .patientCard .infoValue,
+  .page:has(#nidan-print-letterhead) .patientCard .infoValue {
+    font-size: 6.4pt !important;
+  }
+
+  .a4Page:has(.uploadedLogo) .patientCard .infoValue.strong,
+  .reportPage:has(#nidan-print-letterhead) .patientCard .infoValue.strong,
+  .page:has(#nidan-print-letterhead) .patientCard .infoValue.strong {
+    font-size: 7pt !important;
+  }
+}
+
+@media print {
+  .a4Page:has(.uploadedLogo) .patientCard,
+  .reportPage:has(#nidan-print-letterhead) .patientCard,
+  .page:has(#nidan-print-letterhead) .patientCard {
+    height: auto !important;
+    min-height: 24.5mm !important;
+    margin-bottom: 3mm !important;
+    overflow: hidden !important;
+  }
+
+  .a4Page:has(.uploadedLogo) .tests,
+  .reportPage:has(#nidan-print-letterhead) .tests,
+  .page:has(#nidan-print-letterhead) .tests {
+    margin-top: 2mm !important;
+    clear: both !important;
+  }
+}
