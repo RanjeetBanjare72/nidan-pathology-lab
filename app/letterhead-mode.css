@@ -3,24 +3,22 @@
    PROFESSIONAL A4 LETTERHEAD REPORT MODE
    ========================================================= */
 
-/*
-   The uploaded A4 letterhead is rendered INSIDE the actual A4
-   report surface. This makes the stationery and report look like
-   one clean document instead of two separate layers.
-*/
-
-/* ---------------------------------------------------------
-   COMMON LETTERHEAD BACKGROUND
---------------------------------------------------------- */
+/* Uploaded A4 letterhead is the single stationery layer. */
 .a4Page.has-nidan-letterhead,
-main.page .reportPage.has-nidan-letterhead {
+.reportPage.has-nidan-letterhead {
   position: relative !important;
+  width: 210mm !important;
+  min-height: 297mm !important;
+  height: 297mm !important;
   overflow: hidden !important;
-  background: transparent !important;
+  background: #fff !important;
+  padding-top: 35mm !important;
+  padding-bottom: 25mm !important;
 }
 
+/* Full-page uploaded A4 image. */
 .a4Page.has-nidan-letterhead #nidan-print-letterhead,
-main.page .reportPage.has-nidan-letterhead #nidan-print-letterhead {
+.reportPage.has-nidan-letterhead #nidan-print-letterhead {
   display: block !important;
   position: absolute !important;
   inset: 0 !important;
@@ -28,15 +26,20 @@ main.page .reportPage.has-nidan-letterhead #nidan-print-letterhead {
   height: 297mm !important;
   margin: 0 !important;
   padding: 0 !important;
+  border: 0 !important;
   z-index: 0 !important;
   pointer-events: none !important;
   overflow: hidden !important;
   background: #fff !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .a4Page.has-nidan-letterhead #nidan-print-letterhead img,
-main.page .reportPage.has-nidan-letterhead #nidan-print-letterhead img {
+.reportPage.has-nidan-letterhead #nidan-print-letterhead img {
   display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
   width: 210mm !important;
   height: 297mm !important;
   max-width: none !important;
@@ -45,95 +48,108 @@ main.page .reportPage.has-nidan-letterhead #nidan-print-letterhead img {
   padding: 0 !important;
   border: 0 !important;
   object-fit: fill !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
-/* Keep all generated report content above the stationery. */
+/* Report content sits above the stationery. */
 .a4Page.has-nidan-letterhead > *:not(#nidan-print-letterhead),
-main.page .reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead) {
+.reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead) {
   position: relative !important;
   z-index: 2 !important;
 }
 
-/* ---------------------------------------------------------
-   FINAL REPORT: uploaded letterhead supplies the branding.
-   Remove duplicate generated header/footer and preserve the
-   exact letterhead header height as the natural top zone.
---------------------------------------------------------- */
+/* Uploaded letterhead supplies its own header and footer. */
 .a4Page.has-nidan-letterhead .labHeader,
 .a4Page.has-nidan-letterhead .accentBar,
-.a4Page.has-nidan-letterhead .footer {
+.a4Page.has-nidan-letterhead .footer,
+.reportPage.has-nidan-letterhead .labHeader,
+.reportPage.has-nidan-letterhead .accentBar,
+.reportPage.has-nidan-letterhead .accent,
+.reportPage.has-nidan-letterhead .footer {
   display: none !important;
 }
 
-.a4Page.has-nidan-letterhead {
-  padding-top: 35mm !important;
+/* Keep patient/tests inside the white content zone between the
+   uploaded letterhead header and footer. */
+.a4Page.has-nidan-letterhead .patientCard,
+.reportPage.has-nidan-letterhead .patientCard {
+  margin-top: 0 !important;
 }
 
-/* ---------------------------------------------------------
-   SAVED REPORT: same exact visual system as Final Report.
---------------------------------------------------------- */
-main.page .reportPage.has-nidan-letterhead > .labHeader,
-main.page .reportPage.has-nidan-letterhead > .accent,
-main.page .reportPage.has-nidan-letterhead > .footer {
-  display: none !important;
-}
-
-main.page .reportPage.has-nidan-letterhead {
-  padding-top: 35mm !important;
-}
-
-/* If the letterhead is not available, keep the professional
-   generated report instead of leaving an empty header. */
+/* If there is no uploaded letterhead, use the normal generated report. */
 .a4Page:not(.has-nidan-letterhead) .labHeader,
-main.page .reportPage:not(.has-nidan-letterhead) .labHeader {
+.reportPage:not(.has-nidan-letterhead) .labHeader {
   display: flex !important;
 }
 
 .a4Page:not(.has-nidan-letterhead) .footer,
-main.page .reportPage:not(.has-nidan-letterhead) .footer {
+.reportPage:not(.has-nidan-letterhead) .footer {
   display: block !important;
 }
 
-/* ---------------------------------------------------------
-   SETTINGS: letterhead upload is the branding control.
---------------------------------------------------------- */
+/* Settings: uploaded letterhead is the branding control. */
 .settingsPage .settingOptions .toggleItem:nth-child(1),
 .settingsPage .settingOptions .toggleItem:nth-child(2) {
   display: none !important;
 }
 
-/* ---------------------------------------------------------
-   PRINT / PDF
---------------------------------------------------------- */
+/* =========================================================
+   PRINT / SAVE PDF
+   ========================================================= */
 @media print {
   @page {
     size: A4 portrait;
     margin: 0;
   }
 
+  html,
+  body {
+    width: 210mm !important;
+    min-width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
   body .preview .a4Page.has-nidan-letterhead,
-  body main.page .reportPage.has-nidan-letterhead {
-    background: transparent !important;
+  body .reportPage.has-nidan-letterhead {
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
     padding-top: 35mm !important;
+    padding-bottom: 25mm !important;
     overflow: hidden !important;
+    background: #fff !important;
+    position: relative !important;
+    page-break-after: avoid !important;
+    break-after: avoid-page !important;
   }
 
   body .preview .a4Page.has-nidan-letterhead #nidan-print-letterhead,
-  body main.page .reportPage.has-nidan-letterhead #nidan-print-letterhead {
+  body .reportPage.has-nidan-letterhead #nidan-print-letterhead {
     display: block !important;
     position: absolute !important;
     inset: 0 !important;
     width: 210mm !important;
     height: 297mm !important;
     z-index: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
   body .preview .a4Page.has-nidan-letterhead #nidan-print-letterhead img,
-  body main.page .reportPage.has-nidan-letterhead #nidan-print-letterhead img {
+  body .reportPage.has-nidan-letterhead #nidan-print-letterhead img {
     display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
     width: 210mm !important;
     height: 297mm !important;
     object-fit: fill !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -141,14 +157,15 @@ main.page .reportPage:not(.has-nidan-letterhead) .footer {
   body .preview .a4Page.has-nidan-letterhead .labHeader,
   body .preview .a4Page.has-nidan-letterhead .accentBar,
   body .preview .a4Page.has-nidan-letterhead .footer,
-  body main.page .reportPage.has-nidan-letterhead > .labHeader,
-  body main.page .reportPage.has-nidan-letterhead > .accent,
-  body main.page .reportPage.has-nidan-letterhead > .footer {
+  body .reportPage.has-nidan-letterhead .labHeader,
+  body .reportPage.has-nidan-letterhead .accentBar,
+  body .reportPage.has-nidan-letterhead .accent,
+  body .reportPage.has-nidan-letterhead .footer {
     display: none !important;
   }
 
   body .preview .a4Page.has-nidan-letterhead > *:not(#nidan-print-letterhead),
-  body main.page .reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead) {
+  body .reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead) {
     position: relative !important;
     z-index: 2 !important;
   }
