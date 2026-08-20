@@ -1,8 +1,10 @@
 import LogoutButton from "../components/LogoutButton";
 import PrintLetterheadBridge from "../components/PrintLetterheadBridge";
+import LetterheadModeGuard from "../components/LetterheadModeGuard";
 import "./tailwind.css";
 import "./globals.css";
 import "./print-fixes.css";
+import "./letterhead-mode.css";
 
 export const metadata = {
   title: "NIDAN Pathology Lab | Reporting System",
@@ -14,6 +16,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
+        <LetterheadModeGuard />
         {children}
         <PrintLetterheadBridge />
         <LogoutButton />
