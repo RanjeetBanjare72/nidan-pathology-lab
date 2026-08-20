@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-const LOCAL_KEY = "nidanDoctors";
-
 const EMPTY_DOCTOR = {
   name: "",
   qualification: "",
@@ -52,83 +50,17 @@ export default function DoctorsPage() {
 
       const supabaseDoctors = Array.isArray(data) ? data : [];
 
-      /*
-       * If Supabase has no doctors, try to migrate
-       * existing doctors saved in localStorage.
-       */
-      if (supabaseDoctors.length === 0) {
-        const localDoctors = readLocalDoctors();
-
-        if (localDoctors.length > 0) {
-          const converted = localDoctors.map((item) => ({
-            name: item.name || "",
-            qualification: item.qualification || "",
-            specialization: item.specialization || "",
-            registration_no:
-              item.registration_no ||
-              item.registrationNo ||
-              "",
-            mobile: item.mobile || "",
-            clinic: item.clinic || "",
-            address: item.address || "",
-            active:
-              item.active === undefined
-                ? true
-                : Boolean(item.active),
-          }));
-
-          const { data: inserted, error: insertError } =
-            await supabase
-              .from("doctors")
-              .insert(converted)
-              .select("*");
-
-          if (!insertError && inserted) {
-            setDoctors(inserted);
-            localStorage.setItem(
-              LOCAL_KEY,
-              JSON.stringify(inserted)
-            );
-            return;
-          }
-        }
-      }
-
       setDoctors(supabaseDoctors);
-
-      // Backup to localStorage
-      localStorage.setItem(
-        LOCAL_KEY,
-        JSON.stringify(supabaseDoctors)
-      );
     } catch (err) {
       console.error(err);
 
-      /*
-       * Supabase failed.
-       * Show local doctors as backup.
-       */
-      const localDoctors = readLocalDoctors();
-
-      setDoctors(localDoctors);
+      setDoctors([]);
 
       setError(
-        "Supabase se doctors load nahi ho paaye. Local backup dikhaya ja raha hai."
+        "Supabase se doctors load nahi ho paaye. Connection aur RLS policies check karein."
       );
     } finally {
       setLoading(false);
-    }
-  }
-
-  function readLocalDoctors() {
-    try {
-      const data = JSON.parse(
-        localStorage.getItem(LOCAL_KEY) || "[]"
-      );
-
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
     }
   }
 
@@ -206,7 +138,6 @@ export default function DoctorsPage() {
               clinic: doctor.clinic.trim(),
               address: doctor.address.trim(),
               active: doctor.active,
-              updated_at: new Date().toISOString(),
             })
             .eq("id", editingId)
             .select("*")
@@ -254,31 +185,6 @@ export default function DoctorsPage() {
           )
         );
       }
-
-      /*
-       * Update local backup after successful Supabase save.
-       */
-      const updatedDoctors = editingId
-        ? doctors.map((item) =>
-            item.id === editingId
-              ? {
-                  ...item,
-                  ...doctor,
-                  id: editingId,
-                }
-              : item
-          )
-        : [
-            ...doctors,
-            {
-              ...doctor,
-            },
-          ];
-
-      localStorage.setItem(
-        LOCAL_KEY,
-        JSON.stringify(updatedDoctors)
-      );
 
       setShowModal(false);
       setEditingId(null);
@@ -335,11 +241,6 @@ export default function DoctorsPage() {
       );
 
       setDoctors(updated);
-
-      localStorage.setItem(
-        LOCAL_KEY,
-        JSON.stringify(updated)
-      );
     } catch (err) {
       console.error(
         "Delete doctor error:",
