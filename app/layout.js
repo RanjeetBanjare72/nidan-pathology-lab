@@ -6,6 +6,7 @@ import "./globals.css";
 import "./print-fixes.css";
 import "./letterhead-mode.css";
 import "./professional-report-overrides.css";
+import "./patient-report-fix.css";
 
 export const metadata = {
   title: "NIDAN Pathology Lab | Reporting System",
