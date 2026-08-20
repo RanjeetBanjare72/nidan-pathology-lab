@@ -387,7 +387,7 @@ export default function SettingsPage() {
             objectPath,
             file,
             {
-              cacheControl: "3600",
+              cacheControl: "0",
               contentType: file.type,
               upsert: true,
             }
@@ -412,9 +412,12 @@ export default function SettingsPage() {
         );
       }
 
+      const cacheBustedLetterheadUrl =
+        `${publicData.publicUrl}?v=${Date.now()}`;
+
       updateSetting(
         "letterhead",
-        publicData.publicUrl
+        cacheBustedLetterheadUrl
       );
       setLetterheadMessage(
         "✓ Letterhead uploaded successfully. Save Settings dabakar changes confirm karein."
