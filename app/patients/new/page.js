@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -16,7 +16,33 @@ export default function NewPatientPage() {
     address: "",
   });
 
+  const [doctors, setDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadDoctors();
+  }, []);
+
+  async function loadDoctors() {
+    setLoadingDoctors(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("doctors")
+        .select("id,name,qualification,specialization,active")
+        .eq("active", true)
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      setDoctors(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Doctor load error:", error);
+      setDoctors([]);
+    } finally {
+      setLoadingDoctors(false);
+    }
+  }
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -38,9 +64,13 @@ export default function NewPatientPage() {
     setLoading(true);
 
     const patientId =
-      "NPL-" +
-      Date.now().toString().slice(-8);
+      "NPL-" + Date.now().toString().slice(-8);
 
+    // IMPORTANT:
+    // Supabase patients table uses `referring_doctor`,
+    // not `doctor`. The old code was inserting into the
+    // non-existent `doctor` column and caused the error:
+    // "Could not find the 'doctor' column..."
     const { data, error } = await supabase
       .from("patients")
       .insert([
@@ -50,7 +80,7 @@ export default function NewPatientPage() {
           age: form.age ? Number(form.age) : null,
           gender: form.gender || null,
           mobile: form.mobile.trim() || null,
-          doctor: form.doctor.trim() || null,
+          referring_doctor: form.doctor.trim() || null,
           address: form.address.trim() || null,
         },
       ])
@@ -64,14 +94,13 @@ export default function NewPatientPage() {
       return;
     }
 
-    localStorage.setItem(
-      "nidanPatient",
-      JSON.stringify(data)
-    );
+    localStorage.setItem("nidanPatient", JSON.stringify(data));
+    localStorage.setItem("nidanCurrentPatientId", data.patient_id || patientId);
 
-    alert("Patient successfully register ho gaya.");
-
+    // Do not show a blocking success alert. Continue directly
+    // to the patient list so the workflow does not get stuck.
     router.push("/patients");
+    router.refresh();
   }
 
   return (
@@ -90,27 +119,11 @@ export default function NewPatientPage() {
           padding: "18px 20px",
         }}
       >
-        <div
-          style={{
-            maxWidth: "900px",
-            margin: "auto",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "22px",
-              fontWeight: "700",
-            }}
-          >
+        <div style={{ maxWidth: "900px", margin: "auto" }}>
+          <div style={{ fontSize: "22px", fontWeight: "700" }}>
             NIDAN PATHOLOGY LAB
           </div>
-
-          <div
-            style={{
-              fontSize: "13px",
-              marginTop: "4px",
-            }}
-          >
+          <div style={{ fontSize: "13px", marginTop: "4px" }}>
             New Patient Registration
           </div>
         </div>
@@ -142,21 +155,10 @@ export default function NewPatientPage() {
             }}
           >
             <div>
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: "25px",
-                }}
-              >
+              <h1 style={{ margin: 0, fontSize: "25px" }}>
                 Patient Registration
               </h1>
-
-              <p
-                style={{
-                  margin: "6px 0 0",
-                  color: "#64748b",
-                }}
-              >
+              <p style={{ margin: "6px 0 0", color: "#64748b" }}>
                 Naya patient record create karein
               </p>
             </div>
@@ -180,16 +182,12 @@ export default function NewPatientPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(220px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: "16px",
               }}
             >
               <div>
-                <label style={labelStyle}>
-                  Patient Name *
-                </label>
-
+                <label style={labelStyle}>Patient Name *</label>
                 <input
                   name="name"
                   value={form.name}
@@ -201,10 +199,7 @@ export default function NewPatientPage() {
               </div>
 
               <div>
-                <label style={labelStyle}>
-                  Age
-                </label>
-
+                <label style={labelStyle}>Age</label>
                 <input
                   name="age"
                   type="number"
@@ -218,39 +213,22 @@ export default function NewPatientPage() {
               </div>
 
               <div>
-                <label style={labelStyle}>
-                  Gender
-                </label>
-
+                <label style={labelStyle}>Gender</label>
                 <select
                   name="gender"
                   value={form.gender}
                   onChange={handleChange}
                   style={inputStyle}
                 >
-                  <option value="">
-                    Select Gender
-                  </option>
-
-                  <option value="Male">
-                    Male
-                  </option>
-
-                  <option value="Female">
-                    Female
-                  </option>
-
-                  <option value="Other">
-                    Other
-                  </option>
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
 
               <div>
-                <label style={labelStyle}>
-                  Mobile Number
-                </label>
-
+                <label style={labelStyle}>Mobile Number</label>
                 <input
                   name="mobile"
                   type="tel"
@@ -263,24 +241,45 @@ export default function NewPatientPage() {
               </div>
 
               <div>
-                <label style={labelStyle}>
-                  Referring Doctor
-                </label>
-
-                <input
+                <label style={labelStyle}>Referring Doctor</label>
+                <select
                   name="doctor"
                   value={form.doctor}
                   onChange={handleChange}
-                  placeholder="Doctor name"
                   style={inputStyle}
-                />
+                  disabled={loadingDoctors}
+                >
+                  <option value="">
+                    {loadingDoctors
+                      ? "Loading doctors..."
+                      : doctors.length
+                        ? "Select Referring Doctor"
+                        : "No active doctor found"}
+                  </option>
+
+                  {doctors.map((doctor) => (
+                    <option key={doctor.id} value={doctor.name}>
+                      Dr. {doctor.name}
+                      {doctor.qualification
+                        ? ` • ${doctor.qualification}`
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+
+                {!loadingDoctors && doctors.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/doctors")}
+                    style={smallLinkButton}
+                  >
+                    + Add Doctor
+                  </button>
+                )}
               </div>
 
               <div>
-                <label style={labelStyle}>
-                  Address
-                </label>
-
+                <label style={labelStyle}>Address</label>
                 <input
                   name="address"
                   value={form.address}
@@ -308,34 +307,21 @@ export default function NewPatientPage() {
                   border: "none",
                   borderRadius: "9px",
                   padding: "13px 22px",
-                  background: loading
-                    ? "#94a3b8"
-                    : "#0f766e",
+                  background: loading ? "#94a3b8" : "#0f766e",
                   color: "#fff",
                   fontWeight: "700",
                   fontSize: "15px",
-                  cursor: loading
-                    ? "not-allowed"
-                    : "pointer",
+                  cursor: loading ? "not-allowed" : "pointer",
                 }}
               >
-                {loading
-                  ? "Saving..."
-                  : "✓ Register Patient"}
+                {loading ? "Saving..." : "✓ Register Patient & Continue"}
               </button>
 
               <button
                 type="button"
                 onClick={() => router.push("/patients")}
-                style={{
-                  border: "1px solid #cbd5e1",
-                  borderRadius: "9px",
-                  padding: "13px 22px",
-                  background: "#fff",
-                  color: "#334155",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                }}
+                style={cancelButtonStyle}
+                disabled={loading}
               >
                 Cancel
               </button>
@@ -364,4 +350,24 @@ const inputStyle = {
   fontSize: "15px",
   background: "#fff",
   outline: "none",
+};
+
+const smallLinkButton = {
+  marginTop: "7px",
+  border: "none",
+  background: "transparent",
+  color: "#0f766e",
+  fontWeight: "700",
+  padding: "0",
+  cursor: "pointer",
+};
+
+const cancelButtonStyle = {
+  border: "1px solid #cbd5e1",
+  borderRadius: "9px",
+  padding: "13px 22px",
+  background: "#fff",
+  color: "#334155",
+  fontWeight: "600",
+  cursor: "pointer",
 };
