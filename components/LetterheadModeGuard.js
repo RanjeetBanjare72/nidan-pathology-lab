@@ -4,22 +4,29 @@ import { useEffect } from "react";
 
 const SETTINGS_KEY = "nidanLabSettings";
 
+/**
+ * Full-A4 letterhead is the only branding surface.
+ * Do not force the legacy generated header/logo back on.
+ */
 export default function LetterheadModeGuard() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
       const current = raw ? JSON.parse(raw) : {};
+      const hasLetterhead = Boolean(
+        String(current?.letterhead || "").trim()
+      );
+
       const next = {
         ...current,
-        // Uploaded letterhead is now the only header/logo source.
-        // Keep these internally enabled so the uploaded letterhead can render.
-        reportHeader: true,
-        showLogo: true,
+        // When a full A4 letterhead exists, the uploaded stationery is the
+        // only branding layer. These legacy flags must not re-enable it.
+        reportHeader: hasLetterhead ? false : current?.reportHeader ?? true,
+        showLogo: hasLetterhead ? false : current?.showLogo ?? true,
       };
 
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
 
-      // Remove the obsolete Report Header and Logo toggles from Settings UI.
       if (window.location.pathname === "/settings") {
         const hideObsoleteToggles = () => {
           const options = document.querySelector(".settingOptions");
