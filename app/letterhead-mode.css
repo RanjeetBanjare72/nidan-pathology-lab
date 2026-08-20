@@ -4,16 +4,16 @@
    ========================================================= */
 
 /*
-   The uploaded A4 letterhead is the stationery layer.
-   PrintLetterheadBridge.js automatically detects its header/footer
-   and writes --nidan-letterhead-top / --nidan-letterhead-bottom.
-   These defaults are only the fallback for an image that cannot be
-   inspected.
+   Uploaded A4 letterhead is the stationery layer.
+   PrintLetterheadBridge.js detects the header, footer and the
+   horizontal safe-zone and writes CSS variables automatically.
 */
 .a4Page.has-nidan-letterhead,
 .reportPage.has-nidan-letterhead {
   --nidan-letterhead-top: 40mm;
   --nidan-letterhead-bottom: 18mm;
+  --nidan-letterhead-left: 10mm;
+  --nidan-letterhead-right: 10mm;
   position: relative !important;
   box-sizing: border-box !important;
   width: 210mm !important;
@@ -22,7 +22,9 @@
   overflow: hidden !important;
   background: #fff !important;
   padding-top: var(--nidan-letterhead-top) !important;
+  padding-right: var(--nidan-letterhead-right) !important;
   padding-bottom: var(--nidan-letterhead-bottom) !important;
+  padding-left: var(--nidan-letterhead-left) !important;
 }
 
 /* Full-page uploaded A4 image. */
@@ -61,11 +63,28 @@
   opacity: 1 !important;
 }
 
-/* Report content sits above the stationery. */
+/* Report content sits above the stationery and inside its safe zone. */
 .a4Page.has-nidan-letterhead > *:not(#nidan-print-letterhead),
 .reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead) {
   position: relative !important;
   z-index: 2 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.a4Page.has-nidan-letterhead .patientCard,
+.reportPage.has-nidan-letterhead .patientCard,
+.a4Page.has-nidan-letterhead .sectionTitle,
+.reportPage.has-nidan-letterhead .sectionTitle,
+.a4Page.has-nidan-letterhead .resultsTable,
+.reportPage.has-nidan-letterhead .resultsTable,
+.a4Page.has-nidan-letterhead .signatures,
+.reportPage.has-nidan-letterhead .signatures,
+.a4Page.has-nidan-letterhead .reportNote,
+.reportPage.has-nidan-letterhead .reportNote {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 /* Uploaded letterhead supplies its own header and footer. */
@@ -84,7 +103,7 @@
   margin-top: 0 !important;
 }
 
-/* Professional report typography: readable but compact enough for A4. */
+/* Professional report typography: readable and print-safe on A4. */
 .a4Page.has-nidan-letterhead .sectionTitle,
 .reportPage.has-nidan-letterhead .sectionTitle {
   font-size: 11px !important;
@@ -154,7 +173,9 @@
     max-height: 297mm !important;
     margin: 0 !important;
     padding-top: var(--nidan-letterhead-top) !important;
+    padding-right: var(--nidan-letterhead-right) !important;
     padding-bottom: var(--nidan-letterhead-bottom) !important;
+    padding-left: var(--nidan-letterhead-left) !important;
     overflow: hidden !important;
     background: #fff !important;
     position: relative !important;
@@ -202,5 +223,7 @@
   body .reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead) {
     position: relative !important;
     z-index: 2 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 }
