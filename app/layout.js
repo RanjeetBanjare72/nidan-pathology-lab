@@ -1,5 +1,7 @@
 import LogoutButton from "../components/LogoutButton";
+import "./tailwind.css";
 import "./globals.css";
+import "./print-fixes.css";
 
 export const metadata = {
   title: "NIDAN Pathology Lab | Reporting System",
