@@ -1,17 +1,19 @@
 /* =========================================================
    NIDAN PATHOLOGY LAB
-   PROFESSIONAL A4 LETTERHEAD REPORT MODE
+   UNIVERSAL PROFESSIONAL A4 LETTERHEAD REPORT MODE
    ========================================================= */
 
 /*
-   Letterhead content-zone calibration:
-   The uploaded A4 stationery has its usable white report area
-   starting at about 40mm from the top and ending about 18mm
-   before the bottom. Keep the report data inside that zone so
-   the test table aligns naturally with the uploaded letterhead.
+   The uploaded A4 letterhead is the stationery layer.
+   PrintLetterheadBridge.js automatically detects its header/footer
+   and writes --nidan-letterhead-top / --nidan-letterhead-bottom.
+   These defaults are only the fallback for an image that cannot be
+   inspected.
 */
 .a4Page.has-nidan-letterhead,
 .reportPage.has-nidan-letterhead {
+  --nidan-letterhead-top: 40mm;
+  --nidan-letterhead-bottom: 18mm;
   position: relative !important;
   box-sizing: border-box !important;
   width: 210mm !important;
@@ -19,8 +21,8 @@
   height: 297mm !important;
   overflow: hidden !important;
   background: #fff !important;
-  padding-top: 40mm !important;
-  padding-bottom: 18mm !important;
+  padding-top: var(--nidan-letterhead-top) !important;
+  padding-bottom: var(--nidan-letterhead-bottom) !important;
 }
 
 /* Full-page uploaded A4 image. */
@@ -77,11 +79,36 @@
   display: none !important;
 }
 
-/* Keep patient/tests inside the white content zone between the
-   uploaded letterhead header and footer. */
 .a4Page.has-nidan-letterhead .patientCard,
 .reportPage.has-nidan-letterhead .patientCard {
   margin-top: 0 !important;
+}
+
+/* Professional report typography: readable but compact enough for A4. */
+.a4Page.has-nidan-letterhead .sectionTitle,
+.reportPage.has-nidan-letterhead .sectionTitle {
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.2px !important;
+}
+
+.a4Page.has-nidan-letterhead .resultsTable th,
+.reportPage.has-nidan-letterhead .resultsTable th {
+  font-size: 9.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.35px !important;
+  text-transform: uppercase !important;
+}
+
+.a4Page.has-nidan-letterhead .resultsTable td,
+.reportPage.has-nidan-letterhead .resultsTable td {
+  font-size: 9.2px !important;
+  font-weight: 500 !important;
+}
+
+.a4Page.has-nidan-letterhead .patientCard,
+.reportPage.has-nidan-letterhead .patientCard {
+  font-size: 9px !important;
 }
 
 /* If there is no uploaded letterhead, use the normal generated report. */
@@ -126,8 +153,8 @@
     min-height: 297mm !important;
     max-height: 297mm !important;
     margin: 0 !important;
-    padding-top: 40mm !important;
-    padding-bottom: 18mm !important;
+    padding-top: var(--nidan-letterhead-top) !important;
+    padding-bottom: var(--nidan-letterhead-bottom) !important;
     overflow: hidden !important;
     background: #fff !important;
     position: relative !important;
