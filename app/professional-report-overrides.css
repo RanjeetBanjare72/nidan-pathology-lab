@@ -1,0 +1,163 @@
+/* =========================================================
+   NIDAN PATHOLOGY LAB
+   FINAL PROFESSIONAL REPORT OVERRIDES
+
+   Goal:
+   - Keep the original professional A4 report layout.
+   - Show uploaded A4 letterhead when one exists.
+   - Never leave the report with a huge blank header.
+   - If no letterhead is configured, restore the generated
+     professional NIDAN header/footer instead of hiding them.
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   FINAL REPORT (/report)
+--------------------------------------------------------- */
+
+/* No uploaded letterhead: keep the original professional branding. */
+.a4Page:not(:has(.uploadedLogo)) .labHeader,
+.a4Page:not(:has(.uploadedLogo)) .accentBar,
+.a4Page:not(:has(.uploadedLogo)) .footer {
+  display: revert !important;
+}
+
+.a4Page:not(:has(.uploadedLogo)) > *:not(.labHeader) {
+  position: relative !important;
+  z-index: auto !important;
+}
+
+/* Uploaded A4 letterhead: use it as the page background and reserve
+   the same professional header height before patient information. */
+.a4Page:has(.uploadedLogo) {
+  box-sizing: border-box !important;
+  padding-top: 35mm !important;
+}
+
+.a4Page:has(.uploadedLogo) .labHeader {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 35mm !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  background: transparent !important;
+  z-index: 0 !important;
+}
+
+.a4Page:has(.uploadedLogo) .mainLogo,
+.a4Page:has(.uploadedLogo) .brand,
+.a4Page:has(.uploadedLogo) .brandArea {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+.a4Page:has(.uploadedLogo) .uploadedLogo {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 210mm !important;
+  height: 297mm !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  object-fit: fill !important;
+  display: block !important;
+  z-index: 0 !important;
+}
+
+.a4Page:has(.uploadedLogo) .brandText,
+.a4Page:has(.uploadedLogo) .headerRight,
+.a4Page:has(.uploadedLogo) .accentBar,
+.a4Page:has(.uploadedLogo) .footer {
+  display: none !important;
+}
+
+.a4Page:has(.uploadedLogo) > *:not(.labHeader) {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* ---------------------------------------------------------
+   SAVED REPORT (/reports/[id])
+--------------------------------------------------------- */
+
+/* No uploaded letterhead: restore the original professional page. */
+.page:not(:has(#nidan-print-letterhead)) .labHeader,
+.page:not(:has(#nidan-print-letterhead)) .accentBar,
+.page:not(:has(#nidan-print-letterhead)) .footer {
+  display: revert !important;
+}
+
+.page:not(:has(#nidan-print-letterhead)) > *:not(#nidan-print-letterhead) {
+  position: relative !important;
+  z-index: auto !important;
+}
+
+/* Uploaded letterhead exists: keep it full-page, but move report content
+   below the printed header area so patient information never overlaps it. */
+.page:has(#nidan-print-letterhead) {
+  box-sizing: border-box !important;
+  padding-top: 35mm !important;
+}
+
+.page:has(#nidan-print-letterhead) .labHeader,
+.page:has(#nidan-print-letterhead) .accentBar,
+.page:has(#nidan-print-letterhead) .footer {
+  display: none !important;
+}
+
+.page:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead) {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* Keep the letterhead itself behind all report content. */
+.page:has(#nidan-print-letterhead) #nidan-print-letterhead {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 210mm !important;
+  height: 297mm !important;
+  z-index: 0 !important;
+}
+
+.page:has(#nidan-print-letterhead) #nidan-print-letterhead img {
+  width: 210mm !important;
+  height: 297mm !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: fill !important;
+  display: block !important;
+}
+
+/* ---------------------------------------------------------
+   PRINT / PDF
+--------------------------------------------------------- */
+@media print {
+  body .preview .a4Page:not(:has(.uploadedLogo)) .labHeader,
+  body .preview .a4Page:not(:has(.uploadedLogo)) .accentBar,
+  body .preview .a4Page:not(:has(.uploadedLogo)) .footer,
+  body .page:not(:has(#nidan-print-letterhead)) .labHeader,
+  body .page:not(:has(#nidan-print-letterhead)) .accentBar,
+  body .page:not(:has(#nidan-print-letterhead)) .footer {
+    display: revert !important;
+  }
+
+  body .preview .a4Page:has(.uploadedLogo),
+  body .page:has(#nidan-print-letterhead) {
+    padding-top: 35mm !important;
+    box-sizing: border-box !important;
+  }
+}
