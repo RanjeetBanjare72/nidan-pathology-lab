@@ -1,9 +1,11 @@
 /* =========================================================
    NIDAN PATHOLOGY LAB
-   FULL-A4 LETTERHEAD + TRUE SINGLE-PAGE PDF
+   LETTERHEAD-ONLY REPORT PRINT SYSTEM
    ========================================================= */
 
-/* Screen preview ------------------------------------------------ */
+/* ---------------------------------------------------------
+   FINAL REPORT: uploaded A4 letterhead is the page background
+--------------------------------------------------------- */
 .a4Page:has(.uploadedLogo) {
   position: relative !important;
   width: 210mm !important;
@@ -27,7 +29,8 @@
   pointer-events: none !important;
 }
 
-.a4Page:has(.uploadedLogo) .labHeader .brand {
+.a4Page:has(.uploadedLogo) .labHeader .brand,
+.a4Page:has(.uploadedLogo) .mainLogo {
   position: absolute !important;
   inset: 0 !important;
   width: 100% !important;
@@ -36,22 +39,10 @@
   padding: 0 !important;
   display: block !important;
   border: 0 !important;
-  background: transparent !important;
-}
-
-.a4Page:has(.uploadedLogo) .mainLogo {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 210mm !important;
-  height: 297mm !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
   overflow: hidden !important;
-  z-index: 0 !important;
 }
 
 .a4Page:has(.uploadedLogo) .mainLogo .uploadedLogo {
@@ -65,7 +56,6 @@
   padding: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
-  background: transparent !important;
   object-fit: fill !important;
   display: block !important;
 }
@@ -83,28 +73,62 @@
   z-index: 2 !important;
 }
 
-.a4Page:has(.uploadedLogo) .patientCard,
-.a4Page:has(.uploadedLogo) .tests,
-.a4Page:has(.uploadedLogo) .testSection,
-.a4Page:has(.uploadedLogo) .signatures,
-.a4Page:has(.uploadedLogo) .note {
-  position: relative !important;
-  z-index: 2 !important;
-  break-inside: avoid !important;
-  page-break-inside: avoid !important;
-}
+/* ---------------------------------------------------------
+   SAVED REPORT: LETTERHEAD ONLY
 
-/* Saved report route: the uploaded letterhead is injected by
-   PrintLetterheadBridge because the saved-report page did not
-   previously render the Settings letterhead at all. */
+   PrintLetterheadBridge injects #nidan-print-letterhead into
+   .page. If a letterhead exists, it becomes the full A4 page
+   background. The generated logo/header/footer are disabled.
+
+   If no letterhead exists, the same generated header/footer are
+   also hidden, leaving a clean blank top/bottom for pre-printed
+   laboratory stationery.
+--------------------------------------------------------- */
 .page {
   position: relative !important;
 }
 
 #nidan-print-letterhead {
-  display: none;
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 210mm;
+  height: 297mm;
+  margin: 0;
+  padding: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #fff;
 }
 
+#nidan-print-letterhead img {
+  display: block;
+  width: 210mm;
+  height: 297mm;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  object-fit: fill;
+}
+
+/* Always remove the old generated branding on saved reports. */
+.page .labHeader,
+.page .accentBar,
+.page .footer {
+  display: none !important;
+}
+
+.page > *:not(#nidan-print-letterhead) {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* ---------------------------------------------------------
+   PRINT / PDF
+--------------------------------------------------------- */
 @media print {
   @page {
     size: A4 portrait;
@@ -174,16 +198,6 @@
     z-index: 0 !important;
   }
 
-  body .preview .a4Page:has(.uploadedLogo) .labHeader .brand {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    display: block !important;
-  }
-
   body .preview .a4Page:has(.uploadedLogo) .mainLogo {
     position: absolute !important;
     inset: 0 !important;
@@ -227,20 +241,7 @@
     z-index: 2 !important;
   }
 
-  body .preview .a4Page .labHeader,
-  body .preview .a4Page .patientCard,
-  body .preview .a4Page .testSection,
-  body .preview .a4Page .signatures,
-  body .preview .a4Page .note,
-  body .preview .a4Page .footer {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-  }
-
-  /* =========================================================
-     SAVED REPORT PRINT FIX
-     ========================================================= */
-
+  /* Saved report route */
   body .page {
     position: relative !important;
     width: 210mm !important;
@@ -257,6 +258,12 @@
     page-break-after: avoid !important;
     break-before: avoid-page !important;
     break-after: avoid-page !important;
+  }
+
+  body .page .labHeader,
+  body .page .accentBar,
+  body .page .footer {
+    display: none !important;
   }
 
   body .page #nidan-print-letterhead {
@@ -291,9 +298,13 @@
     position: relative !important;
     z-index: 2 !important;
   }
+}
 
-  body .page .labHeader {
-    position: relative !important;
-    z-index: 3 !important;
-  }
+/* ---------------------------------------------------------
+   SETTINGS: no separate Logo/Header controls.
+   Letterhead upload is the single branding control.
+--------------------------------------------------------- */
+.settingsPage .settingOptions .toggleItem:nth-child(1),
+.settingsPage .settingOptions .toggleItem:nth-child(2) {
+  display: none !important;
 }
