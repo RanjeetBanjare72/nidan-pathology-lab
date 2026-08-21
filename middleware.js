@@ -18,14 +18,9 @@ export async function middleware(request) {
         },
 
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(
-            ({ name, value, options }) => {
-              request.cookies.set(
-                name,
-                value
-              );
-            }
-          );
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value);
+          });
 
           response = NextResponse.next({
             request: {
@@ -33,15 +28,9 @@ export async function middleware(request) {
             },
           });
 
-          cookiesToSet.forEach(
-            ({ name, value, options }) => {
-              response.cookies.set(
-                name,
-                value,
-                options
-              );
-            }
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
         },
       },
     }
@@ -53,23 +42,13 @@ export async function middleware(request) {
 
   const pathname = request.nextUrl.pathname;
 
-  /*
-   * LOGIN PAGE
-   * Login page ko authentication se free rakhenge.
-   */
   if (pathname === "/login") {
     if (user) {
-      return NextResponse.redirect(
-        new URL("/", request.url)
-      );
+      return NextResponse.redirect(new URL("/", request.url));
     }
-
     return response;
   }
 
-  /*
-   * PUBLIC NEXT.JS FILES
-   */
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -78,38 +57,22 @@ export async function middleware(request) {
     return response;
   }
 
-  /*
-   * WITHOUT LOGIN
-   * Kisi bhi software page ko access nahi kar sakenge.
-   */
   if (!user) {
-    const loginUrl = new URL(
-      "/login",
-      request.url
-    );
-
-    loginUrl.searchParams.set(
-      "redirect",
-      pathname
-    );
-
-    return NextResponse.redirect(
-      loginUrl
-    );
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  /*
-   * LOGGED-IN USER
-   */
+  // Test Selection now uses the live Supabase Test Master.
+  if (pathname === "/tests") {
+    return NextResponse.redirect(new URL("/tests-db", request.url));
+  }
+
   return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Root aur application ke
-     * saare pages protect honge.
-     */
     "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };
