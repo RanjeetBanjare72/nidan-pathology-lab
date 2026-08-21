@@ -1,0 +1,142 @@
+/* =========================================================
+   NIDAN PATHOLOGY LAB — FINAL REPORT FIXES
+   Visual QA pass for uploaded A4 letterhead reports.
+   ========================================================= */
+
+:root {
+  --nidan-letterhead-content-top-final: 68mm;
+  --nidan-letterhead-content-bottom-final: 270mm;
+}
+
+/* The uploaded letterhead already contains the lab branding.
+   Move generated report content below the printed header so the
+   patient block never covers the logo/tagline/contact area. */
+.a4Page.has-nidan-letterhead,
+.a4Page:has(.uploadedLogo),
+.reportPage.has-nidan-letterhead,
+.reportPage:has(#nidan-print-letterhead),
+.page:has(#nidan-print-letterhead) {
+  padding-top: var(--nidan-letterhead-content-top-final) !important;
+  padding-bottom: calc(297mm - var(--nidan-letterhead-content-bottom-final)) !important;
+}
+
+/* Keep the report body clean and aligned to the A4 content zone. */
+.a4Page.has-nidan-letterhead > *:not(#nidan-print-letterhead),
+.a4Page:has(.uploadedLogo) > *:not(#nidan-print-letterhead),
+.reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead),
+.reportPage:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead),
+.page:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead) {
+  box-sizing: border-box !important;
+}
+
+/* Barcode: positioned in the safe gap between the printed letterhead
+   and the patient-information block. */
+.nidan-report-barcode {
+  position: absolute !important;
+  top: 58.5mm !important;
+  right: 9mm !important;
+  z-index: 12 !important;
+  width: 49mm !important;
+  height: 8.5mm !important;
+  padding: 0.6mm 1.1mm 0.4mm !important;
+  box-sizing: border-box !important;
+  background: rgba(255,255,255,.98) !important;
+  border: 0.25mm solid #d5dde3 !important;
+  border-radius: 1.2mm !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: center !important;
+  gap: 0.15mm !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+.nidan-report-barcode-label {
+  font: 800 4.2pt/1 Arial, sans-serif !important;
+  letter-spacing: .08em !important;
+  color: #0b7285 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+.nidan-report-barcode-svg {
+  width: 100% !important;
+  height: 4.7mm !important;
+  display: block !important;
+  shape-rendering: crispEdges !important;
+  background: #fff !important;
+}
+
+.nidan-report-barcode-value {
+  font: 700 4.1pt/1 Arial, sans-serif !important;
+  letter-spacing: .06em !important;
+  color: #344054 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Slightly stronger table hierarchy without making the A4 page crowded. */
+.a4Page.has-nidan-letterhead .patientCard,
+.a4Page:has(.uploadedLogo) .patientCard,
+.reportPage.has-nidan-letterhead .patientCard,
+.reportPage:has(#nidan-print-letterhead) .patientCard,
+.page:has(#nidan-print-letterhead) .patientCard {
+  box-shadow: 0 0 0 .15mm rgba(11,114,133,.05) !important;
+}
+
+.a4Page.has-nidan-letterhead table,
+.a4Page:has(.uploadedLogo) table,
+.reportPage.has-nidan-letterhead table,
+.reportPage:has(#nidan-print-letterhead) table,
+.page:has(#nidan-print-letterhead) table {
+  border-color: #cbd8de !important;
+}
+
+/* Make report status visually unmistakable. */
+.a4Page.has-nidan-letterhead .status,
+.a4Page:has(.uploadedLogo) .status,
+.reportPage.has-nidan-letterhead .status,
+.reportPage:has(#nidan-print-letterhead) .status,
+.page:has(#nidan-print-letterhead) .status {
+  color: #067647 !important;
+  font-weight: 900 !important;
+}
+
+@media print {
+  .a4Page.has-nidan-letterhead,
+  .a4Page:has(.uploadedLogo),
+  .reportPage.has-nidan-letterhead,
+  .reportPage:has(#nidan-print-letterhead),
+  .page:has(#nidan-print-letterhead) {
+    padding-top: var(--nidan-letterhead-content-top-final) !important;
+    padding-bottom: calc(297mm - var(--nidan-letterhead-content-bottom-final)) !important;
+  }
+
+  .nidan-report-barcode {
+    position: absolute !important;
+    display: flex !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* On narrow screens the A4 preview is scaled; keep the barcode inside
+   the page rather than allowing it to spill into the browser viewport. */
+@media (max-width: 700px) {
+  .nidan-report-barcode {
+    right: 6mm !important;
+    width: 43mm !important;
+    top: 59mm !important;
+  }
+
+  .nidan-report-barcode-label {
+    font-size: 3.4pt !important;
+  }
+
+  .nidan-report-barcode-value {
+    font-size: 3.3pt !important;
+  }
+}
