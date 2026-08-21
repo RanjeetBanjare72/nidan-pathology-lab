@@ -26,7 +26,7 @@ begin
   v_balance := greatest(v_net - v_paid, 0);
   v_status := case when v_net <= 0 then 'Not Billed' when v_balance <= 0 then 'Paid' when v_paid > 0 then 'Partial' else 'Unpaid' end;
   update public.bills set paid_amount = v_paid, paid = v_paid, balance = v_balance, payment_status = v_status where id = v_bill_id;
-  return coalesce(new, old);
+  if TG_OP = 'DELETE' then return old; else return new; end if;
 end;
 $$;
 
