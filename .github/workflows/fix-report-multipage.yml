@@ -1,0 +1,55 @@
+name: Fix NIDAN multi-test report
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/report/page.js'
+      - '.github/workflows/fix-report-multipage.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch report loading and pagination
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/report/page.js')
+          s = p.read_text(encoding='utf-8')
+
+          old = '''    const r = readJSON([\n      "nidanResults",\n      "results",\n      "testResults",\n    ]);\n\n    setPatient(p || {});\n\n    setSelectedTests(\n      Array.isArray(tests)\n        ? tests\n        : []\n    );\n\n    setResults(r || {});'''
+
+          new = '''    const r = readJSON([\n      "nidanResults",\n      "results",\n      "testResults",\n    ]);\n\n    // Final-report snapshot is the authoritative multi-test payload.\n    // It prevents the report page from falling back to a stale/current-test\n    // localStorage snapshot after Result Entry saves several investigations.\n    const pending = readJSON([\n      "nidanPendingReport",\n    ]);\n\n    const storedTests = Array.isArray(tests) ? tests : [];\n    const pendingTests = Array.isArray(pending?.tests) ? pending.tests : [];\n    const resolvedTests = pendingTests.length > storedTests.length\n      ? pendingTests\n      : storedTests;\n    const resolvedResults = pending?.results && pendingTests.length >= resolvedTests.length\n      ? pending.results\n      : (r || {});\n\n    setPatient(p || {});\n\n    setSelectedTests(resolvedTests);\n    setResults(resolvedResults);'''
+
+          if old not in s:
+              raise SystemExit('loadReport block not found')
+          s = s.replace(old, new, 1)
+
+          old_css = '''          .testSection {\n            break-inside:\n              avoid !important;\n\n            page-break-inside:\n              avoid !important;\n          }'''
+
+          new_css = '''          .testSection {\n            break-inside:\n              avoid !important;\n\n            page-break-inside:\n              avoid !important;\n\n            break-after:\n              page !important;\n\n            page-break-after:\n              always !important;\n          }\n\n          .testSection:last-child {\n            break-after:\n              auto !important;\n\n            page-break-after:\n              auto !important;\n          }'''
+
+          if old_css not in s:
+              raise SystemExit('print testSection CSS block not found')
+          s = s.replace(old_css, new_css, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/report/page.js
+          if git diff --cached --quiet; then
+            echo 'No changes needed.'
+          else
+            git commit -m 'fix: render all selected tests in final report'
+            git push
+          fi
