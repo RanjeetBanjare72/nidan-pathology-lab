@@ -13,12 +13,12 @@ function syncSelected(databaseTests) {
     if (!Array.isArray(selected) || !selected.length) return;
 
     const byId = new Map(databaseTests.map((test) => [String(test.id), test]));
-    const synced = selected.map((oldTest) => {
-      const fresh = byId.get(String(oldTest.id));
-      return fresh ? { ...fresh } : oldTest;
-    });
+    const synced = selected.map((oldTest) => byId.get(String(oldTest.id)) || oldTest);
+    const before = JSON.stringify(selected);
+    const after = JSON.stringify(synced);
+    if (before === after) return;
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(synced));
+    localStorage.setItem(STORAGE_KEY, after);
     window.dispatchEvent(new CustomEvent("nidan:test-master-synced", { detail: synced }));
   } catch (error) {
     console.warn("NIDAN Test Master sync warning:", error);
@@ -28,6 +28,7 @@ function syncSelected(databaseTests) {
 export default function TestMasterSyncBridge() {
   useEffect(() => {
     let cancelled = false;
+    let timer = null;
 
     async function sync() {
       try {
@@ -39,6 +40,7 @@ export default function TestMasterSyncBridge() {
     }
 
     sync();
+    timer = window.setInterval(sync, 1500);
 
     const handler = () => sync();
     window.addEventListener("storage", handler);
@@ -46,6 +48,7 @@ export default function TestMasterSyncBridge() {
 
     return () => {
       cancelled = true;
+      if (timer) window.clearInterval(timer);
       window.removeEventListener("storage", handler);
       window.removeEventListener("nidan:test-selection-changed", handler);
     };
