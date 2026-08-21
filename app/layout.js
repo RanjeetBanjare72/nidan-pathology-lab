@@ -3,6 +3,7 @@ import PrintLetterheadBridge from "../components/PrintLetterheadBridge";
 import LetterheadModeGuard from "../components/LetterheadModeGuard";
 import TestMasterSyncBridge from "../components/TestMasterSyncBridge";
 import NidanReportBarcodeEnhancer from "../components/NidanReportBarcodeEnhancer";
+import NidanReferenceRangeEnhancer from "../components/NidanReferenceRangeEnhancer";
 import "./tailwind.css";
 import "./globals.css";
 import "./print-fixes.css";
@@ -11,6 +12,7 @@ import "./professional-report-overrides.css";
 import "./patient-report-fix.css";
 import "./nidan-report-final-fixes.css";
 import "./nidan-production-report.css";
+import "./final-report-print-fix.css";
 
 export const metadata = {
   title: "NIDAN Pathology Lab | Reporting System",
@@ -24,6 +26,7 @@ export default function RootLayout({ children }) {
       <body>
         <LetterheadModeGuard />
         <TestMasterSyncBridge />
+        <NidanReferenceRangeEnhancer />
         {children}
         <NidanReportBarcodeEnhancer />
         <PrintLetterheadBridge />
