@@ -1,0 +1,59 @@
+name: NIDAN CBC Calculation Engine
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  enable-calculations:
+    if: ${{ !contains(github.event.head_commit.message, 'NIDAN: Enable CBC calculations') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Patch calculation engine
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = 'main';
+
+            async function getFile(path) {
+              const r = await github.rest.repos.getContent({owner, repo, path, ref: branch});
+              return { sha: r.data.sha, text: Buffer.from(r.data.content, 'base64').toString('utf8') };
+            }
+
+            async function update(path, message, transform) {
+              const f = await getFile(path);
+              const next = transform(f.text);
+              if (next === f.text) return;
+              await github.rest.repos.createOrUpdateFileContents({
+                owner, repo, path, branch, message, sha: f.sha,
+                content: Buffer.from(next, 'utf8').toString('base64')
+              });
+            }
+
+            await update('app/tests/page.js', 'NIDAN: Enable CBC calculated parameters', (text) => {
+              if (text.includes('Absolute Neutrophil Count (ANC)')) return text;
+              const needle = `      {\n        name: "PCT",\n        unit: "%",\n        min: 0.15,\n        max: 0.40,\n        range: "0.15-0.40",\n      },`;
+              const addition = `${needle}\n      { name: "Absolute Neutrophil Count (ANC)", unit: "/µL", range: "Calculated: TLC × Neutrophils / 100", auto: true },\n      { name: "Absolute Lymphocyte Count (ALC)", unit: "/µL", range: "Calculated: TLC × Lymphocytes / 100", auto: true },\n      { name: "Absolute Eosinophil Count (AEC)", unit: "/µL", range: "Calculated: TLC × Eosinophils / 100", auto: true },\n      { name: "Neutrophil Lymphocyte Ratio (NLR)", unit: "Ratio", range: "Calculated: Neutrophils / Lymphocytes", auto: true },\n      { name: "Mentzer Index", unit: "Ratio", range: "Calculated: MCV / RBC Count", auto: true },`;
+              if (!text.includes(needle)) throw new Error('CBC PCT block not found');
+              return text.replace(needle, addition);
+            });
+
+            await update('app/results/page.js', 'NIDAN: Enable CBC calculations', (text) => {
+              let next = text;
+              if (!next.includes('    "mcv",')) next = next.replace(`  return [\n    "mch",`, `  return [\n    "mcv",\n    "mch",`);
+              if (!next.includes('const mcv = findValue(selectedTests, values, ["mcv"]);')) next = next.replace(
+                `  const hct = findValue(selectedTests, values, ["pcv hematocrit", "pcv haematocrit", "hematocrit", "haematocrit", "pcv"]);`,
+                `  const hct = findValue(selectedTests, values, ["pcv hematocrit", "pcv haematocrit", "hematocrit", "haematocrit", "pcv"]);\n  const mcv = findValue(selectedTests, values, ["mcv"]);`
+              );
+              if (!next.includes('if (n === "mcv" && hct !== null && rbc > 0)')) next = next.replace(
+                `  if (n === "mch" && hb !== null && rbc > 0) return round((hb * 10) / rbc, 2);`,
+                `  if (n === "mcv" && hct !== null && rbc > 0) return round((hct * 10) / rbc, 2);\n  if (n === "mch" && hb !== null && rbc > 0) return round((hb * 10) / rbc, 2);`
+              );
+              return next;
+            });
