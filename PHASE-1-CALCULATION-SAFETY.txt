@@ -1,0 +1,1 @@
+Missing inputs return no derived result. Division by zero blocked. Friedewald LDL blocked at triglycerides >=400 mg/dL. Database-specific ranges take precedence.
