@@ -1,0 +1,261 @@
+/* =========================================================
+   NIDAN PATHOLOGY LAB — PRODUCTION REPORT SYSTEM
+   Final A4 / PDF / PRINT presentation layer.
+   Works with uploaded letterhead and existing report markup.
+   ========================================================= */
+
+:root {
+  --nidan-a4-width: 210mm;
+  --nidan-a4-height: 297mm;
+  --nidan-safe-top: 64mm;
+  --nidan-safe-right: 10mm;
+  --nidan-safe-bottom: 22mm;
+  --nidan-safe-left: 10mm;
+  --nidan-ink: #17202a;
+  --nidan-muted: #667085;
+  --nidan-line: #d7e0e5;
+  --nidan-accent: #0b7285;
+  --nidan-success: #067647;
+}
+
+/* Screen preview */
+.a4Page,
+.reportPage,
+.page {
+  box-sizing: border-box !important;
+  width: var(--nidan-a4-width) !important;
+  min-height: var(--nidan-a4-height) !important;
+  background: #fff !important;
+  color: var(--nidan-ink) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.a4Page.has-nidan-letterhead,
+.a4Page:has(#nidan-print-letterhead),
+.reportPage.has-nidan-letterhead,
+.reportPage:has(#nidan-print-letterhead),
+.page:has(#nidan-print-letterhead) {
+  padding: var(--nidan-safe-top) var(--nidan-safe-right) var(--nidan-safe-bottom) var(--nidan-safe-left) !important;
+}
+
+/* Letterhead is stationery only — never consume layout space. */
+.a4Page #nidan-print-letterhead,
+.reportPage #nidan-print-letterhead,
+.page #nidan-print-letterhead {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 210mm !important;
+  height: 297mm !important;
+  margin: 0 !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+}
+
+.a4Page #nidan-print-letterhead img,
+.reportPage #nidan-print-letterhead img,
+.page #nidan-print-letterhead img {
+  width: 210mm !important;
+  height: 297mm !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: fill !important;
+  display: block !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.a4Page > *:not(#nidan-print-letterhead),
+.reportPage > *:not(#nidan-print-letterhead),
+.page > *:not(#nidan-print-letterhead) {
+  position: relative;
+  z-index: 2;
+}
+
+/* Do not duplicate branding when uploaded letterhead is active. */
+.a4Page:has(#nidan-print-letterhead) .labHeader,
+.a4Page:has(#nidan-print-letterhead) .accentBar,
+.a4Page:has(#nidan-print-letterhead) .footer,
+.reportPage:has(#nidan-print-letterhead) .labHeader,
+.reportPage:has(#nidan-print-letterhead) .accentBar,
+.reportPage:has(#nidan-print-letterhead) .footer,
+.page:has(#nidan-print-letterhead) .labHeader,
+.page:has(#nidan-print-letterhead) .accentBar,
+.page:has(#nidan-print-letterhead) .footer {
+  display: none !important;
+}
+
+/* Patient information — clean, compact and print friendly. */
+.patientCard {
+  border: 0.25mm solid var(--nidan-line) !important;
+  border-radius: 2mm !important;
+  box-shadow: none !important;
+  background: rgba(255,255,255,.96) !important;
+  margin: 0 0 4mm !important;
+}
+
+.labTable {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  table-layout: fixed !important;
+  background: #fff !important;
+}
+
+.labTable th,
+.labTable td {
+  border-color: var(--nidan-line) !important;
+  padding: 1.25mm 1.5mm !important;
+  vertical-align: middle !important;
+  line-height: 1.2 !important;
+  word-break: normal !important;
+}
+
+.labTable th {
+  font-weight: 800 !important;
+  letter-spacing: .01em !important;
+}
+
+.status {
+  color: var(--nidan-success) !important;
+  font-weight: 800 !important;
+}
+
+/* Report barcode: large enough for scanner + readable on A4 PDF. */
+.nidan-report-barcode {
+  position: absolute !important;
+  top: 55mm !important;
+  right: 10mm !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: 52mm !important;
+  height: 10.5mm !important;
+  box-sizing: border-box !important;
+  padding: .5mm 1.1mm .45mm !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: .18mm !important;
+  background: #fff !important;
+  border: .25mm solid #cbd5dc !important;
+  border-radius: 1.1mm !important;
+  overflow: hidden !important;
+  z-index: 30 !important;
+  isolation: isolate !important;
+  pointer-events: none !important;
+}
+
+.nidan-report-barcode-label {
+  font: 800 4.2pt/1 Arial, sans-serif !important;
+  color: var(--nidan-accent) !important;
+  letter-spacing: .1em !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+.nidan-report-barcode-svg {
+  width: 100% !important;
+  height: 5.6mm !important;
+  min-height: 5.6mm !important;
+  display: block !important;
+  background: #fff !important;
+  shape-rendering: crispEdges !important;
+}
+
+.nidan-report-barcode-value {
+  font: 800 4.2pt/1 Arial, sans-serif !important;
+  color: #344054 !important;
+  letter-spacing: .06em !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Print/PDF: browser Save as PDF produces a true A4 page with no browser margins. */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 210mm !important;
+    min-width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .a4Page,
+  .reportPage,
+  .page {
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
+    padding: var(--nidan-safe-top) var(--nidan-safe-right) var(--nidan-safe-bottom) var(--nidan-safe-left) !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .a4Page:last-child,
+  .reportPage:last-child,
+  .page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .nidan-report-barcode {
+    top: 55mm !important;
+    right: 10mm !important;
+    width: 52mm !important;
+    height: 10.5mm !important;
+    display: flex !important;
+    visibility: visible !important;
+  }
+
+  /* Never print application chrome. */
+  nav,
+  aside,
+  .no-print,
+  .print-hide,
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .a4Page,
+  .reportPage,
+  .page {
+    transform-origin: top center;
+  }
+
+  .nidan-report-barcode {
+    right: 7mm !important;
+    width: 48mm !important;
+  }
+}
