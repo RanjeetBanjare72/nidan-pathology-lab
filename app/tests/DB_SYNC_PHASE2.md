@@ -1,0 +1,1 @@
+Phase 2 goal: Test Master (Supabase) is the source of truth for Test Selection, parameters and active pricing. Result Entry should consume the selected test payload and preserve parameter metadata. This note is kept until the UI migration is verified.
