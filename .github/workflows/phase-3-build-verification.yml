@@ -1,0 +1,34 @@
+name: NIDAN Phase 3 Build Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://zoffbwiwovkhjvzrltzx.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      - name: Verify Phase 3 files
+        run: |
+          test -f lib/report-validation.js
+          test -f lib/report-lifecycle.js
+          test -f lib/report-revisions.js
+          test -f lib/report-audit.js
+          test -f docs/PHASE-3-REPORT-WORKFLOW.md
