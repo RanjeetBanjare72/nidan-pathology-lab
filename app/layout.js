@@ -1,5 +1,6 @@
 import LogoutButton from "../components/LogoutButton";
 import PrintLetterheadBridge from "../components/PrintLetterheadBridge";
+import CalculatedResultsBridge from "../components/CalculatedResultsBridge";
 import LetterheadModeGuard from "../components/LetterheadModeGuard";
 import "./tailwind.css";
 import "./globals.css";
@@ -20,6 +21,7 @@ export default function RootLayout({ children }) {
       <body>
         <LetterheadModeGuard />
         {children}
+        <CalculatedResultsBridge />
         <PrintLetterheadBridge />
         <LogoutButton />
       </body>
