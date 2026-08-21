@@ -24,7 +24,7 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://zoffbwiwovkhjvzrltzx.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_Jh09IAszUnDqTraYdLLKgg_CfMAFKrD
       - name: Verify Phase 3 files
         run: |
           test -f lib/report-validation.js
