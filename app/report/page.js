@@ -175,15 +175,26 @@ export default function ReportPage() {
       "testResults",
     ]);
 
+    // Final-report snapshot is the authoritative multi-test payload.
+    // It prevents the report page from falling back to a stale/current-test
+    // localStorage snapshot after Result Entry saves several investigations.
+    const pending = readJSON([
+      "nidanPendingReport",
+    ]);
+
+    const storedTests = Array.isArray(tests) ? tests : [];
+    const pendingTests = Array.isArray(pending?.tests) ? pending.tests : [];
+    const resolvedTests = pendingTests.length > storedTests.length
+      ? pendingTests
+      : storedTests;
+    const resolvedResults = pending?.results && pendingTests.length >= resolvedTests.length
+      ? pending.results
+      : (r || {});
+
     setPatient(p || {});
 
-    setSelectedTests(
-      Array.isArray(tests)
-        ? tests
-        : []
-    );
-
-    setResults(r || {});
+    setSelectedTests(resolvedTests);
+    setResults(resolvedResults);
 
     let rn =
       localStorage.getItem(
@@ -3501,6 +3512,20 @@ export default function ReportPage() {
 
             page-break-inside:
               avoid !important;
+
+            break-after:
+              page !important;
+
+            page-break-after:
+              always !important;
+          }
+
+          .testSection:last-child {
+            break-after:
+              auto !important;
+
+            page-break-after:
+              auto !important;
           }
 
           .testHeader {
