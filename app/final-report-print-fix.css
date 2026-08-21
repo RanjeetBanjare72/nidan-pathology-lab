@@ -1,0 +1,120 @@
+/* NIDAN FINAL REPORT PRINT FIX
+   Multi-test reports must continue onto additional A4 pages.
+   Letterhead is repeated on every printed page via fixed positioning.
+*/
+
+@media screen {
+  .page:has(.reportPage) {
+    min-height: 100vh !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .reportPage {
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 210mm !important;
+    min-width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .page:has(.reportPage) {
+    width: 210mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+  }
+
+  .reportPage {
+    width: 210mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  /* Keep the uploaded A4 letterhead stationary on every printed page. */
+  .reportPage #nidan-print-letterhead {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .reportPage #nidan-print-letterhead img {
+    width: 210mm !important;
+    height: 297mm !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: fill !important;
+  }
+
+  .reportPage > *:not(#nidan-print-letterhead) {
+    position: relative !important;
+    z-index: 2 !important;
+  }
+
+  /* Each investigation is kept together where possible. */
+  .testSection {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* After the first test, start the next investigation on a fresh A4 page.
+     This guarantees that the repeated letterhead has a clean safe zone. */
+  .testSection + .testSection {
+    break-before: page !important;
+    page-break-before: always !important;
+    padding-top: 64mm !important;
+  }
+
+  .testsArea {
+    overflow: visible !important;
+  }
+
+  .resultTable {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .resultTable tr,
+  .resultTable td,
+  .resultTable th {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .signatures,
+  .note,
+  .footer {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
