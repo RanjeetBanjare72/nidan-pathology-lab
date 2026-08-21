@@ -4,15 +4,11 @@
    ========================================================= */
 
 :root {
-  /* The supplied NIDAN A4 letterhead has a tall printed header.
-     Keep all report data below that artwork. */
   --nidan-letterhead-content-top-final: 64mm;
   --nidan-letterhead-content-bottom-final: 24mm;
 }
 
-/* =========================================================
-   A4 LETTERHEAD SAFE ZONE
-   ========================================================= */
+/* A4 LETTERHEAD SAFE ZONE */
 .a4Page.has-nidan-letterhead,
 .a4Page:has(#nidan-print-letterhead),
 .a4Page:has(.uploadedLogo),
@@ -32,7 +28,7 @@
   position: relative !important;
 }
 
-/* The uploaded stationery is background only. */
+/* Uploaded stationery is background only. */
 .a4Page.has-nidan-letterhead #nidan-print-letterhead,
 .a4Page:has(#nidan-print-letterhead) #nidan-print-letterhead,
 .reportPage.has-nidan-letterhead #nidan-print-letterhead,
@@ -68,12 +64,13 @@
   print-color-adjust: exact !important;
 }
 
-/* Never let report content float over the stationery header/footer. */
-.a4Page.has-nidan-letterhead > *:not(#nidan-print-letterhead),
-.a4Page:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead),
-.reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead),
-.reportPage:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead),
-.page:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead) {
+/* Report content stays in the letterhead safe zone.
+   IMPORTANT: exclude the barcode because it must remain absolute. */
+.a4Page.has-nidan-letterhead > *:not(#nidan-print-letterhead):not(.nidan-report-barcode),
+.a4Page:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead):not(.nidan-report-barcode),
+.reportPage.has-nidan-letterhead > *:not(#nidan-print-letterhead):not(.nidan-report-barcode),
+.reportPage:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead):not(.nidan-report-barcode),
+.page:has(#nidan-print-letterhead) > *:not(#nidan-print-letterhead):not(.nidan-report-barcode) {
   position: relative !important;
   z-index: 2 !important;
   box-sizing: border-box !important;
@@ -105,18 +102,22 @@
   margin-bottom: 4mm !important;
 }
 
-/* =========================================================
-   REPORT BARCODE
-   Placed in the clean gap immediately above patient information.
-   Uses the report/accession number as the encoded identifier.
-   ========================================================= */
-.nidan-report-barcode {
+/* REPORT BARCODE — fixed in the clean gap above patient information. */
+.nidan-report-barcode,
+.a4Page.has-nidan-letterhead > .nidan-report-barcode,
+.a4Page:has(#nidan-print-letterhead) > .nidan-report-barcode,
+.reportPage.has-nidan-letterhead > .nidan-report-barcode,
+.reportPage:has(#nidan-print-letterhead) > .nidan-report-barcode,
+.page:has(#nidan-print-letterhead) > .nidan-report-barcode {
   position: absolute !important;
   top: 55mm !important;
   right: 10mm !important;
+  left: auto !important;
+  bottom: auto !important;
   z-index: 20 !important;
   width: 46mm !important;
   height: 8.5mm !important;
+  margin: 0 !important;
   padding: 0.45mm 1mm 0.35mm !important;
   box-sizing: border-box !important;
   background: #ffffff !important;
@@ -130,6 +131,7 @@
   overflow: hidden !important;
   pointer-events: none !important;
   isolation: isolate !important;
+  transform: none !important;
 }
 
 .nidan-report-barcode-label {
@@ -158,7 +160,7 @@
   text-overflow: ellipsis !important;
 }
 
-/* Keep the table crisp but compact enough for one-page CBC reports. */
+/* Keep tables compact and crisp for one-page reports. */
 .a4Page.has-nidan-letterhead .labTable th,
 .a4Page.has-nidan-letterhead .labTable td,
 .a4Page:has(#nidan-print-letterhead) .labTable th,
@@ -183,9 +185,7 @@
   font-weight: 900 !important;
 }
 
-/* =========================================================
-   PRINT / PDF
-   ========================================================= */
+/* PRINT / PDF */
 @media print {
   @page {
     size: A4 portrait;
@@ -220,8 +220,13 @@
     break-after: avoid-page !important;
   }
 
-  body .nidan-report-barcode {
+  body .nidan-report-barcode,
+  body .a4Page > .nidan-report-barcode {
     position: absolute !important;
+    top: 55mm !important;
+    right: 10mm !important;
+    left: auto !important;
+    bottom: auto !important;
     display: flex !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -229,9 +234,12 @@
 }
 
 @media (max-width: 700px) {
-  .nidan-report-barcode {
+  .nidan-report-barcode,
+  .a4Page > .nidan-report-barcode {
     top: 55mm !important;
     right: 7mm !important;
+    left: auto !important;
+    bottom: auto !important;
     width: 43mm !important;
   }
 
