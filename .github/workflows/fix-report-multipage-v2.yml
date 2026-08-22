@@ -1,0 +1,191 @@
+name: Fix NIDAN final report multi-test payload
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/report/page.js'
+      - 'app/results/page.js'
+      - 'app/billing/page.js'
+      - '.github/workflows/fix-report-multipage-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch report data source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/report/page.js')
+          s = p.read_text(encoding='utf-8')
+
+          start = s.index('  function loadReport() {')
+          end = s.index('\n  /* =======================================================\n     PATIENT DATA', start)
+
+          new_block = r'''  function loadReport() {
+    const p = readJSON([
+      "nidanPatient",
+      "patient",
+      "currentPatient",
+    ]);
+
+    const selected = readJSON([
+      "nidanSelectedTests",
+      "selectedTests",
+      "selected_tests",
+    ]);
+
+    const pending = readJSON([
+      "nidanPendingReport",
+    ]);
+
+    const billing = readJSON([
+      "nidanBilling",
+    ]);
+
+    const r = readJSON([
+      "nidanResults",
+      "results",
+      "testResults",
+    ]);
+
+    // Use the largest complete test collection available. This protects the
+    // final report from a stale one-test localStorage snapshot while the
+    // Result Entry/Billing flow still contains all selected investigations.
+    const candidates = [
+      Array.isArray(pending?.tests) ? pending.tests : [],
+      Array.isArray(billing?.tests) ? billing.tests : [],
+      Array.isArray(selected) ? selected : [],
+    ];
+
+    const resolvedTests = candidates.reduce(
+      (best, current) => current.length > best.length ? current : best,
+      []
+    );
+
+    const resolvedResults =
+      pending?.results && Object.keys(pending.results).length
+        ? pending.results
+        : (r || {});
+
+    setPatient(p || {});
+    setSelectedTests(resolvedTests);
+    setResults(resolvedResults);
+
+    let rn = localStorage.getItem("nidanCurrentReportNo");
+
+    if (!rn) {
+      rn =
+        "NPL-" +
+        Date.now()
+          .toString()
+          .slice(-8);
+
+      localStorage.setItem(
+        "nidanCurrentReportNo",
+        rn
+      );
+    }
+
+    setReportNo(rn);
+
+    setReportDate(
+      new Date().toLocaleDateString(
+        "en-IN",
+        {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }
+      )
+    );
+
+    setLoaded(true);
+  }
+'''
+
+          s = s[:start] + new_block + s[end:]
+
+          # Make every test section occupy its own printed A4 page.
+          old_css = '''          .testSection {
+            break-inside:
+              avoid !important;
+
+            page-break-inside:
+              avoid !important;
+          }'''
+          new_css = '''          .testSection {
+            break-inside:
+              avoid !important;
+
+            page-break-inside:
+              avoid !important;
+
+            break-after:
+              page !important;
+
+            page-break-after:
+              always !important;
+          }
+
+          .testSection:last-child {
+            break-after:
+              auto !important;
+
+            page-break-after:
+              auto !important;
+          }'''
+          if old_css in s:
+              s = s.replace(old_css, new_css, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Patch result snapshot to guarantee all tests
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/results/page.js')
+          s = p.read_text(encoding='utf-8')
+
+          marker = '''      localStorage.setItem("nidanPendingReport", JSON.stringify({ ...buildReportData(report?.patient_id || null), results: calculated, reportId: report?.id || localStorage.getItem("nidanReportId"), savedAt: new Date().toISOString() }));'''
+          replacement = '''      // Keep a dedicated immutable-ish final-report snapshot containing the
+      // complete selectedTests array so /report can never fall back to one test.
+      const finalReportSnapshot = {
+        ...buildReportData(report?.patient_id || null),
+        tests: selectedTests.map((t) => ({
+          ...t,
+          parameters: t.tests || t.parameters || [],
+        })),
+        results: calculated,
+        reportId: report?.id || localStorage.getItem("nidanReportId"),
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem("nidanPendingReport", JSON.stringify(finalReportSnapshot));'''
+
+          if marker in s:
+              s = s.replace(marker, replacement, 1)
+          else:
+              raise SystemExit('results snapshot marker not found')
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/report/page.js app/results/page.js
+          if git diff --cached --quiet; then
+            echo 'No changes needed.'
+          else
+            git commit -m 'fix: guarantee all selected tests in final report'
+            git push
+          fi
